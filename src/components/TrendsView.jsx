@@ -1,0 +1,166 @@
+import React, { useState } from 'react';
+import { BarChart3, TrendingUp, Calendar, Zap, ShieldCheck, Heart, Sparkles, Filter } from 'lucide-react';
+
+export const TrendsView = ({ baselineData }) => {
+  const [timeframe, setTimeframe] = useState('weekly'); // daily, weekly, monthly
+
+  // Mock trend series comparing Personal Baseline vs Actual Telemetry
+  const WEEKLY_DATA = [
+    { label: "Mon", baselineHr: 64, actualHr: 65, spo2: 98.6, recovery: 22, score: "Balanced" },
+    { label: "Tue", baselineHr: 64, actualHr: 68, spo2: 98.4, recovery: 20, score: "Good" },
+    { label: "Wed", baselineHr: 64, actualHr: 64, spo2: 98.8, recovery: 24, score: "Excellent" },
+    { label: "Thu", baselineHr: 64, actualHr: 72, spo2: 98.1, recovery: 19, score: "Good" },
+    { label: "Fri", baselineHr: 64, actualHr: 66, spo2: 98.5, recovery: 22, score: "Balanced" },
+    { label: "Sat", baselineHr: 64, actualHr: 63, spo2: 99.0, recovery: 25, score: "Excellent" },
+    { label: "Sun", baselineHr: 64, actualHr: 65, spo2: 98.7, recovery: 23, score: "Balanced" }
+  ];
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-6">
+      
+      {/* Header Banner */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 glass-panel p-6 rounded-3xl border border-white/10">
+        <div>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-medium mb-2">
+            <BarChart3 className="w-3.5 h-3.5" />
+            <span>Longitudinal Analytics</span>
+          </div>
+          <h2 className="font-heading text-2xl font-bold text-white">
+            Physiological Trends & Insights
+          </h2>
+          <p className="text-xs text-slate-400">
+            Compare your actual telemetry against your learned 5-day baseline signature over time.
+          </p>
+        </div>
+
+        {/* Timeframe Selector Tabs */}
+        <div className="flex items-center gap-1 bg-slate-900/80 p-1.5 rounded-2xl border border-white/10">
+          {['daily', 'weekly', 'monthly'].map((t) => (
+            <button
+              key={t}
+              onClick={() => setTimeframe(t)}
+              className={`px-4 py-1.5 rounded-xl text-xs font-semibold capitalize transition-all ${
+                timeframe === t
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Main Chart Card: Heart Rate Baseline vs Actual */}
+      <div className="glass-panel p-6 rounded-3xl border border-white/10 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-heading text-lg font-bold text-white flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-blue-400" />
+              <span>Heart Rate Baseline vs. Actual (BPM)</span>
+            </h3>
+            <p className="text-xs text-slate-400">
+              Dashed line represents your personal resting baseline (64 bpm).
+            </p>
+          </div>
+
+          <div className="flex items-center gap-4 text-xs">
+            <div className="flex items-center gap-1.5">
+              <span className="w-3 h-1 rounded bg-blue-400" />
+              <span className="text-slate-300">Actual HR</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-3 h-0.5 border-t border-dashed border-emerald-400" />
+              <span className="text-slate-300">Baseline (64 bpm)</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Interactive SVG Bar & Line Chart */}
+        <div className="w-full h-64 pt-6 pb-2">
+          <svg className="w-full h-full overflow-visible" viewBox="0 0 700 200">
+            {/* Horizontal Grid lines */}
+            <line x1="40" y1="20" x2="680" y2="20" stroke="rgba(255,255,255,0.05)" strokeDasharray="4 4" />
+            <line x1="40" y1="80" x2="680" y2="80" stroke="rgba(255,255,255,0.05)" strokeDasharray="4 4" />
+            <line x1="40" y1="140" x2="680" y2="140" stroke="rgba(255,255,255,0.05)" strokeDasharray="4 4" />
+
+            {/* Baseline 64 bpm Dashed Reference Line */}
+            <line x1="40" y1="100" x2="680" y2="100" stroke="#34d399" strokeWidth="1.5" strokeDasharray="6 6" />
+
+            {/* Bar & Data Plotting */}
+            {WEEKLY_DATA.map((d, index) => {
+              const x = 70 + index * 90;
+              const barHeight = (d.actualHr - 40) * 3;
+              const y = 180 - barHeight;
+
+              return (
+                <g key={d.label} className="group cursor-pointer">
+                  {/* Bar */}
+                  <rect
+                    x={x - 16}
+                    y={y}
+                    width={32}
+                    height={barHeight}
+                    rx={8}
+                    fill="url(#barGradient)"
+                    className="transition-all duration-300 group-hover:opacity-80"
+                  />
+                  {/* Actual Value Label */}
+                  <text x={x} y={y - 8} fill="#ffffff" fontSize="11" fontWeight="600" textAnchor="middle">
+                    {d.actualHr}
+                  </text>
+                  {/* Day Label */}
+                  <text x={x} y="195" fill="#94a3b8" fontSize="11" textAnchor="middle">
+                    {d.label}
+                  </text>
+                </g>
+              );
+            })}
+
+            {/* SVG Gradient definitions */}
+            <defs>
+              <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#3b82f6" />
+                <stop offset="100%" stopColor="#1e3a8a" stopOpacity="0.4" />
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+      </div>
+
+      {/* Secondary Metrics: SpO2 Stability & Cardiovascular Recovery Rate */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        
+        <div className="glass-panel p-5 rounded-2xl border border-white/10 space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="font-heading text-sm font-semibold text-white">SpO₂ Oxygen Stability</h4>
+            <span className="text-xs text-emerald-400 font-semibold">98.5% Weekly Avg</span>
+          </div>
+          <p className="text-xs text-slate-400">
+            No hypoxic events or unnatural oxygen dips recorded across 7 days.
+          </p>
+          <div className="w-full bg-slate-900/80 p-3 rounded-xl border border-white/5 flex items-center justify-between text-xs">
+            <span className="text-slate-400">Stability Index:</span>
+            <span className="text-white font-semibold">High (99.1%)</span>
+          </div>
+        </div>
+
+        <div className="glass-panel p-5 rounded-2xl border border-white/10 space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="font-heading text-sm font-semibold text-white">Recovery Velocity Trend</h4>
+            <span className="text-xs text-blue-400 font-semibold">+2.1 bpm/min improvement</span>
+          </div>
+          <p className="text-xs text-slate-400">
+            Post-exertion recovery speed improved following regular daily walk breaks.
+          </p>
+          <div className="w-full bg-slate-900/80 p-3 rounded-xl border border-white/5 flex items-center justify-between text-xs">
+            <span className="text-slate-400">Cardiovascular Recovery:</span>
+            <span className="text-emerald-400 font-semibold">Optimal</span>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  );
+};
