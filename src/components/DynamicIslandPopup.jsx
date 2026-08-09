@@ -5,7 +5,7 @@ import { MessageCircle, Heart, TrendingUp, X, Sparkles } from 'lucide-react';
  * Apple Dynamic Island Style Floating Popup Card
  * Appears near AWEN when tapped.
  */
-export const DynamicIslandPopup = ({ isOpen, onClose, onTalk, onExplain, onInsights }) => {
+export const DynamicIslandPopup = ({ isOpen, onClose, onTalk, onExplain, onInsights, userName }) => {
   if (!isOpen) return null;
 
   return (
@@ -33,7 +33,7 @@ export const DynamicIslandPopup = ({ isOpen, onClose, onTalk, onExplain, onInsig
         {/* Message */}
         <div className="text-left space-y-1 pt-0.5">
           <h4 className="font-heading text-sm font-bold text-white">
-            Hi Diya 👋
+            Hi {userName || 'there'} 👋
           </h4>
           <p className="text-xs text-slate-200 font-light leading-relaxed">
             Your body looks calmer than yesterday. How can I help today?

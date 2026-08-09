@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { supabase, isSupabaseConfigured } from './services/supabaseClient';
 import { BottomNav } from './components/BottomNav';
 import { TodayScreen } from './components/TodayScreen';
 import { JourneyScreen } from './components/JourneyScreen';
@@ -6,6 +7,7 @@ import { TalkScreen } from './components/TalkScreen';
 import { YouScreen } from './components/YouScreen';
 import { AuthModal } from './components/AuthModal';
 import { ObservationModal } from './components/ObservationModal';
+import { LandingPage } from './components/LandingPage';
 
 import { Moon, User } from 'lucide-react';
 
@@ -13,6 +15,7 @@ import { BaselineEngine, DEFAULT_BASELINE } from './services/baselineEngine';
 import { TelemetryStream } from './services/telemetryStream';
 import { stateEngine, AWEN_STATES } from './services/stateEngine';
 import { apiService } from './services/apiService';
+import { aiEngine } from './services/aiEngine';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('today');
@@ -39,15 +42,61 @@ export default function App() {
   const [evaluation, setEvaluation] = useState(null);
   const [awenState, setAwenState] = useState(null);
 
-  // Restore Active Supabase Auth Session
+  // Restore Active Supabase Auth Session + Listen for Google OAuth Redirect
   useEffect(() => {
     async function initAuth() {
       const sessionUser = await apiService.getActiveSession();
       if (sessionUser) {
         setCurrentUser(sessionUser);
+        aiEngine.setUserName(sessionUser.name);
       }
     }
     initAuth();
+
+    if (!isSupabaseConfigured) return;
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
+          const user = session.user;
+
+          // Ensure a profile row exists (handles first-time Google OAuth users)
+          await supabase.from('profiles').upsert(
+            {
+              id: user.id,
+              name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+              email: user.email,
+              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
+              observation_mode: true,
+              baseline_confidence: 'Learning'
+            },
+            { onConflict: 'id', ignoreDuplicates: true }
+          );
+
+          // Fetch profile and update local state
+          const profile = await apiService.fetchUserProfile(user.id);
+          const userObj = {
+            id: user.id,
+            email: user.email,
+            name: profile?.name || user.user_metadata?.full_name || user.email?.split('@')[0],
+            timezone: profile?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
+            observation_mode: profile?.observation_mode ?? true,
+            observation_start: profile?.observation_start || new Date().toISOString(),
+            baseline_confidence: profile?.baseline_confidence || 'Learning',
+            token: session.access_token
+          };
+          const savedUser = apiService.saveLocalSession(userObj);
+          setCurrentUser(savedUser);
+          aiEngine.setUserName(savedUser.name);
+
+        } else if (event === 'SIGNED_OUT') {
+          setCurrentUser(null);
+          aiEngine.setUserName('');
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
   // Initialize Telemetry Stream & Load User Session
@@ -128,17 +177,53 @@ export default function App() {
 
   const handleAuthSuccess = (userObj) => {
     setCurrentUser(userObj);
+    aiEngine.setUserName(userObj?.name || '');
+  };
+
+  const handleTryDemo = () => {
+    // Guest session for immediate exploration
+    const guestUser = apiService.saveLocalSession({
+      id: `guest_${Date.now()}`,
+      name: 'Guest',
+      email: '',
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
+      observation_mode: true,
+      observation_start: new Date().toISOString(),
+      baseline_confidence: 'Learning',
+      token: null,
+      isGuest: true
+    });
+    setCurrentUser(guestUser);
+    aiEngine.setUserName('Guest');
   };
 
   const handleLogout = async () => {
     await apiService.logout();
     setCurrentUser(null);
+    aiEngine.setUserName('');
   };
 
   const handleToggleObservation = async (enabled) => {
     const updated = await apiService.updateObservationMode(enabled);
     setCurrentUser(updated);
   };
+
+  // Unauthenticated Landing View
+  if (!currentUser) {
+    return (
+      <>
+        <LandingPage
+          onGetStarted={() => setIsAuthOpen(true)}
+          onTryDemo={handleTryDemo}
+        />
+        <AuthModal
+          isOpen={isAuthOpen}
+          onClose={() => setIsAuthOpen(false)}
+          onAuthSuccess={handleAuthSuccess}
+        />
+      </>
+    );
+  }
 
   return (
     <div className={`min-h-[100dvh] w-full transition-colors duration-700 flex flex-col font-sans selection:bg-cyan-500 selection:text-white relative overflow-x-hidden ${
@@ -212,6 +297,7 @@ export default function App() {
             onOpenTalk={() => setActiveTab('talk')}
             onOpenInsights={() => setActiveTab('journey')}
             isNightMode={isNightMode}
+            currentUser={currentUser}
           />
         )}
 
@@ -226,6 +312,7 @@ export default function App() {
           <TalkScreen 
             telemetry={telemetry}
             evaluation={evaluation}
+            currentUser={currentUser}
           />
         )}
 

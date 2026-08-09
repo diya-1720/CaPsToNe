@@ -57,10 +57,10 @@ export const YouScreen = ({
 
           <div className="space-y-0.5">
             <h1 className="font-heading text-xl sm:text-2xl font-bold text-white">
-              {currentUser?.name || 'Diya'}
+              {currentUser?.name || 'Guest'}
             </h1>
             <p className="text-xs sm:text-sm text-slate-400 font-light">
-              {currentUser?.email || 'diya@awen.ai'}
+              {currentUser?.email || 'guest@awen.app'}
             </p>
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 text-[10px] sm:text-xs font-medium border border-emerald-500/20">
               <ShieldCheck className="w-3.5 h-3.5" />
@@ -202,7 +202,7 @@ export const YouScreen = ({
             </div>
 
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-light italic bg-slate-900/40 p-4 rounded-2xl border border-white/5">
-              "Dear Diya, this month your body found a natural resting balance. Your heart rate recovery after walking improved by +2 bpm per minute. Remember that brief pauses during your 3:30 PM quiet hours help your body restore its natural rhythm."
+              {`"Dear ${currentUser?.name?.split(' ')[0] || 'Friend'}, this month your body found a natural resting balance. Your heart rate recovery after walking improved by +2 bpm per minute. Remember that brief pauses during your quiet hours help your body restore its natural rhythm."`}
             </p>
           </div>
 

@@ -13,8 +13,18 @@ export const TodayScreen = ({
   onSelectMood,
   onOpenTalk,
   onOpenInsights,
-  isNightMode
+  isNightMode,
+  currentUser
 }) => {
+  const firstName = currentUser?.name?.split(' ')[0] || '';
+  const getTimeGreeting = () => {
+    const h = new Date().getHours();
+    const suffix = firstName ? `, ${firstName}` : '';
+    if (h < 12) return `Good Morning${suffix}.`;
+    if (h < 17) return `Good Afternoon${suffix}.`;
+    if (h < 22) return `Good Evening${suffix}.`;
+    return `Rest Well${suffix}.`;
+  };
   const [cloudMessage, setCloudMessage] = useState('');
   const [isCloudVisible, setIsCloudVisible] = useState(false);
   const [mascotExpression, setMascotExpression] = useState('happy');
@@ -86,7 +96,7 @@ export const TodayScreen = ({
           {/* Top Greeting Header */}
           <div className="space-y-1">
             <h1 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight">
-              Good Evening, Diya.
+              {getTimeGreeting()}
             </h1>
             <p className="text-sm sm:text-base text-slate-300 font-light tracking-wide">
               {awenState?.wellnessState === AWEN_STATES.LEARNING 
@@ -103,6 +113,8 @@ export const TodayScreen = ({
               message={cloudMessage}
               isVisible={isCloudVisible}
               onTalkMore={onOpenTalk}
+              onExplain={() => setIsExplainOpen(true)}
+              onInsights={onOpenInsights}
             />
 
             {/* Living AWEN Mascot with State-Aware Color Reactivity */}

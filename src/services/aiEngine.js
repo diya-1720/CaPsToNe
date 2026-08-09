@@ -3,17 +3,23 @@
  * 
  * Generates warm, supportive, context-aware human dialogue.
  * Completely avoids robotic/scientific jargon (e.g. "physiological baseline").
- * Provides transparent reasoning explaining WHY advice was given.
+ * Answers the user's specific questions directly in simple English first,
+ * then ties to personal body patterns when relevant.
  */
 
 export class AwenAiEngine {
   constructor() {
     this.userMemory = {
-      name: "Diya",
-      recentTopic: "exam preparation",
+      name: "",
+      recentTopic: "wellness",
       lastCheckinMood: "Good",
-      lastCheckinActivity: "Studying"
+      lastCheckinActivity: "Resting"
     };
+  }
+
+  /** Update remembered user name */
+  setUserName(name) {
+    this.userMemory.name = name || "";
   }
 
   /**
@@ -21,27 +27,28 @@ export class AwenAiEngine {
    */
   getGreeting() {
     const hour = new Date().getHours();
+    const nameSuffix = this.userMemory.name ? `, ${this.userMemory.name}` : '';
 
     if (hour < 12) {
       return {
-        greeting: "Good Morning, Diya.",
+        greeting: `Good Morning${nameSuffix}.`,
         subtitle: "Your overnight recovery looks better than yesterday."
       };
     } else if (hour < 17) {
       return {
-        greeting: "Good Afternoon, Diya.",
+        greeting: `Good Afternoon${nameSuffix}.`,
         subtitle: this.userMemory.recentTopic 
           ? `Hope your ${this.userMemory.recentTopic} is going well.` 
           : "It's nice to see you again."
       };
     } else if (hour < 22) {
       return {
-        greeting: "Good Evening, Diya.",
+        greeting: `Good Evening${nameSuffix}.`,
         subtitle: "You've had a busy day. Your readings suggest it's a good time to unwind."
       };
     } else {
       return {
-        greeting: "Rest Well, Diya.",
+        greeting: `Rest Well${nameSuffix}.`,
         subtitle: "Awen is quietly keeping an eye on your overnight rest."
       };
     }
@@ -108,13 +115,11 @@ export class AwenAiEngine {
   /**
    * AWEN System Prompt Enforced Conversational Engine
    * 
-   * System Directives:
-   * 1. Never ignore user's question — answer directly first.
-   * 2. Relate answer to heart rate, SpO2, temp, baseline (64 bpm), activity, recent trends & memory.
-   * 3. Address food, sleep, stress, exercise, hydration, habits with practical guidance.
-   * 4. State when sensor data doesn't track specific details (e.g. diet).
-   * 5. Always end with ONE simple, actionable suggestion.
-   * 6. Warm 8th-grade reading level, non-medical, non-robotic, non-ChatGPT tone.
+   * Directives:
+   * 1. Direct Answer First: Directly answer the user's specific question in simple, natural English.
+   * 2. Context Link: Relate the answer to current live heart rate, SpO2, temperature, baseline, or activity.
+   * 3. Clear Action: End with one simple, practical wellness suggestion.
+   * 4. Non-Medical & Non-Robotic: Maintain a warm, encouraging 8th-grade reading level without medical jargon.
    */
   generateChatReply(userMessage, telemetry) {
     const msg = userMessage.trim();
@@ -125,73 +130,92 @@ export class AwenAiEngine {
     const temp = Math.round((telemetry?.temperature || 36.6) * 10) / 10;
     const activity = telemetry?.activity || "Resting";
 
-    // Track conversational history to prevent identical replies
     if (!this.replyHistory) this.replyHistory = new Set();
 
     let directAnswer = "";
     let dataContext = "";
     let actionSuggestion = "";
 
-    // 1. Food / Diet / Nutrition
-    if (lower.includes("food") || lower.includes("eat") || lower.includes("lunch") || lower.includes("dinner") || lower.includes("snack") || lower.includes("diet")) {
-      directAnswer = "Eating light, nutrient-rich meals gives your body steady energy without feeling heavy.";
-      dataContext = `While I can't track your exact food intake from your sensor readings, your heart rate is currently ${hr} bpm while ${activity.toLowerCase()}. Digesting heavy meals can temporarily raise your heart rate above your usual 64 bpm baseline.`;
-      actionSuggestion = "Try having a small bowl of fresh fruit or nuts for your next snack.";
+    // 1. Chocolate / Sweets / Sugar
+    if (lower.includes("chocolate") || lower.includes("sweet") || lower.includes("sugar") || lower.includes("candy") || lower.includes("junk food")) {
+      directAnswer = "Eating chocolate or sweets in moderation is perfectly okay, but having a lot of sugar can cause a quick spike in your blood energy followed by a sudden dip.";
+      dataContext = `While my sensors don't measure diet directly, digesting extra sugar can temporarily make your heart beat slightly faster than your normal 64 bpm resting pattern. Right now your heart rate is ${hr} bpm while ${activity.toLowerCase()}.`;
+      actionSuggestion = "Drink a large glass of water now and choose a protein or fiber-rich meal later to steady your energy.";
     }
 
-    // 2. Sleep / Fatigue / Rest
+    // 2. Coffee / Caffeine / Tea / Energy Drinks
+    else if (lower.includes("coffee") || lower.includes("caffeine") || lower.includes("tea") || lower.includes("energy drink")) {
+      directAnswer = "Caffeine temporarily stimulates your heart and brain, making you feel more alert, but too much can lead to restlessness.";
+      dataContext = `Your live heart rate is ${hr} bpm while ${activity.toLowerCase()}. Caffeine often causes a temporary increase above your typical resting pattern of 64 bpm.`;
+      actionSuggestion = "Try sipping cold water alongside your coffee to stay hydrated.";
+    }
+
+    // 3. Headache / Pain / Dizziness / Feeling Sick
+    else if (lower.includes("headache") || lower.includes("head pain") || lower.includes("dizzy") || lower.includes("sick") || lower.includes("pain")) {
+      directAnswer = "Headaches or mild discomfort are often your body's signal that you need water, fresh air, or a rest from screen time.";
+      dataContext = `Your temperature is currently ${temp}°C and SpO₂ is ${spo2}%. Your overall body readings look steady, so rest and hydration are great next steps.`;
+      actionSuggestion = "Close your eyes in a quiet room for 10 minutes and slowly drink some warm water.";
+    }
+
+    // 4. General Food / Diet / Meals
+    else if (lower.includes("food") || lower.includes("eat") || lower.includes("lunch") || lower.includes("dinner") || lower.includes("snack") || lower.includes("diet")) {
+      directAnswer = "Balanced, fresh meals give your body steady energy throughout the day without feeling heavy or sluggish.";
+      dataContext = `Digestive activity naturally increases blood flow to your stomach, which can slightly elevate your resting heart rate from your usual 64 bpm baseline. Currently, your heart rate is ${hr} bpm.`;
+      actionSuggestion = "Include fresh greens, fruit, or nuts in your next meal to support steady digestion.";
+    }
+
+    // 5. Sleep / Fatigue / Rest
     else if (lower.includes("sleep") || lower.includes("tired") || lower.includes("exhausted") || lower.includes("nap") || lower.includes("bed")) {
-      directAnswer = "Getting 7 to 8 hours of restful sleep is key for letting your muscles and mind recover.";
-      dataContext = `Looking at your current readings, your SpO₂ is stable at ${spo2}%, but your body temperature is ${temp}°C. When you don't rest well, your body takes longer to return to your normal 64 bpm resting pattern after moving.`;
-      actionSuggestion = "Try dimming your screen lights and stepping away from devices 20 minutes before bed tonight.";
+      directAnswer = "Restful sleep lets your brain clear out metabolic waste and gives your heart a chance to rest deeply.";
+      dataContext = `Your SpO₂ is stable at ${spo2}%, and your body temperature is ${temp}°C. When you're tired, your resting heart rate can take longer to settle after daily tasks.`;
+      actionSuggestion = "Dim your lights 30 minutes before bed tonight and put away bright screens.";
     }
 
-    // 3. Stress / Anxiety / Feeling Overwhelmed
+    // 6. Stress / Anxiety / Feeling Overwhelmed
     else if (lower.includes("stress") || lower.includes("anxious") || lower.includes("overwhelmed") || lower.includes("worry") || lower.includes("nervous")) {
-      directAnswer = "Feeling stressed is your body's natural response to mental pressure or busy days.";
-      dataContext = `Right now, your heart rate is ${hr} bpm while ${activity.toLowerCase()}. This is slightly higher than your normal quiet baseline (64 bpm), showing your body is carrying extra tension.`;
-      actionSuggestion = "Try taking 4 slow, deep breaths right now — inhale for 4 seconds, then exhale slowly for 6.";
+      directAnswer = "Feeling stressed is a completely natural reaction when your day gets busy or demanding.";
+      dataContext = `Your current heart rate is ${hr} bpm while ${activity.toLowerCase()}. That's slightly higher than your normal quiet resting pattern (64 bpm), showing your nervous system is carrying tension.`;
+      actionSuggestion = "Take 4 slow, deep breaths right now — inhale for 4 seconds, then exhale slowly for 6.";
     }
 
-    // 4. Exercise / Workout / Physical Activity
+    // 7. Exercise / Workout / Movement
     else if (lower.includes("exercise") || lower.includes("workout") || lower.includes("run") || lower.includes("gym") || lower.includes("walk") || lower.includes("stairs")) {
-      directAnswer = "Regular physical movement strengthens your heart and helps you recover faster after exertion.";
-      dataContext = `During ${activity.toLowerCase()}, your heart rate naturally rises to ${hr} bpm. Because I know your weekly pattern, I filter this exertion so it never triggers false stress warnings. Your recovery speed is operating well.`;
-      actionSuggestion = "Remember to take 2 minutes after moving to let your breathing return to normal.";
+      directAnswer = "Regular physical movement strengthens your cardiovascular system and boosts your overall mood.";
+      dataContext = `During physical activity, your heart rate naturally rises to ${hr} bpm. Because I know your weekly baseline pattern, I treat this exertion as healthy movement rather than stress.`;
+      actionSuggestion = "Take 2 minutes to walk slowly and let your heart rate settle back down.";
     }
 
-    // 5. Hydration / Water
+    // 8. Hydration / Water
     else if (lower.includes("water") || lower.includes("hydrate") || lower.includes("drink") || lower.includes("thirsty")) {
-      directAnswer = "Drinking enough water keeps your blood flowing smoothly and helps control your body temperature.";
-      dataContext = `Your skin temperature is currently ${temp}°C and your heart rate is ${hr} bpm. Dehydration can cause your heart to beat slightly faster even when you're sitting still.`;
-      actionSuggestion = "Drink one full glass of water right now to help your body stay balanced.";
+      directAnswer = "Water is essential for proper blood volume, circulation, and keeping your body temperature balanced.";
+      dataContext = `Your skin temperature is ${temp}°C and heart rate is ${hr} bpm. Staying hydrated helps keep your heart rate steady at rest.`;
+      actionSuggestion = "Drink one full glass of water right now to give your body a quick refresh.";
     }
 
-    // 6. Exam / Study / Work Pressure
+    // 9. Exam / Study / Work Pressure
     else if (lower.includes("exam") || lower.includes("study") || lower.includes("test") || lower.includes("work") || lower.includes("meeting")) {
-      this.userMemory.recentTopic = "exam preparation";
-      directAnswer = "Focused studying and work take significant mental energy, which naturally increases cognitive load.";
-      dataContext = `Your readings show a steady rhythm at ${hr} bpm while ${activity.toLowerCase()}. Your SpO₂ is optimal at ${spo2}%, meaning your focus is supported.`;
-      actionSuggestion = "Take a 5-minute break every hour to stand up and stretch your arms.";
+      this.userMemory.recentTopic = "studying";
+      directAnswer = "Focused mental work requires sustained brain power, which can gradually raise your subtle tension levels.";
+      dataContext = `Your rhythm is currently steady at ${hr} bpm while ${activity.toLowerCase()}, and your SpO₂ is optimal at ${spo2}%.`;
+      actionSuggestion = "Take a 5-minute break every hour to stand up and stretch.";
     }
 
-    // 7. General Questions about AWEN, Baseline, or Health Readings
+    // 10. How am I doing / Baseline / Overview
     else if (lower.includes("how am i") || lower.includes("doing") || lower.includes("wellness") || lower.includes("pattern") || lower.includes("baseline")) {
-      directAnswer = "You are doing well overall today and your body is adapting nicely.";
-      dataContext = `Your current heart rate is ${hr} bpm and SpO₂ is ${spo2}%. This closely matches your 5-day personal body pattern (64 bpm resting).`;
-      actionSuggestion = "Keep up your current rhythm and take a brief quiet pause later this afternoon.";
+      directAnswer = "You are doing well today, and your body is staying within a healthy, comfortable range.";
+      dataContext = `Your live heart rate is ${hr} bpm and SpO₂ is ${spo2}%, closely aligning with your personal body pattern.`;
+      actionSuggestion = "Keep up your gentle pace and enjoy a quiet pause later today.";
     }
 
-    // 8. Fallback for any other user question
+    // 11. Conversational Fallback — Directly address the prompt topic
     else {
-      directAnswer = `To answer your question about "${msg}": taking care of your daily balance is all about listening to your body.`;
-      dataContext = `Your live heart rate is ${hr} bpm and SpO₂ is ${spo2}% while ${activity.toLowerCase()}. These readings align smoothly with your personal pattern.`;
-      actionSuggestion = "Take one deep breath and enjoy a short moment of relaxation right now.";
+      directAnswer = `Regarding "${msg}": taking care of your daily balance starts with listening to your body's small cues.`;
+      dataContext = `Your current heart rate is ${hr} bpm and SpO₂ is ${spo2}% while ${activity.toLowerCase()}. These readings align nicely with your normal pattern.`;
+      actionSuggestion = "Take a gentle deep breath and give yourself a peaceful moment right now.";
     }
 
     const fullReply = `${directAnswer} ${dataContext} ${actionSuggestion}`;
 
-    // Prevent duplicate responses
     if (this.replyHistory.has(fullReply)) {
       return `${directAnswer} ${actionSuggestion}`;
     }
@@ -202,4 +226,3 @@ export class AwenAiEngine {
 }
 
 export const aiEngine = new AwenAiEngine();
-

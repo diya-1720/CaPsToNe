@@ -7,17 +7,6 @@ const STORAGE_KEYS = {
   CHAT: 'awen_chat_history'
 };
 
-const DEFAULT_USER = {
-  id: 'usr_8841',
-  email: 'diya@awen.ai',
-  name: 'Diya',
-  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
-  observation_mode: true,
-  observation_start: new Date().toISOString(),
-  observation_day: 1,
-  baseline_confidence: 'Learning',
-  token: 'jwt_token_demo_8841'
-};
 
 export class ApiService {
   constructor() {
@@ -27,9 +16,22 @@ export class ApiService {
   loadLocalSession() {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.USER);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Invalidate legacy hardcoded demo sessions (old "Diya" user)
+        if (
+          parsed?.id === 'usr_8841' ||
+          parsed?.email === 'diya@awen.ai' ||
+          parsed?.token === 'jwt_token_demo_8841'
+        ) {
+          localStorage.removeItem(STORAGE_KEYS.USER);
+          return null;
+        }
+        return parsed;
+      }
     } catch (e) {}
-    return DEFAULT_USER;
+    // Return null — unauthenticated users see the Landing Page
+    return null;
   }
 
   saveLocalSession(user) {
@@ -116,7 +118,7 @@ export class ApiService {
     const user = {
       ...this.currentUser,
       email: email || this.currentUser.email,
-      name: email ? email.split('@')[0] : 'Diya',
+      name: email ? email.split('@')[0] : 'User',
       token: `jwt_${Date.now()}`
     };
     return this.saveLocalSession(user);
@@ -141,7 +143,7 @@ export class ApiService {
         // Upsert initial profile record in Supabase
         await supabase.from('profiles').upsert({
           id: user.id,
-          name: name || 'Diya',
+          name: name || 'User',
           email: user.email,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
           observation_mode: true,
@@ -151,7 +153,7 @@ export class ApiService {
 
       const userObj = {
         id: user?.id || `usr_${Date.now()}`,
-        name: name || 'Diya',
+        name: name || 'User',
         email: email || 'user@awen.ai',
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
         observation_mode: true,
@@ -166,7 +168,7 @@ export class ApiService {
     // Local Fallback
     const userObj = {
       id: `usr_${Date.now().toString().slice(-4)}`,
-      name: name || 'Diya',
+      name: name || 'User',
       email: email || 'user@awen.ai',
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
       observation_mode: true,
@@ -194,8 +196,8 @@ export class ApiService {
     // Fallback simulation for demo
     const userObj = {
       id: `usr_google_${Date.now().toString().slice(-4)}`,
-      name: 'Diya (Google)',
-      email: 'diya.google@gmail.com',
+      name: 'User (Google)',
+      email: 'user.google@gmail.com',
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
       observation_mode: true,
       observation_start: new Date().toISOString(),

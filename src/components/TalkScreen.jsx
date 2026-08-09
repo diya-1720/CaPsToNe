@@ -3,11 +3,14 @@ import { AwenSpirit } from './AwenSpirit';
 import { aiEngine } from '../services/aiEngine';
 import { Send, Sparkles, User, Bot } from 'lucide-react';
 
-export const TalkScreen = ({ telemetry, evaluation }) => {
+export const TalkScreen = ({ telemetry, evaluation, currentUser }) => {
+  const firstName = currentUser?.name?.split(' ')[0] || '';
   const [messages, setMessages] = useState([
     {
       sender: 'awen',
-      text: "Hello Diya. I'm AWEN. I'm holding space for your wellness today. What's on your mind?",
+      text: firstName
+        ? `Hello ${firstName}. I'm AWEN. I'm holding space for your wellness today. What's on your mind?`
+        : "Hello. I'm AWEN. I'm holding space for your wellness today. What's on your mind?",
       time: 'Just now'
     }
   ]);
