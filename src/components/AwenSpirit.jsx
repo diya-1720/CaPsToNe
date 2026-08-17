@@ -13,7 +13,7 @@ import { STATE_COLOR_THEMES, AWEN_STATES } from '../services/stateEngine';
  * - Waving fin gesture on tap
  * - Late-night sleeping mode with floating vector Zzz
  */
-export const AwenSpirit = ({ 
+const AwenSpiritComponent = ({ 
   expression = "happy", // "happy", "thinking", "listening", "concerned", "sleeping", "celebrating"
   wellnessState = AWEN_STATES.BALANCED,
   size = 240,
@@ -125,18 +125,61 @@ export const AwenSpirit = ({
             style={{ transformOrigin: '100px 28px' }}
           />
 
-          {/* Left Fin */}
+          {/* Tiny Chubby Legs / Feet (Attached underneath body) */}
+          <path 
+            d="M 76 154 C 70 173, 90 173, 88 156 Z" 
+            fill="url(#mochiGrad)" 
+            stroke="rgba(255,255,255,0.4)"
+            strokeWidth="1.2"
+          />
+          <path 
+            d="M 112 156 C 110 173, 130 173, 124 154 Z" 
+            fill="url(#mochiGrad)" 
+            stroke="rgba(255,255,255,0.4)"
+            strokeWidth="1.2"
+          />
+
+          {/* Left Crystal Fin */}
           <path 
             d="M 52 75 C 32 65, 38 95, 58 92 Z" 
             fill={theme.finColor} 
             opacity="0.85"
             className="transition-all duration-500"
           />
-          {/* Right Waving Fin */}
+          {/* Right Waving Crystal Fin */}
           <path 
             d={isWaving ? "M 148 75 C 178 50, 172 80, 142 92 Z" : "M 148 75 C 168 65, 162 95, 142 92 Z"} 
             fill={theme.finColor} 
             opacity="0.85"
+            className="transition-all duration-300"
+          />
+
+          {/* Tiny Chubby Left Arm / Paw (State-Aware Gesture) */}
+          <path 
+            d={
+              activeExpression === "thinking" || activeExpression === "listening"
+                ? "M 40 114 C 22 104, 26 122, 42 126 Z"
+                : activeExpression === "celebrating" || activeExpression === "happy"
+                ? "M 40 114 C 20 108, 24 126, 42 126 Z"
+                : "M 40 114 C 24 116, 26 132, 42 128 Z"
+            } 
+            fill="url(#mochiGrad)" 
+            stroke="rgba(255,255,255,0.4)"
+            strokeWidth="1.2"
+            className="transition-all duration-300"
+          />
+          {/* Tiny Chubby Right Arm / Paw (Tap Waving Gesture & State-Aware) */}
+          <path 
+            d={
+              isWaving 
+                ? "M 160 114 C 184 96, 178 120, 158 126 Z" 
+                : activeExpression === "celebrating" || activeExpression === "happy"
+                ? "M 160 114 C 180 108, 176 126, 158 126 Z"
+                : "M 160 114 C 176 116, 174 132, 158 128 Z"
+            } 
+            fill="url(#mochiGrad)" 
+            stroke="rgba(255,255,255,0.4)"
+            strokeWidth="1.2"
             className="transition-all duration-300"
           />
 
@@ -227,3 +270,6 @@ export const AwenSpirit = ({
     </div>
   );
 };
+
+export const AwenSpirit = React.memo(AwenSpiritComponent);
+
