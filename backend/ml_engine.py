@@ -53,20 +53,37 @@ class PersonalizedPhysiologicalEngine:
         self.model.fit(X_train)
         self._is_trained = True
 
-    def analyze_readings(self, hr: float, spo2: float, temp: float, activity: str = "Resting", mood: str = "Normal"):
+    def analyze_readings(
+        self,
+        hr: float,
+        spo2: float,
+        temp: float,
+        activity: str = "Resting",
+        mood: str = "Normal",
+        user_baseline: dict = None
+    ):
         """
         Analyze incoming telemetry relative to personal baseline and activity context.
-        Returns Wellness Index level, confidence score, explainability metrics, and recommendations.
+        Uses supplied user_baseline when available; falls back to default signature when missing.
         """
+        user_b = user_baseline or {}
+        rhr = float(user_b.get("resting_hr")) if user_b.get("resting_hr") is not None else self.baseline["resting_hr"]
+        rspo2 = float(user_b.get("resting_spo2")) if user_b.get("resting_spo2") is not None else self.baseline["resting_spo2"]
+        rtemp = float(user_b.get("resting_temp")) if user_b.get("resting_temp") is not None else self.baseline["resting_temp"]
+        hr_sd = float(user_b.get("hr_std_dev")) if user_b.get("hr_std_dev") is not None else self.baseline["hr_std_dev"]
+        confidence_tier = str(user_b.get("confidence")) if user_b.get("confidence") else "Learning"
+        is_personalized = user_b.get("resting_hr") is not None
+
         act_config = self.activity_multipliers.get(activity, {"hr_offset": 0, "temp_offset": 0.0})
         
-        # Calculate context-adjusted expected heart rate
-        expected_hr = self.baseline["resting_hr"] + act_config["hr_offset"]
-        expected_temp = self.baseline["resting_temp"] + act_config["temp_offset"]
+        # Calculate context-adjusted expected metrics using active baseline
+        expected_hr = rhr + act_config["hr_offset"]
+        expected_temp = rtemp + act_config["temp_offset"]
         
         # Compute physiological deviations
         hr_delta = hr - expected_hr
-        spo2_delta = self.baseline["resting_spo2"] - spo2
+        raw_resting_delta = hr - rhr
+        spo2_delta = rspo2 - spo2
         temp_delta = temp - expected_temp
         
         # Calculate anomaly score (raw deviation score)
@@ -91,14 +108,14 @@ class PersonalizedPhysiologicalEngine:
         if is_activity_explained:
             status = "Balanced"
             stress_level = "low"
-            reasoning = f"Elevated heart rate (+{round(hr - self.baseline['resting_hr'])} bpm above resting) is fully consistent with your current activity ({activity}). Your recovery curve is optimal."
+            reasoning = f"Elevated heart rate (+{round(raw_resting_delta)} bpm above resting) is fully consistent with your current activity ({activity}). Your recovery curve is optimal."
         else:
             if status == "Needs Attention":
                 reasoning = f"Heart rate is {round(hr_delta, 1)} bpm above your expected baseline for '{activity}'. Activity level is low, indicating non-exertional physiological stress."
             elif status == "Good":
                 reasoning = f"Minor physiological variance (+{round(hr_delta, 1)} bpm from expected baseline). Your body is adapting smoothly."
             else:
-                reasoning = f"Physiological signals closely align with your personal baseline ({self.baseline['resting_hr']} bpm resting)."
+                reasoning = f"Physiological signals closely align with your personal baseline ({round(rhr, 1)} bpm resting RHR)."
 
         return {
             "wellness_index": status,
@@ -112,18 +129,49 @@ class PersonalizedPhysiologicalEngine:
                 "mood": mood
             },
             "baseline_comparison": {
-                "resting_hr": self.baseline["resting_hr"],
+                "resting_hr": round(rhr, 1),
                 "expected_hr_for_activity": round(expected_hr, 1),
                 "hr_delta": round(hr_delta, 1),
-                "is_activity_explained": is_activity_explained
+                "raw_resting_delta": round(raw_resting_delta, 1),
+                "is_activity_explained": is_activity_explained,
+                "is_personalized": is_personalized,
+                "confidence_tier": confidence_tier
             },
             "explainability": {
                 "summary": reasoning,
                 "factors": [
-                    {"label": "Baseline Delta", "value": f"{'+' if hr_delta >= 0 else ''}{round(hr_delta, 1)} bpm"},
-                    {"label": "Activity Normalization", "value": f"Filtered ({activity})"},
-                    {"label": "SpO₂ Stability", "value": f"{spo2}% (Normal)" if spo2 >= 95 else f"{spo2}% (Slight drop)"},
-                    {"label": "Confidence Level", "value": f"{confidence}%"}
+                    {
+                        "key": "baseline_delta",
+                        "title": "Baseline Difference",
+                        "label": "Baseline Difference",
+                        "value": f"{'+' if hr_delta >= 0 else ''}{round(hr_delta, 1)} bpm from expected",
+                        "status": "normal" if abs(hr_delta) < 8 else "elevated",
+                        "explanation": f"Your heart rate ({round(hr)} bpm) is {round(abs(hr_delta), 1)} bpm {'above' if hr_delta >= 0 else 'below'} your expected baseline for {activity}."
+                    },
+                    {
+                        "key": "activity_context",
+                        "title": "Activity Context",
+                        "label": "Activity Context",
+                        "value": activity,
+                        "status": "active" if is_activity_explained else "normal",
+                        "explanation": f"Elevated heart rate is expected during physical movement ({activity}). Activity exertion filter active." if is_activity_explained else f"Current activity level is {activity}. Reading captured during low physical movement."
+                    },
+                    {
+                        "key": "spo2_stability",
+                        "title": "SpO2 Oxygen Stability",
+                        "label": "SpO2 Oxygen Stability",
+                        "value": f"{spo2}% ({'Optimal' if spo2 >= 95 else 'Mild Variance'})",
+                        "status": "normal" if spo2 >= 95 else "warning",
+                        "explanation": f"Oxygen saturation ({spo2}%) aligns with your {'personalized' if is_personalized else 'default'} baseline."
+                    },
+                    {
+                        "key": "model_confidence",
+                        "title": "Analysis Confidence",
+                        "label": "Analysis Confidence",
+                        "value": f"{confidence}% profile match",
+                        "status": "high",
+                        "explanation": f"Analysis confidence matched against your learned resting baseline profile ({confidence_tier})."
+                    }
                 ]
             }
         }
