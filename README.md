@@ -2,10 +2,7 @@
 
 > **Personalized Physiological Intelligence & Emotional Wellness Companion**
 
-[![Live Web Application](https://img.shields.io/badge/Live_App-awen--silk.vercel.app-cyan?style=for-the-badge&logo=vercel)](https://awen-silk.vercel.app/)
 [![GitHub Repository](https://img.shields.io/badge/GitHub-diya--1720%2FAWEN-181717?style=for-the-badge&logo=github)](https://github.com/diya-1720/AWEN)
-
-🌐 **Live Web Application**: [https://awen-silk.vercel.app/](https://awen-silk.vercel.app/)
 
 AWEN is a premium AI-IoT digital wellness platform that analyzes an individual's personal physiological behavior rather than comparing them against generic medical thresholds. Instead of asking *"Is your heart rate above 100?"*, AWEN asks *"Is today's physiological behavior different from YOUR normal baseline?"*.
 
@@ -108,23 +105,27 @@ Output directory: `dist`
 
 ---
 
-## 🌐 Deployment Instructions (GitHub + Vercel)
+## 🐙 Version Control & GitHub Repository
 
-### 1. Push to GitHub
+### 1. Clone the Repository
 ```bash
-git add .
-git commit -m "Prepare AWEN for production deployment"
-git remote add origin https://github.com/your-username/awen-wellness.git
-git push -u origin main
+git clone https://github.com/diya-1720/AWEN.git
+cd AWEN
 ```
 
-### 2. Deploy to Vercel
-1. Import `awen-wellness` repository in Vercel.
-2. Select **Vite** framework preset.
-3. Configure Environment Variables in Vercel dashboard:
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
-4. Click **Deploy**.
+### 2. Local Setup
+```bash
+npm install
+cp .env.example .env.local
+npm run dev
+```
+
+### 3. Push Updates to GitHub
+```bash
+git add .
+git commit -m "chore: prepare AWEN for local development and GitHub repository"
+git push origin main
+```
 
 ---
 
