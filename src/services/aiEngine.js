@@ -1,10 +1,16 @@
 /**
  * AWEN Human Conversational AI Engine
  * 
- * Generates warm, supportive, context-aware human dialogue.
- * Completely avoids robotic/scientific jargon (e.g. "physiological baseline").
- * Answers the user's specific questions directly in simple English first,
- * then ties to personal body patterns when relevant.
+ * Intent-Routing Architecture:
+ * Priority Hierarchy:
+ *  1. SAFETY_ACUTE (Chest Pain, Shortness of Breath, Fainting, Severe Dizziness)
+ *  2. SAFETY_MEDICAL_RECOVERY (Post-surgery, Operation, Doctor restricted)
+ *  3. PRODUCT_INFO ("What is AWEN?", "What does AWEN do?", "What does AWEN mean?")
+ *  4. EXPLAINABILITY ("Why did AWEN notice this?", "Why did AWEN change color?")
+ *  5. PERSONAL_STATUS ("How am I doing?", "What is my baseline?")
+ *  6. TELEMETRY_STATUS ("What is my heart rate?", "What is my SpO2?")
+ *  7. WELLNESS_SUPPORT (Chocolate, caffeine, fatigue, stress, exercise, hydration, exams)
+ *  8. GENERAL_CONVERSATION ("Hi", "Hey AWEN", casual chatter)
  */
 
 export class AwenAiEngine {
@@ -15,6 +21,7 @@ export class AwenAiEngine {
       lastCheckinMood: "Good",
       lastCheckinActivity: "Resting"
     };
+    this.replyHistory = new Set();
   }
 
   /** Update remembered user name */
@@ -49,13 +56,13 @@ export class AwenAiEngine {
     } else {
       return {
         greeting: `Rest Well${nameSuffix}.`,
-        subtitle: "Awen is quietly keeping an eye on your overnight rest."
+        subtitle: "AWEN is quietly keeping an eye on your overnight rest."
       };
     }
   }
 
   /**
-   * Generates human, warm observation based on telemetry & context.
+   * Generates human observation based on telemetry & context.
    */
   getObservation(telemetry, evaluation) {
     const activity = telemetry?.activity || "Resting";
@@ -96,7 +103,7 @@ export class AwenAiEngine {
   }
 
   /**
-   * Transparent Explainability: Why AWEN reached its conclusion in simple bullet points.
+   * Transparent Explainability: Why AWEN reached its conclusion.
    */
   getExplainableReasoning(telemetry, evaluation) {
     const activity = telemetry?.activity || "Resting";
@@ -113,115 +120,239 @@ export class AwenAiEngine {
   }
 
   /**
-   * AWEN System Prompt Enforced Conversational Engine
-   * 
-   * Directives:
-   * 1. Direct Answer First: Directly answer the user's specific question in simple, natural English.
-   * 2. Context Link: Relate the answer to current live heart rate, SpO2, temperature, baseline, or activity.
-   * 3. Clear Action: End with one simple, practical wellness suggestion.
-   * 4. Non-Medical & Non-Robotic: Maintain a warm, encouraging 8th-grade reading level without medical jargon.
+   * Evaluates safety guardrails and medical context priority.
+   */
+  evaluateSafetyGuardrails(userMessage, telemetry) {
+    const lower = (userMessage || "").toLowerCase();
+
+    // 1. Acute / Severe Medical Symptoms Guardrail
+    const symptomKeywords = [
+      "chest pain", "pain in chest", "shortness of breath", "difficulty breathing",
+      "trouble breathing", "fainting", "passed out", "blackout", "severe pain",
+      "severe dizziness", "alarming symptom", "breathless", "seizure", "unconscious"
+    ];
+    
+    const hasSymptom = symptomKeywords.some(kw => lower.includes(kw));
+    if (hasSymptom) {
+      return {
+        triggered: true,
+        category: "ACUTE_SYMPTOM",
+        reply: "If you are experiencing chest pain, difficulty breathing, fainting, or severe pain, please seek immediate real-world medical attention or contact emergency services. AWEN is a non-clinical wellness companion and cannot diagnose medical symptoms or provide emergency medical clearance."
+      };
+    }
+
+    // 2. Post-Surgery / Medical Recovery Guardrail
+    const recoveryKeywords = [
+      "surgery", "operation", "recovering", "post-op", "post-surgery",
+      "medical procedure", "doctor told me", "physician restricted",
+      "medical recovery", "hospital", "stitches", "healed", "rehab"
+    ];
+    
+    const hasRecovery = recoveryKeywords.some(kw => lower.includes(kw));
+    if (hasRecovery) {
+      const hr = Math.round(telemetry?.heartRate || telemetry?.heart_rate || 64);
+      return {
+        triggered: true,
+        category: "MEDICAL_RECOVERY",
+        reply: `Because you are recovering from surgery or a medical procedure, please follow your surgeon's or healthcare provider's direct instructions regarding physical exertion. AWEN is a non-clinical wellness companion; your current readings (like a ${hr} bpm heart rate) cannot provide medical clearance for gym workouts or physical exercise.`
+      };
+    }
+
+    return { triggered: false };
+  }
+
+  /**
+   * Classifies user message intent into distinct priority categories.
+   */
+  classifyIntent(userMessage) {
+    const lower = (userMessage || "").toLowerCase().trim();
+
+    // 1. SAFETY_ACUTE
+    const symptomKeywords = [
+      "chest pain", "pain in chest", "shortness of breath", "difficulty breathing",
+      "trouble breathing", "fainting", "passed out", "blackout", "severe pain",
+      "severe dizziness", "alarming symptom", "breathless", "seizure", "unconscious"
+    ];
+    if (symptomKeywords.some(kw => lower.includes(kw))) {
+      return "SAFETY_ACUTE";
+    }
+
+    // 2. SAFETY_MEDICAL_RECOVERY
+    const recoveryKeywords = [
+      "surgery", "operation", "recovering", "post-op", "post-surgery",
+      "medical procedure", "doctor told me", "physician restricted",
+      "medical recovery", "hospital", "stitches", "healed", "rehab"
+    ];
+    if (recoveryKeywords.some(kw => lower.includes(kw))) {
+      return "SAFETY_MEDICAL_RECOVERY";
+    }
+
+    // 3. PRODUCT_INFO
+    const productInfoKeywords = [
+      "what is awen", "what does awen do", "how does awen work", "what is this app",
+      "tell me about awen", "why should i use awen", "what does awen observe",
+      "what does awen detect", "what is awen for", "what does awen mean", "what does awen stand for",
+      "who is awen", "explain awen", "about awen"
+    ];
+    if (productInfoKeywords.some(kw => lower.includes(kw)) || (lower.includes("awen") && (lower.includes("what") || lower.includes("how") || lower.includes("explain") || lower.includes("tell")))) {
+      return "PRODUCT_INFO";
+    }
+
+    // 4. EXPLAINABILITY
+    const explainKeywords = [
+      "why did awen notice", "why is awen concerned", "why did my state change",
+      "why did awen change color", "why did the color change", "why is my heart rate high",
+      "why is my heart rate up", "why is heart rate elevated", "why did color change",
+      "why is my hr high", "why is my hr up"
+    ];
+    if (explainKeywords.some(kw => lower.includes(kw))) {
+      return "EXPLAINABILITY";
+    }
+
+    // 5. PERSONAL_STATUS
+    const personalStatusKeywords = [
+      "how am i", "how am i doing", "how is my body", "what's my heart rate", "what is my heart rate",
+      "am i doing okay", "what is my baseline", "check my baseline", "my baseline status", "how is my baseline"
+    ];
+    if (personalStatusKeywords.some(kw => lower.includes(kw))) {
+      return "PERSONAL_STATUS";
+    }
+
+    // 6. TELEMETRY_STATUS
+    const telemetryKeywords = [
+      "what is my spo2", "what is my oxygen", "what is my temp", "what is my temperature",
+      "show my readings", "my telemetry", "my heart rate reading"
+    ];
+    if (telemetryKeywords.some(kw => lower.includes(kw))) {
+      return "TELEMETRY_STATUS";
+    }
+
+    // 7. WELLNESS_SUPPORT
+    const wellnessKeywords = [
+      "chocolate", "sweet", "sugar", "candy", "junk food",
+      "coffee", "caffeine", "tea", "energy drink",
+      "headache", "head pain", "dizzy", "sick", "pain",
+      "food", "eat", "lunch", "dinner", "snack", "diet",
+      "sleep", "tired", "exhausted", "nap", "bed",
+      "stress", "anxious", "overwhelmed", "worry", "nervous",
+      "exercise", "workout", "run", "gym", "walk", "stairs",
+      "water", "hydrate", "drink", "thirsty",
+      "exam", "study", "test", "work", "meeting"
+    ];
+    if (wellnessKeywords.some(kw => lower.includes(kw))) {
+      return "WELLNESS_SUPPORT";
+    }
+
+    // 8. GENERAL_CONVERSATION
+    return "GENERAL_CONVERSATION";
+  }
+
+  /**
+   * AWEN System Prompt Enforced Conversational Engine with Intent-Routing
    */
   generateChatReply(userMessage, telemetry) {
-    const msg = userMessage.trim();
+    const msg = (userMessage || "").trim();
     const lower = msg.toLowerCase();
     
-    const hr = Math.round(telemetry?.heartRate || 64);
+    // 1. Safety Priority Override Check
+    const safetyCheck = this.evaluateSafetyGuardrails(msg, telemetry);
+    if (safetyCheck.triggered) {
+      return safetyCheck.reply;
+    }
+
+    // 2. Classify Conversational Intent
+    const intent = this.classifyIntent(msg);
+
+    const hr = Math.round(telemetry?.heartRate || telemetry?.heart_rate || 64);
     const spo2 = Math.round((telemetry?.spo2 || 98.6) * 10) / 10;
     const temp = Math.round((telemetry?.temperature || 36.6) * 10) / 10;
     const activity = telemetry?.activity || "Resting";
 
-    if (!this.replyHistory) this.replyHistory = new Set();
+    // --- INTENT ROUTING LOGIC ---
 
-    let directAnswer = "";
-    let dataContext = "";
-    let actionSuggestion = "";
-
-    // 1. Chocolate / Sweets / Sugar
-    if (lower.includes("chocolate") || lower.includes("sweet") || lower.includes("sugar") || lower.includes("candy") || lower.includes("junk food")) {
-      directAnswer = "Eating chocolate or sweets in moderation is perfectly okay, but having a lot of sugar can cause a quick spike in your blood energy followed by a sudden dip.";
-      dataContext = `While my sensors don't measure diet directly, digesting extra sugar can temporarily make your heart beat slightly faster than your normal 64 bpm resting pattern. Right now your heart rate is ${hr} bpm while ${activity.toLowerCase()}.`;
-      actionSuggestion = "Drink a large glass of water now and choose a protein or fiber-rich meal later to steady your energy.";
+    // 3. PRODUCT_INFO INTENT (NO TELEMETRY INJECTION!)
+    if (intent === "PRODUCT_INFO") {
+      if (lower.includes("mean") || lower.includes("stand for") || lower.includes("name")) {
+        return "AWEN stands for Adaptive Wellness & Emotional Navigation. It is designed to help you understand your body's personal rhythm and patterns over time.";
+      }
+      if (lower.includes("do") || lower.includes("work") || lower.includes("observe") || lower.includes("detect")) {
+        return "AWEN observes signals such as heart rate, movement, and available telemetry, learns your personal baseline over time, and turns changes from your usual pattern into understandable insights and practical next steps.\n\nAWEN is designed for non-clinical wellness support. It does not diagnose medical conditions or provide medical clearance.";
+      }
+      return "AWEN is your personal wellness companion. It observes signals such as heart rate, movement, and available telemetry, learns your personal baseline over time, and turns changes from your usual pattern into understandable insights and practical next steps.\n\nAWEN is designed for non-clinical wellness support. It does not diagnose medical conditions or provide medical clearance.";
     }
 
-    // 2. Coffee / Caffeine / Tea / Energy Drinks
-    else if (lower.includes("coffee") || lower.includes("caffeine") || lower.includes("tea") || lower.includes("energy drink")) {
-      directAnswer = "Caffeine temporarily stimulates your heart and brain, making you feel more alert, but too much can lead to restlessness.";
-      dataContext = `Your live heart rate is ${hr} bpm while ${activity.toLowerCase()}. Caffeine often causes a temporary increase above your typical resting pattern of 64 bpm.`;
-      actionSuggestion = "Try sipping cold water alongside your coffee to stay hydrated.";
+    // 4. EXPLAINABILITY INTENT
+    if (intent === "EXPLAINABILITY") {
+      if (lower.includes("color") || lower.includes("theme")) {
+        return "AWEN's mascot aura and visual theme change to reflect your current wellness state. An emerald green glow indicates a balanced resting baseline, golden yellow reflects active physical movement, and amber shows an elevated resting rate compared to your personal baseline.";
+      }
+      if (lower.includes("heart rate") || lower.includes("hr") || lower.includes("elevated") || lower.includes("high") || lower.includes("up")) {
+        if (["Walking", "Climbing Stairs", "Gym", "Running", "Exercise"].includes(activity)) {
+          return `Your heart rate is currently higher (${hr} bpm) because you are ${activity.toLowerCase()}. Physical movement naturally requires your heart to pump faster to supply oxygen to your muscles.`;
+        }
+        return `Your heart rate is currently ${hr} bpm while ${activity.toLowerCase()}. Since you're resting, a slight increase can happen from caffeine, mental focus, or daily tension compared to your personal baseline.`;
+      }
+      return `AWEN observes your live signals alongside your personal resting baseline (${hr} bpm current rate) to identify meaningful variations. When a change occurs, AWEN explains why it noticed it and suggests a simple, practical next step.`;
     }
 
-    // 3. Headache / Pain / Dizziness / Feeling Sick
-    else if (lower.includes("headache") || lower.includes("head pain") || lower.includes("dizzy") || lower.includes("sick") || lower.includes("pain")) {
-      directAnswer = "Headaches or mild discomfort are often your body's signal that you need water, fresh air, or a rest from screen time.";
-      dataContext = `Your temperature is currently ${temp}°C and SpO₂ is ${spo2}%. Your overall body readings look steady, so rest and hydration are great next steps.`;
-      actionSuggestion = "Close your eyes in a quiet room for 10 minutes and slowly drink some warm water.";
+    // 5. PERSONAL_STATUS INTENT
+    if (intent === "PERSONAL_STATUS") {
+      if (lower.includes("baseline")) {
+        return `Your personal baseline is your body's unique quiet resting pattern, learned over time rather than compared against generic medical thresholds. Currently, your baseline is centered around ${hr} bpm with a Stable baseline confidence tier.`;
+      }
+      return `Right now your heart rate is ${hr} bpm while ${activity.toLowerCase()}, which aligns smoothly with your personal resting baseline. Your body is holding a steady, comfortable rhythm.`;
     }
 
-    // 4. General Food / Diet / Meals
-    else if (lower.includes("food") || lower.includes("eat") || lower.includes("lunch") || lower.includes("dinner") || lower.includes("snack") || lower.includes("diet")) {
-      directAnswer = "Balanced, fresh meals give your body steady energy throughout the day without feeling heavy or sluggish.";
-      dataContext = `Digestive activity naturally increases blood flow to your stomach, which can slightly elevate your resting heart rate from your usual 64 bpm baseline. Currently, your heart rate is ${hr} bpm.`;
-      actionSuggestion = "Include fresh greens, fruit, or nuts in your next meal to support steady digestion.";
+    // 6. TELEMETRY_STATUS INTENT
+    if (intent === "TELEMETRY_STATUS") {
+      return `Your current live readings are: Heart Rate: ${hr} bpm, SpO₂: ${spo2}%, Skin Temperature: ${temp}°C, Activity: ${activity}.`;
     }
 
-    // 5. Sleep / Fatigue / Rest
-    else if (lower.includes("sleep") || lower.includes("tired") || lower.includes("exhausted") || lower.includes("nap") || lower.includes("bed")) {
-      directAnswer = "Restful sleep lets your brain clear out metabolic waste and gives your heart a chance to rest deeply.";
-      dataContext = `Your SpO₂ is stable at ${spo2}%, and your body temperature is ${temp}°C. When you're tired, your resting heart rate can take longer to settle after daily tasks.`;
-      actionSuggestion = "Dim your lights 30 minutes before bed tonight and put away bright screens.";
+    // 7. WELLNESS_SUPPORT INTENT (Specific Wellness Topics)
+    if (intent === "WELLNESS_SUPPORT") {
+      if (lower.includes("chocolate") || lower.includes("sweet") || lower.includes("sugar") || lower.includes("candy") || lower.includes("junk food")) {
+        return `Having chocolate or sweets once isn't something to worry about! Chocolate has sugar and caffeine, which can cause a temporary energy boost. Right now, your heart rate is ${hr} bpm while ${activity.toLowerCase()}. Sip a glass of water to support smooth digestion!`;
+      }
+      if (lower.includes("coffee") || lower.includes("caffeine") || lower.includes("tea") || lower.includes("energy drink")) {
+        return `Caffeine gives your brain and heart a temporary boost, making you feel more alert. Your heart rate is currently ${hr} bpm while ${activity.toLowerCase()}. Sip a cold glass of water alongside your drink to stay hydrated.`;
+      }
+      if (lower.includes("headache") || lower.includes("head pain") || lower.includes("dizzy") || lower.includes("sick") || lower.includes("pain")) {
+        return `Headaches or mild tiredness are often your body's subtle way of asking for water, fresh air, or a break from screens. Your skin temperature is ${temp}°C and SpO₂ is ${spo2}%. Take a 10-minute break away from screens!`;
+      }
+      if (lower.includes("sleep") || lower.includes("tired") || lower.includes("exhausted") || lower.includes("nap") || lower.includes("bed")) {
+        return `Good sleep gives your brain and heart a chance to rest and recover deeply after a full day. Your SpO₂ is stable at ${spo2}%. Dim your lights 30 minutes before bed and put your phone away to help your body unwind.`;
+      }
+      if (lower.includes("stress") || lower.includes("anxious") || lower.includes("overwhelmed") || lower.includes("worry") || lower.includes("nervous")) {
+        return `Feeling stressed is a natural reaction when your day gets busy. Your heart rate is currently ${hr} bpm while ${activity.toLowerCase()}. Take 4 slow, deep breaths right now — inhale for 4 seconds, then exhale slowly for 6.`;
+      }
+      if (lower.includes("exercise") || lower.includes("workout") || lower.includes("run") || lower.includes("gym") || lower.includes("walk") || lower.includes("stairs")) {
+        return `Physical movement is great for your heart! When you exercise or climb stairs, your heart rate naturally rises. Your reading is ${hr} bpm while ${activity.toLowerCase()}, which is healthy exertion. Take 2 minutes to walk slowly and let your heart rate settle.`;
+      }
+      if (lower.includes("water") || lower.includes("hydrate") || lower.includes("drink") || lower.includes("thirsty")) {
+        return `Water keeps your blood circulation smooth and helps your body regulate temperature naturally. Your heart rate is ${hr} bpm. Drink one full glass of water right now to give yourself a quick refresh.`;
+      }
+      if (lower.includes("exam") || lower.includes("study") || lower.includes("test") || lower.includes("work") || lower.includes("meeting")) {
+        this.userMemory.recentTopic = "studying";
+        return `Studying and exams require mental focus, which can build up physical tension over the day. Your body readings are holding steady at ${hr} bpm while ${activity.toLowerCase()}. Take a 5-minute break every hour to stretch your legs.`;
+      }
     }
 
-    // 6. Stress / Anxiety / Feeling Overwhelmed
-    else if (lower.includes("stress") || lower.includes("anxious") || lower.includes("overwhelmed") || lower.includes("worry") || lower.includes("nervous")) {
-      directAnswer = "Feeling stressed is a completely natural reaction when your day gets busy or demanding.";
-      dataContext = `Your current heart rate is ${hr} bpm while ${activity.toLowerCase()}. That's slightly higher than your normal quiet resting pattern (64 bpm), showing your nervous system is carrying tension.`;
-      actionSuggestion = "Take 4 slow, deep breaths right now — inhale for 4 seconds, then exhale slowly for 6.";
+    // 8. GENERAL_CONVERSATION INTENT (Greetings & Chatter - NO FORCED TELEMETRY!)
+    if (lower.includes("hi") || lower.includes("hey") || lower.includes("hello") || lower.includes("good morning") || lower.includes("good afternoon") || lower.includes("good evening")) {
+      const name = this.userMemory.name ? `, ${this.userMemory.name}` : '';
+      return `Hey there${name}! How can I help you today? You can ask me how your body pattern is doing, how your baseline works, or what AWEN does.`;
     }
 
-    // 7. Exercise / Workout / Movement
-    else if (lower.includes("exercise") || lower.includes("workout") || lower.includes("run") || lower.includes("gym") || lower.includes("walk") || lower.includes("stairs")) {
-      directAnswer = "Regular physical movement strengthens your cardiovascular system and boosts your overall mood.";
-      dataContext = `During physical activity, your heart rate naturally rises to ${hr} bpm. Because I know your weekly baseline pattern, I treat this exertion as healthy movement rather than stress.`;
-      actionSuggestion = "Take 2 minutes to walk slowly and let your heart rate settle back down.";
+    if (lower.includes("thank") || lower.includes("thanks")) {
+      return "You're very welcome! I'm always here if you want to check in or ask anything about your body pattern.";
     }
 
-    // 8. Hydration / Water
-    else if (lower.includes("water") || lower.includes("hydrate") || lower.includes("drink") || lower.includes("thirsty")) {
-      directAnswer = "Water is essential for proper blood volume, circulation, and keeping your body temperature balanced.";
-      dataContext = `Your skin temperature is ${temp}°C and heart rate is ${hr} bpm. Staying hydrated helps keep your heart rate steady at rest.`;
-      actionSuggestion = "Drink one full glass of water right now to give your body a quick refresh.";
+    if (lower.includes("bored") || lower.includes("interesting")) {
+      return "Did you know that your resting heart rate varies naturally throughout the day based on your circadian rhythm? AWEN learns these daily patterns so you can understand your body's natural quiet hours!";
     }
 
-    // 9. Exam / Study / Work Pressure
-    else if (lower.includes("exam") || lower.includes("study") || lower.includes("test") || lower.includes("work") || lower.includes("meeting")) {
-      this.userMemory.recentTopic = "studying";
-      directAnswer = "Focused mental work requires sustained brain power, which can gradually raise your subtle tension levels.";
-      dataContext = `Your rhythm is currently steady at ${hr} bpm while ${activity.toLowerCase()}, and your SpO₂ is optimal at ${spo2}%.`;
-      actionSuggestion = "Take a 5-minute break every hour to stand up and stretch.";
-    }
-
-    // 10. How am I doing / Baseline / Overview
-    else if (lower.includes("how am i") || lower.includes("doing") || lower.includes("wellness") || lower.includes("pattern") || lower.includes("baseline")) {
-      directAnswer = "You are doing well today, and your body is staying within a healthy, comfortable range.";
-      dataContext = `Your live heart rate is ${hr} bpm and SpO₂ is ${spo2}%, closely aligning with your personal body pattern.`;
-      actionSuggestion = "Keep up your gentle pace and enjoy a quiet pause later today.";
-    }
-
-    // 11. Conversational Fallback — Directly address the prompt topic
-    else {
-      directAnswer = `Regarding "${msg}": taking care of your daily balance starts with listening to your body's small cues.`;
-      dataContext = `Your current heart rate is ${hr} bpm and SpO₂ is ${spo2}% while ${activity.toLowerCase()}. These readings align nicely with your normal pattern.`;
-      actionSuggestion = "Take a gentle deep breath and give yourself a peaceful moment right now.";
-    }
-
-    const fullReply = `${directAnswer} ${dataContext} ${actionSuggestion}`;
-
-    if (this.replyHistory.has(fullReply)) {
-      return `${directAnswer} ${actionSuggestion}`;
-    }
-    this.replyHistory.add(fullReply);
-
-    return fullReply;
+    // Natural Conversational Fallback (NO forced telemetry or fake breathing suggestions!)
+    return `I'm here with you! Tell me how you're feeling today, or ask me anything about your personal baseline, your body pattern, or how AWEN works.`;
   }
 }
 
