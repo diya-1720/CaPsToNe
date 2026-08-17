@@ -9,7 +9,7 @@ import { AuthModal } from './components/AuthModal';
 import { ObservationModal } from './components/ObservationModal';
 import { LandingPage } from './components/LandingPage';
 
-import { Moon, User } from 'lucide-react';
+import { Moon, User, MessageCircle, ArrowLeft } from 'lucide-react';
 
 import { BaselineEngine, DEFAULT_BASELINE } from './services/baselineEngine';
 import { TelemetryStream } from './services/telemetryStream';
@@ -19,8 +19,18 @@ import { aiEngine } from './services/aiEngine';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('today');
+  const [previousTab, setPreviousTab] = useState('today');
   const [isNightMode, setIsNightMode] = useState(false);
   const [currentUser, setCurrentUser] = useState(apiService.currentUser);
+
+  const handleOpenTalk = () => {
+    setPreviousTab(activeTab === 'talk' ? 'today' : activeTab);
+    setActiveTab('talk');
+  };
+
+  const handleBackFromTalk = () => {
+    setActiveTab(previousTab || 'today');
+  };
   
   // Modals state
   const [isAuthOpen, setIsAuthOpen] = useState(false);
@@ -41,127 +51,125 @@ export default function App() {
 
   const [evaluation, setEvaluation] = useState(null);
   const [awenState, setAwenState] = useState(null);
+  const [userBaseline, setUserBaseline] = useState(null);
 
   // Restore Active Supabase Auth Session + Listen for Google OAuth Redirect
   useEffect(() => {
+    let subscription = null;
+
     async function initAuth() {
-      const sessionUser = await apiService.getActiveSession();
-      if (sessionUser) {
-        setCurrentUser(sessionUser);
-        aiEngine.setUserName(sessionUser.name);
+      const user = await apiService.restoreSession();
+      if (user) {
+        setCurrentUser(user);
       }
-    }
-    initAuth();
-
-    if (!isSupabaseConfigured) return;
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
-          const user = session.user;
-
-          // Ensure a profile row exists (handles first-time Google OAuth users)
-          await supabase.from('profiles').upsert(
-            {
-              id: user.id,
-              name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
-              email: user.email,
-              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
-              observation_mode: true,
-              baseline_confidence: 'Learning'
-            },
-            { onConflict: 'id', ignoreDuplicates: true }
-          );
-
-          // Fetch profile and update local state
-          const profile = await apiService.fetchUserProfile(user.id);
-          const userObj = {
-            id: user.id,
-            email: user.email,
-            name: profile?.name || user.user_metadata?.full_name || user.email?.split('@')[0],
-            timezone: profile?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
-            observation_mode: profile?.observation_mode ?? true,
-            observation_start: profile?.observation_start || new Date().toISOString(),
-            baseline_confidence: profile?.baseline_confidence || 'Learning',
-            token: session.access_token
-          };
-          const savedUser = apiService.saveLocalSession(userObj);
-          setCurrentUser(savedUser);
-          aiEngine.setUserName(savedUser.name);
-
-        } else if (event === 'SIGNED_OUT') {
-          setCurrentUser(null);
-          aiEngine.setUserName('');
+      const fetchedBaseline = await apiService.fetchUserBaseline(user?.id);
+      if (fetchedBaseline) {
+        setUserBaseline(fetchedBaseline);
+        if (baselineEngineRef.current) {
+          baselineEngineRef.current.setBaseline(fetchedBaseline);
         }
       }
-    );
 
-    return () => subscription.unsubscribe();
-  }, []);
-
-  // Initialize Telemetry Stream & Load User Session
-  useEffect(() => {
-    telemetryStreamRef.current = new TelemetryStream((data) => {
-      setTelemetry((prev) => ({
-        ...prev,
-        ...data
-      }));
-    });
-
-    telemetryStreamRef.current.start();
-
-    // Show Observation Onboarding if user is in learning mode
-    if (currentUser && currentUser.observation_mode && !sessionStorage.getItem('obs_seen')) {
-      setIsObsModalOpen(true);
-      sessionStorage.setItem('obs_seen', 'true');
+      if (isSupabaseConfigured()) {
+        const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+          if (session?.user) {
+            const userObj = {
+              id: session.user.id,
+              name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
+              email: session.user.email,
+              token: session.access_token,
+              baseline_confidence: 'Stable baseline',
+              observation_mode: false
+            };
+            apiService.saveLocalSession(userObj);
+            setCurrentUser(userObj);
+            const b = await apiService.fetchUserBaseline(userObj.id);
+            if (b) {
+              setUserBaseline(b);
+              if (baselineEngineRef.current) {
+                baselineEngineRef.current.setBaseline(b);
+              }
+            }
+          }
+        });
+        subscription = data.subscription;
+      }
     }
+
+    initAuth();
 
     return () => {
-      if (telemetryStreamRef.current) {
-        telemetryStreamRef.current.stop();
-      }
+      if (subscription) subscription.unsubscribe();
     };
+  }, []);
+
+  // Initialize Telemetry Stream (Demo mode or Web Serial ESP32 hardware)
+  useEffect(() => {
+    const stream = new TelemetryStream((reading) => {
+      setTelemetry({
+        ...reading,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      });
+    });
+
+    telemetryStreamRef.current = stream;
+    stream.start();
+
+    return () => {
+      stream.stop();
+    };
+  }, []);
+
+  // Check if first-time user needs Observation Mode modal onboarding
+  useEffect(() => {
+    if (currentUser && !currentUser.isGuest) {
+      const obsSeen = localStorage.getItem(`awen_obs_modal_${currentUser.id}`);
+      if (!obsSeen && currentUser.observation_mode) {
+        setIsObsModalOpen(true);
+      }
+    }
   }, [currentUser]);
 
-  // Compute baseline evaluation & Centralized AWEN State Engine
+  // Compute baseline evaluation & Centralized AWEN State Engine via Unified Pipeline
   useEffect(() => {
-    if (baselineEngineRef.current && telemetry) {
-      const evalResult = baselineEngineRef.current.evaluateReadings(
-        telemetry.heartRate,
-        telemetry.spo2,
-        telemetry.temperature,
-        telemetry.activity,
-        telemetry.mood
-      );
+    let isMounted = true;
+    async function runAnalysis() {
+      if (baselineEngineRef.current && telemetry) {
+        const evalResult = await apiService.analyzeTelemetry(telemetry, baselineEngineRef.current, userBaseline);
+        if (!isMounted) return;
 
-      // Compute AWEN State Engine Object (LEARNING, BALANCED, ACTIVE, WATCHFUL, WIND_DOWN)
-      const computedState = stateEngine.evaluateState({
-        observationMode: currentUser?.observation_mode || false,
-        daysObserved: currentUser?.observation_day || 5,
-        heartRate: telemetry.heartRate,
-        baselineHeartRate: baselineEngineRef.current.baseline.restingHr,
-        activityState: telemetry.activity,
-        isNightMode: isNightMode
-      });
+        // Compute AWEN State Engine Object (LEARNING, BALANCED, ACTIVE, WATCHFUL, WIND_DOWN)
+        const computedState = stateEngine.evaluateState({
+          observationMode: currentUser?.observation_mode || false,
+          daysObserved: currentUser?.observation_day || 5,
+          heartRate: telemetry.heartRate || telemetry.heart_rate || 64.0,
+          baselineHeartRate: baselineEngineRef.current.baseline.restingHr,
+          activityState: telemetry.activity,
+          isNightMode: isNightMode
+        });
 
-      setAwenState(computedState);
+        setAwenState(computedState);
 
-      // Map State Engine state to mascot expression
-      if (computedState.wellnessState === AWEN_STATES.LEARNING) {
-        evalResult.emotionalState = "thinking";
-      } else if (computedState.wellnessState === AWEN_STATES.WIND_DOWN) {
-        evalResult.emotionalState = "sleeping";
-      } else if (computedState.wellnessState === AWEN_STATES.ACTIVE) {
-        evalResult.emotionalState = "celebrating";
-      } else if (computedState.wellnessState === AWEN_STATES.WATCHFUL) {
-        evalResult.emotionalState = "concerned";
-      } else {
-        evalResult.emotionalState = "happy";
+        // Map State Engine state to mascot expression
+        if (computedState.wellnessState === AWEN_STATES.LEARNING) {
+          evalResult.emotionalState = "thinking";
+        } else if (computedState.wellnessState === AWEN_STATES.WIND_DOWN) {
+          evalResult.emotionalState = "sleeping";
+        } else if (computedState.wellnessState === AWEN_STATES.ACTIVE) {
+          evalResult.emotionalState = "celebrating";
+        } else if (computedState.wellnessState === AWEN_STATES.WATCHFUL) {
+          evalResult.emotionalState = "concerned";
+        } else {
+          evalResult.emotionalState = "happy";
+        }
+
+        setEvaluation(evalResult);
       }
-
-      setEvaluation(evalResult);
     }
-  }, [telemetry, isNightMode, currentUser]);
+
+    runAnalysis();
+    return () => { isMounted = false; };
+  }, [telemetry, isNightMode, currentUser, userBaseline]);
 
   const handleSelectActivity = (activity) => {
     if (telemetryStreamRef.current) {
@@ -175,48 +183,62 @@ export default function App() {
     }
   };
 
-  const handleAuthSuccess = (userObj) => {
-    setCurrentUser(userObj);
-    aiEngine.setUserName(userObj?.name || '');
-  };
-
-  const handleTryDemo = () => {
-    // Guest session for immediate exploration
-    const guestUser = apiService.saveLocalSession({
-      id: `guest_${Date.now()}`,
-      name: 'Guest',
-      email: '',
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
-      observation_mode: true,
-      observation_start: new Date().toISOString(),
-      baseline_confidence: 'Learning',
-      token: null,
-      isGuest: true
-    });
-    setCurrentUser(guestUser);
-    aiEngine.setUserName('Guest');
+  const handleToggleObservation = async (enable) => {
+    if (currentUser) {
+      const updated = { ...currentUser, observation_mode: enable, observation_day: enable ? 1 : 5 };
+      setCurrentUser(updated);
+      apiService.saveLocalSession(updated);
+      if (!currentUser.isGuest) {
+        await apiService.updateProfileObservationMode(currentUser.id, enable);
+      }
+    }
   };
 
   const handleLogout = async () => {
     await apiService.logout();
     setCurrentUser(null);
-    aiEngine.setUserName('');
+    setActiveTab('today');
   };
 
-  const handleToggleObservation = async (enabled) => {
-    const updated = await apiService.updateObservationMode(enabled);
-    setCurrentUser(updated);
+  const handleAuthSuccess = (user) => {
+    setCurrentUser(user);
+    setIsAuthOpen(false);
   };
 
-  // Unauthenticated Landing View
+  // If user is unauthenticated, render the high-conversion Landing Page
   if (!currentUser) {
     return (
       <>
-        <LandingPage
+        <LandingPage 
           onGetStarted={() => setIsAuthOpen(true)}
-          onTryDemo={handleTryDemo}
+          onOpenAuth={() => setIsAuthOpen(true)}
+          onTryDemo={() => {
+            const guestUser = {
+              id: 'guest_demo',
+              name: 'Guest Explorer',
+              email: 'guest@awen.health',
+              isGuest: true,
+              observation_mode: false,
+              observation_day: 5
+            };
+            apiService.saveLocalSession(guestUser);
+            setCurrentUser(guestUser);
+          }}
+          onStartDemo={() => {
+            const guestUser = {
+              id: 'guest_demo',
+              name: 'Guest Explorer',
+              email: 'guest@awen.health',
+              isGuest: true,
+              observation_mode: false,
+              observation_day: 5
+            };
+            apiService.saveLocalSession(guestUser);
+            setCurrentUser(guestUser);
+          }}
         />
-        <AuthModal
+
+        <AuthModal 
           isOpen={isAuthOpen}
           onClose={() => setIsAuthOpen(false)}
           onAuthSuccess={handleAuthSuccess}
@@ -226,52 +248,73 @@ export default function App() {
   }
 
   return (
-    <div className={`min-h-[100dvh] w-full transition-colors duration-700 flex flex-col font-sans selection:bg-cyan-500 selection:text-white relative overflow-x-hidden ${
-      isNightMode 
-        ? 'bg-[#040711] text-slate-100' 
-        : 'bg-[#080d18] text-slate-100'
-    }`}>
+    <div 
+      data-theme={isNightMode ? 'dark' : 'light'}
+      className={`min-h-[100dvh] w-full transition-colors duration-700 flex flex-col font-sans selection:bg-cyan-500 selection:text-white relative overflow-x-hidden ${isNightMode ? 'dark' : ''}`}
+      style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+    >
       
       {/* Night Mode Starlight Ambient Glow Overlay */}
       {isNightMode && (
         <div className="fixed inset-0 pointer-events-none z-0">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl" />
-          <div className="absolute bottom-1/3 left-0 w-80 h-80 bg-rose-500/10 rounded-full blur-3xl" />
+          <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-600/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-1/3 left-0 w-80 h-80 bg-teal-500/10 rounded-full blur-3xl" />
           <div className="absolute top-12 left-10 w-1 h-1 bg-white rounded-full animate-ping opacity-60" />
-          <div className="absolute top-36 right-16 w-1 h-1 bg-cyan-300 rounded-full animate-pulse opacity-70" />
-          <div className="absolute top-1/2 left-8 w-1.5 h-1.5 bg-indigo-300 rounded-full animate-ping opacity-50 [animation-delay:1s]" />
+          <div className="absolute top-36 right-16 w-1 h-1 bg-teal-300 rounded-full animate-pulse opacity-70" />
+          <div className="absolute top-1/2 left-8 w-1.5 h-1.5 bg-emerald-300 rounded-full animate-ping opacity-50 [animation-delay:1s]" />
         </div>
       )}
 
       {/* Top Corner Header Bar */}
-      <header className="sticky top-0 z-40 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between pointer-events-auto">
+      <header className="sticky top-0 z-40 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3 pt-safe flex items-center justify-between pointer-events-auto backdrop-blur-md bg-[var(--glass-bg)] border-b border-[var(--border-color)] transition-colors duration-300">
         
-        {/* Brand Logo Pill & Demo Indicator */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 glass-pill px-3 py-1.5 rounded-full text-xs font-semibold text-slate-200 shadow-md">
-            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-            <span className="font-heading font-bold tracking-wider text-sm">AWEN</span>
-            <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">| Wellness Companion</span>
-          </div>
+        {/* Left Header: Brand Logo Pill & Talk Assistant Launcher OR Back Button */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {activeTab === 'talk' ? (
+            <button
+              onClick={handleBackFromTalk}
+              className="flex items-center gap-1.5 glass-pill px-3 py-1.5 rounded-full text-xs font-medium text-cyan-300 hover:text-white border border-cyan-500/30 transition-colors active:scale-95"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back to {previousTab.charAt(0).toUpperCase() + previousTab.slice(1)}</span>
+            </button>
+          ) : (
+            <>
+              <div className="flex items-center gap-1.5 sm:gap-2 glass-pill px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-semibold text-slate-200 shadow-md">
+                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shrink-0" />
+                <span className="font-heading font-bold tracking-wider text-xs sm:text-sm">AWEN</span>
+                <span className="text-[10px] text-slate-400 font-mono hidden md:inline">| Wellness Companion</span>
+              </div>
 
-          <span className={`text-[10px] font-mono px-2.5 py-0.5 rounded-full border ${telemetry.isHardware ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300'}`}>
+              {/* Compact Top-Left Assistant Launcher */}
+              <button
+                onClick={handleOpenTalk}
+                className="flex items-center gap-1.5 glass-pill px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-medium text-cyan-300 hover:text-white border border-cyan-500/30 hover:border-cyan-400/50 shadow-sm transition-all active:scale-95"
+              >
+                <MessageCircle className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                <span>Talk to AWEN</span>
+              </button>
+            </>
+          )}
+
+          <span className={`text-[9px] sm:text-[10px] font-mono px-2 sm:px-2.5 py-0.5 rounded-full border shrink-0 ${telemetry.isHardware ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300'}`}>
             {telemetry.isHardware ? 'ESP32 Live' : 'Demo Stream'}
           </span>
         </div>
 
         {/* Top Right Corner Controls: Auth Profile & Moon Symbol Button */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <button
             onClick={() => currentUser ? setActiveTab('you') : setIsAuthOpen(true)}
-            className="flex items-center gap-1.5 glass-pill px-3 py-1.5 rounded-full text-xs font-medium text-slate-200 hover:text-white transition-colors"
+            className="flex items-center gap-1.5 glass-pill px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-medium text-slate-200 hover:text-white transition-colors"
           >
-            <User className="w-3.5 h-3.5 text-cyan-400" />
-            <span>{currentUser?.name || 'Sign In'}</span>
+            <User className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+            <span className="max-w-[80px] sm:max-w-[120px] truncate">{currentUser?.name || 'Sign In'}</span>
           </button>
 
           <button
             onClick={() => setIsNightMode(!isNightMode)}
-            className={`p-2.5 rounded-full backdrop-blur-md border transition-all duration-300 shadow-lg ${
+            className={`p-2 sm:p-2.5 rounded-full backdrop-blur-md border transition-all duration-300 shadow-lg ${
               isNightMode 
                 ? 'bg-indigo-950/80 border-indigo-500/40 text-indigo-300 shadow-indigo-500/20 scale-105' 
                 : 'glass-pill text-slate-300 hover:text-white border-white/10 hover:bg-white/10'
@@ -279,14 +322,14 @@ export default function App() {
             title={isNightMode ? "Switch to Ambient Mode" : "Activate Deep Night Mode"}
             aria-label="Night Mode Toggle"
           >
-            <Moon className={`w-5 h-5 ${isNightMode ? 'fill-indigo-300 text-indigo-200 animate-pulse' : 'text-slate-300 hover:text-cyan-300'}`} />
+            <Moon className={`w-4 h-4 sm:w-5 sm:h-5 ${isNightMode ? 'fill-indigo-300 text-indigo-200 animate-pulse' : 'text-slate-300 hover:text-cyan-300'}`} />
           </button>
         </div>
 
       </header>
 
       {/* Mobile Screen Router */}
-      <main className="flex-1 w-full relative z-10">
+      <main className="flex-1 w-full relative z-10 flex flex-col min-h-0">
         {activeTab === 'today' && (
           <TodayScreen 
             telemetry={telemetry}
@@ -294,10 +337,11 @@ export default function App() {
             awenState={awenState}
             onSelectActivity={handleSelectActivity}
             onSelectMood={handleSelectMood}
-            onOpenTalk={() => setActiveTab('talk')}
+            onOpenTalk={handleOpenTalk}
             onOpenInsights={() => setActiveTab('journey')}
             isNightMode={isNightMode}
             currentUser={currentUser}
+            baselineData={baselineEngineRef.current?.baseline}
           />
         )}
 
@@ -305,6 +349,7 @@ export default function App() {
           <JourneyScreen 
             baselineData={baselineEngineRef.current?.baseline}
             evaluation={evaluation}
+            currentUser={currentUser}
           />
         )}
 
@@ -313,6 +358,10 @@ export default function App() {
             telemetry={telemetry}
             evaluation={evaluation}
             currentUser={currentUser}
+            baselineData={baselineEngineRef.current?.baseline}
+            onOpenJourney={() => setActiveTab('journey')}
+            onOpenBaseline={() => setActiveTab('you')}
+            onBack={handleBackFromTalk}
           />
         )}
 
@@ -325,6 +374,12 @@ export default function App() {
             baselineData={baselineEngineRef.current?.baseline}
             telemetryStream={telemetryStreamRef.current}
             telemetry={telemetry}
+            onUpdateUserBaseline={(newB) => {
+              setUserBaseline(newB);
+              if (baselineEngineRef.current) {
+                baselineEngineRef.current.setBaseline(newB);
+              }
+            }}
           />
         )}
       </main>
@@ -344,11 +399,20 @@ export default function App() {
 
       <ObservationModal 
         isOpen={isObsModalOpen}
-        onClose={() => setIsObsModalOpen(false)}
-        onStartObservation={() => handleToggleObservation(true)}
-        onSkipObservation={() => handleToggleObservation(false)}
+        onClose={() => {
+          setIsObsModalOpen(false);
+          if (currentUser) {
+            localStorage.setItem(`awen_obs_modal_${currentUser.id}`, 'true');
+          }
+        }}
+        onConfirmObservation={() => {
+          handleToggleObservation(true);
+          setIsObsModalOpen(false);
+          if (currentUser) {
+            localStorage.setItem(`awen_obs_modal_${currentUser.id}`, 'true');
+          }
+        }}
       />
-
     </div>
   );
 }
