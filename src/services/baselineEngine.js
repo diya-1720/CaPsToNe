@@ -37,7 +37,30 @@ export const ACTIVITY_PROFILES = {
 
 export class BaselineEngine {
   constructor(userBaseline = DEFAULT_BASELINE) {
-    this.baseline = { ...userBaseline };
+    this.setBaseline(userBaseline);
+  }
+
+  /**
+   * Dynamically update engine baseline values from database or user session,
+   * cleanly falling back to DEFAULT_BASELINE for any unspecified field.
+   */
+  setBaseline(userBaseline) {
+    this.baseline = {
+      ...DEFAULT_BASELINE,
+      ...userBaseline
+    };
+    if (userBaseline?.restingHr !== undefined && userBaseline?.restingHr !== null) {
+      this.baseline.restingHr = Number(userBaseline.restingHr) || DEFAULT_BASELINE.restingHr;
+    }
+    if (userBaseline?.restingSpo2 !== undefined && userBaseline?.restingSpo2 !== null) {
+      this.baseline.restingSpo2 = Number(userBaseline.restingSpo2) || DEFAULT_BASELINE.restingSpo2;
+    }
+    if (userBaseline?.restingTemp !== undefined && userBaseline?.restingTemp !== null) {
+      this.baseline.restingTemp = Number(userBaseline.restingTemp) || DEFAULT_BASELINE.restingTemp;
+    }
+    if (userBaseline?.hrStdDev !== undefined && userBaseline?.hrStdDev !== null) {
+      this.baseline.hrStdDev = Number(userBaseline.hrStdDev) || DEFAULT_BASELINE.hrStdDev;
+    }
   }
 
   /**
@@ -125,24 +148,44 @@ export class BaselineEngine {
         summary: whySummary,
         factors: [
           {
-            title: "Baseline Delta",
+            key: "baseline_delta",
+            title: "Baseline Difference",
+            label: "Baseline Difference",
+            value: `${hrDelta >= 0 ? '+' : ''}${Math.round(hrDelta * 10) / 10} bpm from expected`,
             detail: `${hrDelta >= 0 ? '+' : ''}${Math.round(hrDelta * 10) / 10} bpm from expected`,
-            status: Math.abs(hrDelta) < 8 ? "normal" : "elevated"
+            status: Math.abs(hrDelta) < 8 ? "normal" : "elevated",
+            explanation: `Your heart rate (${Math.round(hr)} bpm) is ${Math.abs(Math.round(hrDelta))} bpm ${hrDelta >= 0 ? 'above' : 'below'} your expected baseline for ${activity}.`
           },
           {
+            key: "activity_context",
             title: "Activity Context",
+            label: "Activity Context",
+            value: activity,
             detail: isExertionExplained ? `Exertion Filter Applied (${activity})` : `Filtered for ${activity}`,
-            status: "active"
+            status: isExertionExplained ? "active" : "normal",
+            explanation: isExertionExplained 
+              ? `Elevated heart rate is expected during physical movement (${activity}). Exertion filter active.`
+              : `Current activity level is ${activity}. Reading captured during low physical movement.`
           },
           {
+            key: "spo2_stability",
             title: "SpO₂ Oxygen Stability",
+            label: "SpO₂ Oxygen Stability",
+            value: `${Math.round(spo2 * 10) / 10}% (${spo2 >= 96 ? "Optimal" : "Mild Variance"})`,
             detail: `${Math.round(spo2 * 10) / 10}% (${spo2 >= 96 ? "Optimal" : "Mild Variance"})`,
-            status: spo2 >= 96 ? "normal" : "warning"
+            status: spo2 >= 96 ? "normal" : "warning",
+            explanation: spo2 >= 96 
+              ? `Oxygen saturation (${Math.round(spo2 * 10) / 10}%) aligns with your normal resting baseline.`
+              : `Oxygen saturation (${Math.round(spo2 * 10) / 10}%) shows minor variation.`
           },
           {
-            title: "Model Confidence",
-            detail: `${confidenceScore}% match to personal profile`,
-            status: "high"
+            key: "model_confidence",
+            title: "Analysis Confidence",
+            label: "Analysis Confidence",
+            value: `${confidenceScore}% profile match`,
+            detail: `${confidenceScore}% match to personal baseline`,
+            status: "high",
+            explanation: `Analysis confidence matched against your learned resting baseline profile (${this.baseline.confidence || 'Stable baseline'}).`
           }
         ]
       }
