@@ -55,9 +55,9 @@ Calculates time window based on local time and selects context-aware messages:
   - **Right Column**: Exactly 3 Health Cards (Heart Rate, SpO₂, Temperature) + Evening Check-in.
 - Mobile Viewport: Full-width native mobile app experience with safe area insets and `pb-32` bottom padding to protect content from the sticky bottom navigation bar.
 
-### 8. Live Production Deployment
+### 8. Repository & Environment Status
 - **GitHub Repository**: [https://github.com/diya-1720/AWEN](https://github.com/diya-1720/AWEN)
-- **Live Vercel Web App**: [https://awen-silk.vercel.app/](https://awen-silk.vercel.app/)
+- **Deployment Strategy**: Local Development + GitHub Version Control (Vercel deployment intentionally unconfigured)
 
 ---
 
