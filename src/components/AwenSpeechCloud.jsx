@@ -7,7 +7,7 @@ import { ArrowRight, MessageCircle, Heart, TrendingUp } from 'lucide-react';
  * Features a soft downward tail pointing to AWEN, clean 2-3 lines of text,
  * and quick contextual options (Talk to AWEN, Explain My Wellness, Today's Insight).
  */
-export const AwenSpeechCloud = ({ message, isVisible, onTalkMore, onExplain, onInsights }) => {
+const AwenSpeechCloudComponent = ({ message, isVisible, onTalkMore, onExplain, onInsights }) => {
   if (!isVisible || !message) return null;
 
   return (
@@ -78,3 +78,6 @@ export const AwenSpeechCloud = ({ message, isVisible, onTalkMore, onExplain, onI
     </div>
   );
 };
+
+export const AwenSpeechCloud = React.memo(AwenSpeechCloudComponent);
+
