@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Eye, HelpCircle, Play, CheckCircle2, Clock, Sparkles, RefreshCw, AlertCircle } from 'lucide-react';
 import { insightEngine } from '../services/insightEngine';
 
-export const InsightCard = ({ insight, onOpenExplain }) => {
+const InsightCardComponent = ({ insight, onOpenExplain }) => {
   const [isPauseActive, setIsPauseActive] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(120);
   const [startHr, setStartHr] = useState(null);
@@ -11,6 +11,12 @@ export const InsightCard = ({ insight, onOpenExplain }) => {
   const timerRef = useRef(null);
   const liveHr = insight?.metrics?.hr || 64.0;
   const restingHr = insight?.baseline?.restingHr || 64.0;
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
 
   // Handle starting the 2-minute pause action
   const handleStartPause = () => {
@@ -222,3 +228,5 @@ export const InsightCard = ({ insight, onOpenExplain }) => {
     </div>
   );
 };
+
+export const InsightCard = React.memo(InsightCardComponent);

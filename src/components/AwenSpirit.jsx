@@ -28,26 +28,34 @@ const AwenSpiritComponent = ({
   const isLateNight = new Date().getHours() >= 22 || new Date().getHours() < 6;
   const activeExpression = (isLateNight && expression === "happy") ? "sleeping" : expression;
 
-  // Blinking cycle
+  // Blinking cycle with cleanup
   useEffect(() => {
+    let timeoutId = null;
     const blinkInterval = setInterval(() => {
       setIsBlinking(true);
-      setTimeout(() => setIsBlinking(false), 160);
+      timeoutId = setTimeout(() => setIsBlinking(false), 160);
     }, 3800);
 
-    return () => clearInterval(blinkInterval);
+    return () => {
+      clearInterval(blinkInterval);
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, []);
 
-  // Occasional eye glance
+  // Occasional eye glance with cleanup
   useEffect(() => {
+    let timeoutId = null;
     const glanceInterval = setInterval(() => {
       const randomX = (Math.random() - 0.5) * 4;
       const randomY = (Math.random() - 0.5) * 3;
       setEyeOffset({ x: randomX, y: randomY });
-      setTimeout(() => setEyeOffset({ x: 0, y: 0 }), 1400);
+      timeoutId = setTimeout(() => setEyeOffset({ x: 0, y: 0 }), 1400);
     }, 6000);
 
-    return () => clearInterval(glanceInterval);
+    return () => {
+      clearInterval(glanceInterval);
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, []);
 
   // Tap handler

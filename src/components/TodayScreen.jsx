@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { AwenSpirit } from './AwenSpirit';
 import { AwenSpeechCloud } from './AwenSpeechCloud';
 import { evaluateAwenSpeech } from '../services/speechEngine';
@@ -8,7 +8,7 @@ import { InsightCard } from './InsightCard';
 import { Heart, Activity as ActivityIcon, Thermometer, HelpCircle, ChevronRight, X, ShieldCheck, Radio, Sparkles } from 'lucide-react';
 import { AWEN_STATES } from '../services/stateEngine';
 
-export const TodayScreen = ({ 
+const TodayScreenComponent = ({ 
   telemetry, 
   evaluation, 
   awenState,
@@ -38,13 +38,22 @@ export const TodayScreen = ({
 
   const cloudTimerRef = useRef(null);
 
-  // Compute unified insight from insightEngine
-  const insight = insightEngine.evaluateInsight(
-    telemetry,
-    evaluation,
-    awenState,
-    baselineData
-  );
+  // Compute unified insight from insightEngine (memoized for 60fps responsiveness)
+  const insight = useMemo(() => {
+    return insightEngine.evaluateInsight(
+      telemetry,
+      evaluation,
+      awenState,
+      baselineData
+    );
+  }, [
+    telemetry?.heartRate, 
+    telemetry?.spo2, 
+    telemetry?.temperature, 
+    telemetry?.activity, 
+    awenState?.wellnessState, 
+    baselineData?.restingHr
+  ]);
 
   // Handle Mascot Tap / Click Interaction
   const handleAwenTap = () => {
@@ -393,3 +402,5 @@ export const TodayScreen = ({
     </div>
   );
 };
+
+export const TodayScreen = React.memo(TodayScreenComponent);

@@ -253,18 +253,22 @@ export class TelemetryStream {
 
       let buffer = "";
       while (this.isHardwareConnected) {
-        const { value, done } = await this.reader.read();
-        if (done) break;
-        buffer += value;
-        
-        let lines = buffer.split("\n");
-        buffer = lines.pop(); // Keep last incomplete line
+        try {
+          const { value, done } = await this.reader.read();
+          if (done) break;
+          buffer += value;
+          
+          let lines = buffer.split("\n");
+          buffer = lines.pop(); // Keep last incomplete line
 
-        for (let line of lines) {
-          const parsed = TelemetryStream.parseSerialPacket(line, this.currentActivity, this.currentMood);
-          if (parsed && parsed.isValid && this.onReading) {
-            this.onReading(parsed);
+          for (let line of lines) {
+            const parsed = TelemetryStream.parseSerialPacket(line, this.currentActivity, this.currentMood);
+            if (parsed && parsed.isValid && this.onReading) {
+              this.onReading(parsed);
+            }
           }
+        } catch (readErr) {
+          break;
         }
       }
     } catch (err) {

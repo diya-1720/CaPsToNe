@@ -1,7 +1,7 @@
 import React from 'react';
 import { ShieldCheck, Heart, Activity, ChevronRight } from 'lucide-react';
 
-export const BaselineHeroCard = ({ insight, currentUser, onOpenDetails }) => {
+const BaselineHeroCardComponent = ({ insight, currentUser, onOpenDetails }) => {
   const restingHr = insight?.baseline?.restingHr ? Number(insight.baseline.restingHr) : 64.0;
   const hrStdDev = insight?.baseline?.hrStdDev ? Number(insight.baseline.hrStdDev) : 4.8;
   const currentHr = insight?.metrics?.hr || 64.0;
@@ -123,3 +123,5 @@ export const BaselineHeroCard = ({ insight, currentUser, onOpenDetails }) => {
     </div>
   );
 };
+
+export const BaselineHeroCard = React.memo(BaselineHeroCardComponent);

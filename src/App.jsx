@@ -148,7 +148,12 @@ export default function App() {
           isNightMode: isNightMode
         });
 
-        setAwenState(computedState);
+        setAwenState(prevState => {
+          if (prevState && prevState.wellnessState === computedState.wellnessState && prevState.auraColor === computedState.auraColor) {
+            return prevState;
+          }
+          return computedState;
+        });
 
         // Map State Engine state to mascot expression
         if (computedState.wellnessState === AWEN_STATES.LEARNING) {
@@ -163,7 +168,17 @@ export default function App() {
           evalResult.emotionalState = "happy";
         }
 
-        setEvaluation(evalResult);
+        setEvaluation(prevEval => {
+          if (
+            prevEval &&
+            prevEval.emotionalState === evalResult.emotionalState &&
+            prevEval.anomalyScore === evalResult.anomalyScore &&
+            prevEval.status === evalResult.status
+          ) {
+            return prevEval;
+          }
+          return evalResult;
+        });
       }
     }
 
