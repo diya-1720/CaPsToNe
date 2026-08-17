@@ -109,33 +109,53 @@ export function evaluateAwenSpeech(wellnessContext) {
   const hour = new Date().getHours();
   const timeWin = getTimeWindow(hour);
   const hrDelta = heartRate - baselineHeartRate;
-  const isMoving = ["Walking", "Climbing Stairs", "Gym", "Running", "Exercise"].includes(activityState);
 
   let selected = null;
 
   // Priority 1: Observation Mode (Do NOT make strong stress conclusions)
   if (observationMode) {
     selected = {
-      text: "I'm still learning your normal pattern. Give me a little more time and I'll understand your body better. 🌟",
+      text: "I'm still learning your usual pattern. Give me a little more time and I'll understand what's normal for you. 🌱",
       expression: "thinking"
     };
   }
-  // Priority 2: Physical Exertion / Movement Detected
-  else if (isMoving) {
+  // Priority 2: Climbing Stairs Activity Filter
+  else if (activityState === "Climbing Stairs" || activityState === "Stairs") {
     selected = {
-      text: "Ahh, you've been moving! 😄 I'll give your heart a little time to settle before I check your pattern.",
+      text: "Your heart rate is up, but you're climbing stairs, so that makes sense. I'll keep watching! 🚶‍♂️",
+      expression: "happy"
+    };
+  }
+  // Priority 3: Heavy Physical Exercise / Gym / Running
+  else if (["Gym", "Running", "Exercise", "Workout"].includes(activityState)) {
+    selected = {
+      text: "Your heart rate is higher because you're active. That's expected. I'll check how quickly you settle afterward. 🏃",
       expression: "celebrating"
     };
   }
-  // Priority 3: Elevated HR while resting
-  else if (hrDelta > 10) {
+  // Priority 4: Walking Activity Filter
+  else if (activityState === "Walking") {
     selected = {
-      text: "Your heart is beating a little faster than usual. If you're resting, take a quiet moment to slow down. 💙",
+      text: "Your heart rate is slightly elevated while walking. That's normal movement. I'll keep tracking your rhythm. 🚶",
+      expression: "happy"
+    };
+  }
+  // Priority 5: Elevated HR while Resting (Non-Exertional Variance)
+  else if (activityState === "Resting" && hrDelta > 8) {
+    selected = {
+      text: "Your heart rate is a little higher than your usual resting pattern. Let's keep an eye on it calmly. 💙",
       expression: "concerned"
     };
   }
-  // Priority 4: Specific Memory Context (e.g. Exam prep)
-  else if (recentTopic === "exam preparation") {
+  // Priority 6: Normal Resting Pattern
+  else if (activityState === "Resting" && Math.abs(hrDelta) <= 8) {
+    selected = {
+      text: "You're looking pretty steady right now. Nothing unusual. 😊",
+      expression: "happy"
+    };
+  }
+  // Priority 7: Memory / Exam Context
+  else if (recentTopic === "exam preparation" || recentTopic === "studying") {
     if (timeWin === TIME_WINDOWS.MORNING || timeWin === TIME_WINDOWS.AFTERNOON) {
       selected = {
         text: "Exam prep already? Don't forget to give your brain a proper break.",
@@ -147,13 +167,6 @@ export function evaluateAwenSpeech(wellnessContext) {
         expression: "sleeping"
       };
     }
-  }
-  // Priority 5: Lunch Window (Check if already eaten)
-  else if (timeWin === TIME_WINDOWS.LUNCH_WINDOW && hasEatenLunch) {
-    selected = {
-      text: "Hope lunch gave you a little energy for the rest of the day. 🌱",
-      expression: "happy"
-    };
   }
 
   // Fallback: Pick appropriate message from current Time Window
@@ -173,3 +186,4 @@ export function evaluateAwenSpeech(wellnessContext) {
 
   return selected;
 }
+
