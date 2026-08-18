@@ -2,7 +2,7 @@
 
 > **Personalized Physiological Intelligence & Emotional Wellness Companion**
 
-[![GitHub Repository](https://img.shields.io/badge/GitHub-diya--1720%2FAWEN-181717?style=for-the-badge&logo=github)](https://github.com/diya-1720/AWEN)
+[![GitHub Repository](https://img.shields.io/badge/GitHub-Itzphantomgg%2FAWEN-181717?style=for-the-badge&logo=github)](https://github.com/Itzphantomgg/AWEN)
 
 AWEN is a premium AI-IoT digital wellness platform that analyzes an individual's personal physiological behavior rather than comparing them against generic medical thresholds. Instead of asking *"Is your heart rate above 100?"*, AWEN asks *"Is today's physiological behavior different from YOUR normal baseline?"*.
 
