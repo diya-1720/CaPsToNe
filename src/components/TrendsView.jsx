@@ -19,30 +19,30 @@ export const TrendsView = ({ baselineData }) => {
     <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-6">
       
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 glass-panel p-6 rounded-3xl border border-white/10">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 neo-surface p-6  border border-2 border-[var(--border-strong)]">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-medium mb-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1  bg-blue-500/10 border border-2 border-[var(--border-strong)] text-[var(--text-primary)] text-xs font-medium mb-2">
             <BarChart3 className="w-3.5 h-3.5" />
             <span>Longitudinal Analytics</span>
           </div>
-          <h2 className="font-heading text-2xl font-bold text-white">
+          <h2 className="font-heading text-2xl font-bold text-[var(--text-primary)]">
             Physiological Trends & Insights
           </h2>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-[var(--text-secondary)] font-bold">
             Compare your actual telemetry against your learned 5-day baseline signature over time.
           </p>
         </div>
 
         {/* Timeframe Selector Tabs */}
-        <div className="flex items-center gap-1 bg-slate-900/80 p-1.5 rounded-2xl border border-white/10">
+        <div className="flex items-center gap-1 bg-[var(--surface-primary)] p-1.5  border border-2 border-[var(--border-strong)]">
           {['daily', 'weekly', 'monthly'].map((t) => (
             <button
               key={t}
               onClick={() => setTimeframe(t)}
-              className={`px-4 py-1.5 rounded-xl text-xs font-semibold capitalize transition-all ${
+              className={`px-4 py-1.5  text-xs font-semibold capitalize transition-all ${
                 timeframe === t
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-blue-600 text-[var(--text-primary)] shadow-[2px_2px_0px_#111] shadow-[2px_2px_0px_#111]'
+                  : 'text-[var(--text-secondary)] font-bold hover:text-[var(--text-primary)] font-bold'
               }`}
             >
               {t}
@@ -52,14 +52,14 @@ export const TrendsView = ({ baselineData }) => {
       </div>
 
       {/* Main Chart Card: Heart Rate Baseline vs Actual */}
-      <div className="glass-panel p-6 rounded-3xl border border-white/10 space-y-4">
+      <div className="neo-surface p-6  border border-2 border-[var(--border-strong)] space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="font-heading text-lg font-bold text-white flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-blue-400" />
+            <h3 className="font-heading text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-[var(--text-primary)]" />
               <span>Heart Rate Baseline vs. Actual (BPM)</span>
             </h3>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-[var(--text-secondary)] font-bold">
               Dashed line represents your personal resting baseline (64 bpm).
             </p>
           </div>
@@ -67,11 +67,11 @@ export const TrendsView = ({ baselineData }) => {
           <div className="flex items-center gap-4 text-xs">
             <div className="flex items-center gap-1.5">
               <span className="w-3 h-1 rounded bg-blue-400" />
-              <span className="text-slate-300">Actual HR</span>
+              <span className="text-[var(--text-secondary)] font-bold">Actual HR</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-3 h-0.5 border-t border-dashed border-emerald-400" />
-              <span className="text-slate-300">Baseline (64 bpm)</span>
+              <span className="text-[var(--text-secondary)] font-bold">Baseline (64 bpm)</span>
             </div>
           </div>
         </div>
@@ -131,31 +131,31 @@ export const TrendsView = ({ baselineData }) => {
       {/* Secondary Metrics: SpO2 Stability & Cardiovascular Recovery Rate */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         
-        <div className="glass-panel p-5 rounded-2xl border border-white/10 space-y-3">
+        <div className="neo-surface p-5  border border-2 border-[var(--border-strong)] space-y-3">
           <div className="flex items-center justify-between">
-            <h4 className="font-heading text-sm font-semibold text-white">SpO₂ Oxygen Stability</h4>
-            <span className="text-xs text-emerald-400 font-semibold">98.5% Weekly Avg</span>
+            <h4 className="font-heading text-sm font-semibold text-[var(--text-primary)]">SpO₂ Oxygen Stability</h4>
+            <span className="text-xs text-[var(--accent-green-dark)] font-semibold">98.5% Weekly Avg</span>
           </div>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-[var(--text-secondary)] font-bold">
             No hypoxic events or unnatural oxygen dips recorded across 7 days.
           </p>
-          <div className="w-full bg-slate-900/80 p-3 rounded-xl border border-white/5 flex items-center justify-between text-xs">
-            <span className="text-slate-400">Stability Index:</span>
-            <span className="text-white font-semibold">High (99.1%)</span>
+          <div className="w-full bg-[var(--surface-primary)] p-3  border border-2 border-[var(--border-strong)] flex items-center justify-between text-xs">
+            <span className="text-[var(--text-secondary)] font-bold">Stability Index:</span>
+            <span className="text-[var(--text-primary)] font-semibold">High (99.1%)</span>
           </div>
         </div>
 
-        <div className="glass-panel p-5 rounded-2xl border border-white/10 space-y-3">
+        <div className="neo-surface p-5  border border-2 border-[var(--border-strong)] space-y-3">
           <div className="flex items-center justify-between">
-            <h4 className="font-heading text-sm font-semibold text-white">Recovery Velocity Trend</h4>
-            <span className="text-xs text-blue-400 font-semibold">+2.1 bpm/min improvement</span>
+            <h4 className="font-heading text-sm font-semibold text-[var(--text-primary)]">Recovery Velocity Trend</h4>
+            <span className="text-xs text-[var(--text-primary)] font-semibold">+2.1 bpm/min improvement</span>
           </div>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-[var(--text-secondary)] font-bold">
             Post-exertion recovery speed improved following regular daily walk breaks.
           </p>
-          <div className="w-full bg-slate-900/80 p-3 rounded-xl border border-white/5 flex items-center justify-between text-xs">
-            <span className="text-slate-400">Cardiovascular Recovery:</span>
-            <span className="text-emerald-400 font-semibold">Optimal</span>
+          <div className="w-full bg-[var(--surface-primary)] p-3  border border-2 border-[var(--border-strong)] flex items-center justify-between text-xs">
+            <span className="text-[var(--text-secondary)] font-bold">Cardiovascular Recovery:</span>
+            <span className="text-[var(--accent-green-dark)] font-semibold">Optimal</span>
           </div>
         </div>
 

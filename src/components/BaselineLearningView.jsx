@@ -13,7 +13,7 @@ export const BaselineLearningView = ({ onCompleteBaseline, baselineData }) => {
       quote: "Today I learned your average resting heart rate is 64 bpm.",
       detail: "Captured 4,200 quiet state telemetry points between 7:00 AM and 11:30 PM.",
       icon: Heart,
-      color: "text-blue-400"
+      color: "text-[var(--text-primary)]"
     },
     {
       day: 2,
@@ -21,7 +21,7 @@ export const BaselineLearningView = ({ onCompleteBaseline, baselineData }) => {
       quote: "I noticed your heart rate naturally increases by +6 bpm during desk work.",
       detail: "AWEN registered this as normal focus effort, preventing false stress alerts.",
       icon: Clock,
-      color: "text-indigo-400"
+      color: "text-[var(--text-primary)]"
     },
     {
       day: 3,
@@ -29,7 +29,7 @@ export const BaselineLearningView = ({ onCompleteBaseline, baselineData }) => {
       quote: "You recover quickly after light walking (~22 bpm drop per minute).",
       detail: "Your cardiovascular recovery velocity is in the top 15th percentile for young adults.",
       icon: Zap,
-      color: "text-emerald-400"
+      color: "text-[var(--accent-green-dark)]"
     },
     {
       day: 4,
@@ -61,34 +61,34 @@ export const BaselineLearningView = ({ onCompleteBaseline, baselineData }) => {
     <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
       
       {/* Header Banner */}
-      <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-blue-500/20 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="neo-surface p-6 sm:p-8  border border-2 border-[var(--border-strong)] relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10  blur-3xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-6">
             <AwenEntity state="learning" size={140} interactive={false} />
             <div className="space-y-2 text-left">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-medium">
+              <div className="inline-flex items-center gap-2 px-3 py-1  bg-blue-500/10 border border-2 border-[var(--border-strong)] text-[var(--text-primary)] text-xs font-medium">
                 <ShieldCheck className="w-3.5 h-3.5" />
                 <span>3–7 Day Physiological Baseline Mode</span>
               </div>
-              <h2 className="font-heading text-2xl sm:text-3xl font-bold text-white">
+              <h2 className="font-heading text-2xl sm:text-3xl font-bold text-[var(--text-primary)]">
                 Learning Your Unique Body Signature
               </h2>
-              <p className="text-sm text-slate-300 max-w-xl">
+              <p className="text-sm text-[var(--text-secondary)] font-bold max-w-xl">
                 Instead of reporting generic stress levels, AWEN is observing your resting heart rate, oxygen stability, and activity patterns to create your personal baseline.
               </p>
             </div>
           </div>
 
           {/* Progress Circle & Trigger */}
-          <div className="flex flex-col items-center bg-slate-900/80 p-5 rounded-2xl border border-white/10 text-center min-w-[200px]">
-            <span className="text-3xl font-heading font-bold text-blue-400">Day 5 of 7</span>
-            <span className="text-xs text-slate-400 mt-1">71% Baseline Learned</span>
+          <div className="flex flex-col items-center bg-[var(--surface-primary)] p-5  border border-2 border-[var(--border-strong)] text-center min-w-[200px]">
+            <span className="text-3xl font-heading font-bold text-[var(--text-primary)]">Day 5 of 7</span>
+            <span className="text-xs text-[var(--text-secondary)] font-bold mt-1">71% Baseline Learned</span>
             <button
               onClick={handleFinish}
               disabled={isGeneratingSignature}
-              className="mt-4 w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2"
+              className="mt-4 w-full py-2.5 px-4  bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] shadow-[4px_4px_0px_#111] hover:from-blue-500 hover:to-indigo-500 text-[var(--text-primary)] text-xs font-semibold shadow-[2px_2px_0px_#111] shadow-[2px_2px_0px_#111] transition-all flex items-center justify-center gap-2"
             >
               {isGeneratingSignature ? (
                 <span>Generating Signature...</span>
@@ -106,11 +106,11 @@ export const BaselineLearningView = ({ onCompleteBaseline, baselineData }) => {
       {/* Discovery Feed Section */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-heading text-xl font-bold text-slate-100 flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-blue-400" />
+          <h3 className="font-heading text-xl font-bold text-[var(--text-primary)] flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-[var(--text-primary)]" />
             <span>AWEN's Baseline Discoveries</span>
           </h3>
-          <span className="text-xs text-slate-400">Updated in real time</span>
+          <span className="text-xs text-[var(--text-secondary)] font-bold">Updated in real time</span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -119,25 +119,25 @@ export const BaselineLearningView = ({ onCompleteBaseline, baselineData }) => {
             return (
               <div 
                 key={disc.day}
-                className="glass-panel glass-panel-hover p-5 rounded-2xl border border-white/10 flex flex-col justify-between space-y-4"
+                className="neo-surface neo-surface-hover p-5  border border-2 border-[var(--border-strong)] flex flex-col justify-between space-y-4"
               >
                 <div className="flex items-start justify-between">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-blue-400 bg-blue-500/10 px-2.5 py-1 rounded-md border border-blue-500/20">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-primary)] bg-blue-500/10 px-2.5 py-1 rounded-md border border-2 border-[var(--border-strong)]">
                     Day {disc.day} Discovery
                   </span>
                   <IconComponent className={`w-5 h-5 ${disc.color}`} />
                 </div>
 
                 <div className="space-y-2">
-                  <h4 className="font-heading text-base font-semibold text-slate-100">
+                  <h4 className="font-heading text-base font-semibold text-[var(--text-primary)]">
                     {disc.title}
                   </h4>
-                  <p className="text-xs italic text-blue-200/90 leading-relaxed bg-blue-950/30 p-2.5 rounded-xl border border-blue-500/10">
+                  <p className="text-xs italic text-blue-200/90 leading-relaxed bg-blue-950/30 p-2.5  border border-2 border-[var(--border-strong)]">
                     "{disc.quote}"
                   </p>
                 </div>
 
-                <p className="text-[11px] text-slate-400 leading-normal border-t border-white/5 pt-3">
+                <p className="text-[11px] text-[var(--text-secondary)] font-bold leading-normal border-t border-2 border-[var(--border-strong)] pt-3">
                   {disc.detail}
                 </p>
               </div>

@@ -7,43 +7,21 @@ import {
 import { AwenSpirit } from './AwenSpirit';
 import { AWEN_STATES } from '../services/stateEngine';
 
-/* ─── Tiny hook: fade-in on scroll ─────────────────────────────────────────── */
-function useFadeIn() {
-  const ref = useRef(null);
-  const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    const obs = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setVisible(true); },
-      { threshold: 0.12 }
-    );
-    if (ref.current) obs.observe(ref.current);
-    return () => obs.disconnect();
-  }, []);
-  return [ref, visible];
-}
-
 /* ─── Feature Card Component ────────────────────────────────────────────────── */
 function FeatureCard({ num, icon: Icon, color, title, desc, delay = 0 }) {
-  const [ref, visible] = useFadeIn();
   return (
     <div
-      ref={ref}
-      style={{
-        opacity: visible ? 1 : 0,
-        transform: visible ? 'translateY(0)' : 'translateY(24px)',
-        transition: `opacity 0.55s ease ${delay}ms, transform 0.55s ease ${delay}ms`
-      }}
-      className="glass-card rounded-3xl p-6 sm:p-7 border border-white/10 hover:border-cyan-500/30 transition-all duration-300 hover:-translate-y-1 text-left flex flex-col justify-between group"
+      className="neo-surface p-6 border-2 border-[var(--border-strong)] text-left flex flex-col gap-4 group bg-[var(--surface-primary)] shadow-[4px_4px_0px_#111] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_#111] transition-all"
     >
-      <div>
-        <div className="flex items-center justify-between mb-5">
-          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${color} shadow-md`}>
-            <Icon className="w-6 h-6" />
-          </div>
-          <span className="font-mono text-xs text-slate-500 font-bold">{num}</span>
+      <div className="flex items-center justify-between">
+        <div className={`w-12 h-12 border-2 border-[var(--border-strong)] flex items-center justify-center bg-[var(--accent-green-bg)] text-[var(--accent-green-dark)] shadow-[2px_2px_0px_#111]`}>
+          <Icon className="w-6 h-6" />
         </div>
-        <h3 className="font-heading text-lg font-bold text-white mb-2">{title}</h3>
-        <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-light">{desc}</p>
+        <span className="font-mono text-xs font-bold text-[var(--text-secondary)]">{num}</span>
+      </div>
+      <div>
+        <h3 className="text-lg font-bold uppercase tracking-wide text-[var(--text-primary)] mb-2">{title}</h3>
+        <p className="text-sm font-medium text-[var(--text-secondary)] leading-relaxed">{desc}</p>
       </div>
     </div>
   );
@@ -51,23 +29,16 @@ function FeatureCard({ num, icon: Icon, color, title, desc, delay = 0 }) {
 
 /* ─── Step Card Component ───────────────────────────────────────────────────── */
 function StepCard({ num, title, desc, delay = 0 }) {
-  const [ref, visible] = useFadeIn();
   return (
     <div
-      ref={ref}
-      style={{
-        opacity: visible ? 1 : 0,
-        transform: visible ? 'translateY(0)' : 'translateY(20px)',
-        transition: `opacity 0.55s ease ${delay}ms, transform 0.55s ease ${delay}ms`
-      }}
-      className="flex gap-4 sm:gap-5 items-start text-left glass-card p-5 sm:p-6 rounded-3xl border border-white/10 hover:border-white/20 transition-all"
+      className="flex gap-4 items-start text-left bg-[var(--surface-secondary)] p-5 border-2 border-[var(--border-strong)] shadow-[3px_3px_0px_#111]"
     >
-      <div className="flex-shrink-0 w-10 h-10 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center font-heading font-bold text-cyan-300 text-sm shadow-inner">
+      <div className="flex-shrink-0 w-8 h-8 border-2 border-[var(--border-strong)] bg-[var(--accent-green-dark)] text-white flex items-center justify-center font-bold text-sm shadow-[2px_2px_0px_#111]">
         {num}
       </div>
-      <div className="space-y-1">
-        <h4 className="font-heading font-bold text-white text-base">{title}</h4>
-        <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-light">{desc}</p>
+      <div>
+        <h4 className="font-bold uppercase tracking-wide text-[var(--text-primary)] mb-1">{title}</h4>
+        <p className="text-sm font-medium text-[var(--text-secondary)] leading-relaxed">{desc}</p>
       </div>
     </div>
   );
@@ -88,11 +59,11 @@ export const LandingPage = ({
   const featuresRef = useRef(null);
 
   const DEMO_STATES = [
-    { name: 'Balanced', wellnessState: AWEN_STATES.BALANCED, expression: 'happy', badgeColor: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300', desc: 'Resting baseline match (64 bpm)' },
-    { name: 'Active', wellnessState: AWEN_STATES.ACTIVE, expression: 'celebrating', badgeColor: 'bg-amber-500/10 border-amber-500/30 text-amber-300', desc: 'Movement exertion context (92 bpm)' },
-    { name: 'Watchful', wellnessState: AWEN_STATES.WATCHFUL, expression: 'concerned', badgeColor: 'bg-orange-500/10 border-orange-500/30 text-orange-300', desc: 'Elevated rate while sitting (76 bpm)' },
-    { name: 'Wind Down', wellnessState: AWEN_STATES.WIND_DOWN, expression: 'sleeping', badgeColor: 'bg-indigo-500/10 border-indigo-500/30 text-indigo-300', desc: 'Quiet evening rest hours' },
-    { name: 'Learning', wellnessState: AWEN_STATES.LEARNING, expression: 'thinking', badgeColor: 'bg-purple-500/10 border-purple-500/30 text-purple-300', desc: 'Observation mode active' }
+    { name: 'Balanced', wellnessState: AWEN_STATES.BALANCED, expression: 'happy', desc: 'Resting baseline match (64 bpm)' },
+    { name: 'Active', wellnessState: AWEN_STATES.ACTIVE, expression: 'celebrating', desc: 'Movement exertion context (92 bpm)' },
+    { name: 'Watchful', wellnessState: AWEN_STATES.WATCHFUL, expression: 'concerned', desc: 'Elevated rate while sitting (76 bpm)' },
+    { name: 'Wind Down', wellnessState: AWEN_STATES.WIND_DOWN, expression: 'sleeping', desc: 'Quiet evening rest hours' },
+    { name: 'Learning', wellnessState: AWEN_STATES.LEARNING, expression: 'thinking', desc: 'Observation mode active' }
   ];
 
   const activeDemoState = DEMO_STATES[demoStateIndex];
@@ -108,132 +79,107 @@ export const LandingPage = ({
   };
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] overflow-x-hidden font-sans selection:bg-cyan-500 selection:text-white">
-
-      {/* Ambient Radial Background Gradients */}
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        <div
-          className="absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full opacity-20"
-          style={{ background: 'radial-gradient(circle, #06b6d4 0%, transparent 70%)', transform: `translateY(${scrollY * 0.12}px)` }}
-        />
-        <div
-          className="absolute top-1/3 -right-60 w-[550px] h-[550px] rounded-full opacity-15"
-          style={{ background: 'radial-gradient(circle, #8b5cf6 0%, transparent 70%)', transform: `translateY(${scrollY * -0.08}px)` }}
-        />
-        <div
-          className="absolute bottom-10 left-1/4 w-[450px] h-[450px] rounded-full opacity-10"
-          style={{ background: 'radial-gradient(circle, #34d399 0%, transparent 70%)' }}
-        />
-      </div>
-
-      {/* Sticky Header Navigation */}
+    <div className="min-h-screen bg-[var(--bg-base)] text-[var(--text-primary)] overflow-x-hidden font-sans neo-grid-bg relative">
+      
+      {/* ── STICKY HEADER ── */}
       <nav
-        className={`sticky top-0 z-50 w-full transition-all duration-300 ${
-          scrollY > 30 ? 'bg-[var(--glass-bg)] backdrop-blur-xl border-b border-[var(--border-color)] shadow-xl' : 'bg-transparent'
+        className={`fixed top-0 w-full z-50 transition-all duration-200 border-b-2 border-[var(--border-strong)] ${
+          scrollY > 30 ? 'bg-[var(--surface-primary)] shadow-[0_4px_0px_#111]' : 'bg-[var(--surface-primary)]'
         }`}
       >
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
-          {/* Brand Identity */}
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-400 via-indigo-500 to-emerald-400 flex items-center justify-center shadow-md shadow-cyan-500/20">
-              <span className="text-white font-heading font-black text-xs tracking-wider">AW</span>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 border-2 border-[var(--border-strong)] bg-[var(--accent-green-dark)] shadow-[2px_2px_0px_#111] flex items-center justify-center">
+              <div className="w-2.5 h-2.5 bg-[var(--bg-base)] border border-[var(--border-strong)] animate-pulse" />
             </div>
-            <span className="font-heading font-bold text-lg text-[var(--text-primary)] tracking-wider">AWEN</span>
-            <span className="hidden sm:inline text-[10px] text-[var(--text-secondary)] font-mono border border-[var(--border-color)] px-2.5 py-0.5 rounded-full bg-white/5">
+            <span className="font-heading font-black text-xl tracking-widest uppercase text-[var(--text-primary)]">AWEN</span>
+            <span className="hidden sm:inline px-2 py-0.5 bg-[var(--accent-green-bg)] border-2 border-[var(--border-strong)] text-[var(--accent-green-dark)] text-[10px] font-bold tracking-widest uppercase shadow-[1px_1px_0px_#111]">
               Adaptive Wellness
             </span>
           </div>
 
-          {/* Navigation Controls */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <button
               onClick={handleDemo}
-              className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium transition-colors px-3 py-2 rounded-xl hover:bg-white/5"
+              className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors hidden sm:block"
             >
-              <span>Explore Demo</span>
+              Explore Demo
             </button>
             <button
               onClick={handleAuth}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 text-xs font-semibold transition-all shadow-sm active:scale-95"
+              className="px-5 py-2 bg-[var(--text-primary)] text-white text-xs font-bold uppercase tracking-widest border-2 border-[var(--border-strong)] shadow-[3px_3px_0px_var(--accent-green-dark)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all flex items-center gap-2 group"
             >
               <span>Sign In</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </button>
           </div>
         </div>
       </nav>
 
       {/* ══════════════════════════════════════════════════════════════════════ */}
-      {/* SECTION 1: HERO & PRODUCT PREVIEW STAGE                                 */}
+      {/* SECTION 1: HERO                                                        */}
       {/* ══════════════════════════════════════════════════════════════════════ */}
-      <section className="relative z-10 pt-10 pb-16 px-4 text-center">
-        <div className="max-w-6xl mx-auto space-y-8">
+      <section className="relative z-10 pt-32 pb-20 px-4 min-h-[90vh] flex flex-col items-center justify-center">
+        <div className="max-w-5xl mx-auto space-y-12 w-full">
           
-          {/* Hero Tagline Pill */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/25 text-cyan-300 text-xs font-medium animate-pulse">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Personalized to your unique body signature.</span>
-          </div>
+          {/* Hero Content */}
+          <div className="text-center space-y-6 max-w-4xl mx-auto">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-[var(--accent-green-bg)] border-2 border-[var(--border-strong)] text-[var(--text-primary)] text-xs font-bold tracking-widest uppercase shadow-[2px_2px_0px_#111]">
+              <Sparkles className="w-3.5 h-3.5 text-[var(--accent-green-dark)]" />
+              <span>Personalized to your unique body signature.</span>
+            </div>
 
-          {/* Main Headline */}
-          <div className="space-y-4 max-w-4xl mx-auto">
-            <h1 className="font-heading text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.15] text-white tracking-tight">
-              AWEN learns what normal <br />
-              <span style={{ background: 'linear-gradient(135deg, #06b6d4, #8b5cf6, #34d399)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black leading-[1.1] tracking-tighter uppercase">
+              <span className="text-[var(--text-primary)]">AWEN learns what normal </span>
+              <span className="text-[var(--text-primary)] bg-[var(--accent-green-dark)] text-white px-2 mt-2 inline-block -rotate-1 border-4 border-[var(--border-strong)] shadow-[6px_6px_0px_#111]">
                 feels like for you.
               </span>
             </h1>
 
-            <p className="max-w-2xl mx-auto text-slate-300 text-sm sm:text-base lg:text-lg leading-relaxed font-light">
+            <p className="max-w-2xl mx-auto text-lg sm:text-xl font-medium text-[var(--text-secondary)] leading-relaxed">
               Instead of comparing you with generic population averages, AWEN learns your personal resting patterns and helps you understand when something feels different.
             </p>
-          </div>
 
-          {/* Hero CTAs */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-2">
-            <button
-              onClick={handleAuth}
-              className="group flex items-center justify-center gap-2.5 w-full sm:w-auto px-7 py-3.5 rounded-2xl text-sm font-semibold text-white shadow-xl shadow-cyan-500/20 transition-all duration-300 hover:scale-[1.02] active:scale-95"
-              style={{ background: 'linear-gradient(135deg, #0891b2, #7c3aed)' }}
-            >
-              <span>Get Started</span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </button>
-            
-            <button
-              onClick={handleDemo}
-              className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3.5 rounded-2xl text-sm font-medium text-slate-200 hover:text-white border border-white/10 hover:border-white/20 hover:bg-white/5 transition-all active:scale-95"
-            >
-              <Play className="w-4 h-4 text-cyan-400 fill-cyan-400" />
-              <span>Explore Demo</span>
-            </button>
-          </div>
-
-          {/* REALISTIC DIFFERENTIATED PRODUCT PREVIEW STAGE */}
-          <div className="pt-8 max-w-5xl mx-auto">
-            <div className="glass-card p-6 sm:p-8 rounded-3xl border border-white/10 shadow-2xl space-y-6 text-left relative overflow-hidden">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+              <button
+                onClick={handleAuth}
+                className="w-full sm:w-auto px-8 py-4 bg-[var(--text-primary)] text-white font-black uppercase tracking-widest text-base border-2 border-[var(--border-strong)] shadow-[4px_4px_0px_var(--accent-green-dark)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all flex items-center justify-center gap-2"
+              >
+                Get Started Free
+                <ArrowRight className="w-5 h-5" />
+              </button>
               
-              {/* Card Header & Live Demo Indicator */}
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
+              <button
+                onClick={handleDemo}
+                className="w-full sm:w-auto px-8 py-4 bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] text-[var(--text-primary)] font-bold uppercase tracking-widest text-base shadow-[4px_4px_0px_#111] hover:bg-[var(--surface-secondary)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_#111] transition-all flex items-center justify-center gap-2"
+              >
+                <Play className="w-4 h-4 fill-current" />
+                Explore Demo Stream
+              </button>
+            </div>
+          </div>
+
+          {/* Product Preview Stage */}
+          <div className="pt-8">
+            <div className="neo-surface p-6 sm:p-8 border-2 border-[var(--border-strong)] shadow-[8px_8px_0px_#111] bg-[var(--surface-primary)] relative">
+              
+              {/* Card Header & Demo Toggle */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8 relative z-10 border-b-2 border-[var(--border-strong)] pb-4">
                 <div className="flex items-center gap-3">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="font-heading text-sm sm:text-base font-bold text-white">AWEN Observation Engine</span>
-                  <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
-                    Illustrative Demo Preview
-                  </span>
+                  <div className="w-4 h-4 border-2 border-[var(--border-strong)] bg-[var(--accent-green-dark)] shadow-[2px_2px_0px_#111] animate-pulse" />
+                  <span className="font-bold uppercase tracking-wider text-[var(--text-primary)]">AWEN Observation Engine</span>
+                  <span className="px-2 py-0.5 border-2 border-[var(--border-strong)] bg-[var(--text-primary)] text-white text-[10px] font-bold uppercase tracking-wider shadow-[2px_2px_0px_#111]">Live Preview</span>
                 </div>
                 
-                {/* Interactive Mascot State Selectors */}
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[10px] text-slate-400 font-mono mr-1 hidden sm:inline">State Theme:</span>
+                <div className="flex flex-wrap items-center justify-center gap-2 bg-[var(--surface-secondary)] p-2 border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111]">
                   {DEMO_STATES.map((st, idx) => (
                     <button
                       key={st.name}
                       onClick={() => setDemoStateIndex(idx)}
-                      className={`px-2.5 py-1 rounded-full text-[10px] font-medium transition-all ${
+                      className={`px-3 py-1.5 border-2 border-[var(--border-strong)] text-[10px] font-bold uppercase tracking-wider transition-all ${
                         demoStateIndex === idx
-                          ? `${st.badgeColor} border shadow-sm`
-                          : 'bg-white/5 text-slate-400 hover:text-slate-200 border border-white/5'
+                          ? 'bg-[var(--text-primary)] text-white shadow-[2px_2px_0px_var(--accent-green-dark)] translate-x-[1px] translate-y-[1px]'
+                          : 'bg-[var(--surface-primary)] text-[var(--text-secondary)] hover:bg-[var(--surface-tertiary)] hover:text-[var(--text-primary)] shadow-[2px_2px_0px_#111]'
                       }`}
                     >
                       {st.name}
@@ -242,75 +188,78 @@ export const LandingPage = ({
                 </div>
               </div>
 
-              {/* 2-Column Product Preview Content */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+              {/* 2-Column Demo Layout */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center relative z-10">
                 
-                {/* Column 1: Living AWEN Spirit Visual Stage */}
-                <div className="lg:col-span-5 flex flex-col items-center justify-center p-4 bg-slate-950/50 rounded-2xl border border-white/5 relative">
+                {/* Column 1: Awen Companion */}
+                <div className="lg:col-span-5 flex flex-col items-center justify-center p-6 border-2 border-[var(--border-strong)] bg-[var(--surface-secondary)] shadow-[4px_4px_0px_#111]">
                   <AwenSpirit 
                     expression={activeDemoState.expression}
                     wellnessState={activeDemoState.wellnessState}
-                    size={170}
+                    size={180}
                     interactive={true}
                     caption="Interactive Companion"
                   />
-                  <div className="mt-3 text-center space-y-0.5">
-                    <div className="text-xs font-semibold text-white">{activeDemoState.name} State</div>
-                    <div className="text-[11px] text-slate-400 font-light">{activeDemoState.desc}</div>
+                  <div className="mt-6 text-center space-y-1">
+                    <div className="text-xs font-bold uppercase tracking-widest text-[var(--text-primary)] bg-[var(--accent-green-bg)] inline-block px-2 py-1 border border-[var(--border-strong)]">{activeDemoState.name} State</div>
+                    <div className="text-[11px] font-medium text-[var(--text-secondary)]">{activeDemoState.desc}</div>
                   </div>
                 </div>
 
-                {/* Column 2: Personal Baseline vs Current Observation */}
+                {/* Column 2: Data Interpretation */}
                 <div className="lg:col-span-7 space-y-4">
                   
-                  {/* Baseline Numbers Strip */}
-                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                    <div className="p-3 rounded-2xl bg-white/5 border border-white/5 text-left space-y-0.5">
-                      <div className="text-[10px] text-slate-400 font-mono">Personal Baseline</div>
-                      <div className="font-heading text-base sm:text-lg font-bold text-cyan-300">64.0 bpm</div>
-                      <div className="text-[9px] text-slate-500">Resting Signature</div>
+                  {/* Heart Rate Ribbon */}
+                  <div className="flex items-center gap-3 p-4 bg-[var(--surface-secondary)] border-2 border-[var(--border-strong)] shadow-[4px_4px_0px_#111]">
+                    <div className="p-2 border-2 border-[var(--border-strong)] bg-[var(--accent-green-dark)] text-white shadow-[2px_2px_0px_#111]">
+                      <Heart className="w-5 h-5" />
                     </div>
-                    
-                    <div className="p-3 rounded-2xl bg-white/5 border border-white/5 text-left space-y-0.5">
-                      <div className="text-[10px] text-slate-400 font-mono">Usual Range</div>
-                      <div className="font-heading text-base sm:text-lg font-bold text-emerald-300">60–68 bpm</div>
-                      <div className="text-[9px] text-slate-500">±4.8 bpm Variance</div>
+                    <div className="flex-1">
+                      <div className="text-[10px] uppercase font-bold text-[var(--text-secondary)]">Personal Baseline</div>
+                      <div className="text-lg font-black text-[var(--text-primary)]">64.0 bpm</div>
                     </div>
-
-                    <div className="p-3 rounded-2xl bg-white/5 border border-white/5 text-left space-y-0.5">
-                      <div className="text-[10px] text-slate-400 font-mono">Current Signal</div>
-                      <div className="font-heading text-base sm:text-lg font-bold text-amber-300">72.0 bpm</div>
-                      <div className="text-[9px] text-amber-400/80">+8 bpm Elevation</div>
+                    <div className="w-1 h-10 bg-[var(--border-strong)]" />
+                    <div className="flex-1 text-right">
+                      <div className="text-[10px] uppercase font-bold text-[var(--text-secondary)]">Current Reading</div>
+                      <div className="text-lg font-black text-[var(--accent-danger)]">72.0 bpm</div>
                     </div>
                   </div>
 
-                  {/* AWEN Observation Card */}
-                  <div className="p-4 rounded-2xl bg-slate-900/80 border border-white/10 space-y-2">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-cyan-300">
-                      <Activity className="w-4 h-4 text-cyan-400 shrink-0" />
+                  {/* AWEN Explains Box */}
+                  <div className="p-5 bg-[var(--accent-green-bg)] border-2 border-[var(--border-strong)] space-y-3 relative overflow-hidden shadow-[4px_4px_0px_#111]">
+                    <div className="absolute top-0 right-0 p-4 opacity-10">
+                      <Sparkles className="w-16 h-16 text-[var(--text-primary)]" />
+                    </div>
+                    <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-[var(--text-primary)] relative z-10">
+                      <Activity className="w-4 h-4 text-[var(--accent-green-dark)]" />
                       <span>AWEN Noticed</span>
                     </div>
-                    <p className="text-xs sm:text-sm text-slate-200 leading-relaxed font-light">
+                    <p className="text-sm font-medium text-[var(--text-primary)] leading-relaxed relative z-10">
                       "Your heart rate is 72 bpm while sitting at your desk. This is slightly higher than your usual 64 bpm resting baseline, but aligns with focused work effort."
                     </p>
                   </div>
 
-                  {/* Why AWEN Noticed & What Now */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    <div className="p-3 rounded-xl bg-white/5 border border-white/5 space-y-1">
-                      <span className="font-semibold text-slate-300 block">Why AWEN Noticed</span>
-                      <ul className="text-[11px] text-slate-400 space-y-0.5 font-light">
-                        <li>• +8 bpm above quiet resting baseline</li>
-                        <li>• Low physical activity context (Sitting)</li>
-                        <li>• Pattern observed over recent 5 min</li>
+                  {/* Why / Next Steps */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="p-4 bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111] space-y-2">
+                      <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest border-b-2 border-[var(--border-strong)] pb-1 block">Why AWEN Noticed</span>
+                      <ul className="text-xs font-medium text-[var(--text-primary)] space-y-1.5 pt-1">
+                        <li className="flex items-center gap-2">
+                          <span className="w-2 h-2 bg-[var(--accent-green-dark)] border border-[var(--border-strong)]" />
+                          +8 bpm above baseline
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="w-2 h-2 bg-[var(--text-primary)] border border-[var(--border-strong)]" />
+                          Low activity (Sitting)
+                        </li>
                       </ul>
                     </div>
-
-                    <div className="p-3 rounded-xl bg-white/5 border border-white/5 space-y-1">
-                      <span className="font-semibold text-slate-300 block">What Now?</span>
-                      <div className="flex flex-wrap gap-1.5 pt-1">
-                        <button onClick={handleDemo} className="px-2.5 py-1 rounded-lg bg-cyan-500/20 text-cyan-200 border border-cyan-500/30 text-[10px] font-medium hover:bg-cyan-500/30 transition-colors">
-                          Take a 2-min pause →
+                    <div className="p-4 bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111] space-y-2">
+                      <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest border-b-2 border-[var(--border-strong)] pb-1 block">What Now?</span>
+                      <div className="pt-2">
+                        <button onClick={handleDemo} className="px-3 py-1.5 bg-[var(--text-primary)] text-white text-[10px] font-bold uppercase tracking-wider border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_var(--accent-green-dark)] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all flex items-center gap-1 group">
+                          Take a 2-min pause
+                          <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
                         </button>
                       </div>
                     </div>
@@ -323,81 +272,78 @@ export const LandingPage = ({
             </div>
           </div>
 
+          <div className="flex justify-center pt-8">
+            <button onClick={scrollToFeatures} className="p-3 border-2 border-[var(--border-strong)] bg-[var(--surface-primary)] shadow-[3px_3px_0px_#111] hover:bg-[var(--surface-secondary)] hover:translate-y-[2px] hover:shadow-[1px_1px_0px_#111] transition-all">
+              <ChevronDown className="w-6 h-6 text-[var(--text-primary)]" />
+            </button>
+          </div>
         </div>
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* STATS BAR                                                              */}
       {/* ══════════════════════════════════════════════════════════════════════ */}
-      <section className="relative z-10 py-10 border-y border-white/10 bg-slate-950/40">
-        <div className="max-w-5xl mx-auto px-4 grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
+      <section className="relative z-10 py-12 border-y-4 border-[var(--border-strong)] bg-[var(--surface-secondary)]">
+        <div className="max-w-5xl mx-auto px-4 grid grid-cols-2 sm:grid-cols-4 gap-8 text-center divide-x-2 divide-[var(--border-strong)]">
           {[
-            { val: '3–7', label: 'Days to learn your baseline' },
-            { val: '5', label: 'Contextual wellness states' },
-            { val: '0', label: 'Population average comparisons' },
-            { val: '100%', label: 'Personalized to your signature' }
+            { val: '3–7', label: 'Days to learn baseline' },
+            { val: '5', label: 'Contextual states' },
+            { val: '0', label: 'Population averages' },
+            { val: '100%', label: 'Personalized to you' }
           ].map(({ val, label }) => (
-            <div key={label} className="space-y-1">
-              <div className="font-heading text-3xl sm:text-4xl font-bold bg-gradient-to-r from-cyan-400 via-indigo-400 to-emerald-400 bg-clip-text text-transparent">
+            <div key={label} className="space-y-2">
+              <div className="text-4xl sm:text-5xl font-black text-[var(--text-primary)] drop-shadow-[2px_2px_0px_var(--accent-green-dark)]">
                 {val}
               </div>
-              <div className="text-xs text-slate-400 font-light leading-snug">{label}</div>
+              <div className="text-[10px] sm:text-xs text-[var(--text-secondary)] font-bold uppercase tracking-widest max-w-[120px] mx-auto leading-tight">{label}</div>
             </div>
           ))}
         </div>
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════════ */}
-      {/* SECTION 3: WHAT MAKES AWEN DIFFERENT (4 PILLARS)                       */}
+      {/* SECTION 3: WHAT MAKES AWEN DIFFERENT                                  */}
       {/* ══════════════════════════════════════════════════════════════════════ */}
-      <section ref={featuresRef} className="relative z-10 py-20 px-4">
-        <div className="max-w-6xl mx-auto space-y-12 text-center">
+      <section ref={featuresRef} className="relative z-10 py-24 px-4 bg-[var(--bg-base)]">
+        <div className="max-w-6xl mx-auto space-y-16 text-center">
           
-          <div className="space-y-3 max-w-2xl mx-auto">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-medium">
-              <Star className="w-3.5 h-3.5 text-indigo-400" />
+          <div className="space-y-6 max-w-2xl mx-auto">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111] text-[var(--text-primary)] text-xs font-bold tracking-widest uppercase">
+              <Star className="w-3.5 h-3.5 text-[var(--accent-green-dark)]" />
               <span>What Makes AWEN Different</span>
             </div>
-            <h2 className="font-heading text-3xl sm:text-4xl font-bold text-white">
-              Built around <em className="not-italic text-cyan-300">your</em> normal
+            <h2 className="text-4xl sm:text-5xl font-black text-[var(--text-primary)] tracking-tighter uppercase">
+              Built around <span className="bg-[var(--accent-green-dark)] text-white px-2 mt-1 inline-block rotate-1 border-4 border-[var(--border-strong)] shadow-[4px_4px_0px_#111]">your</span> normal.
             </h2>
-            <p className="text-slate-400 text-sm sm:text-base font-light">
+            <p className="text-lg font-medium text-[var(--text-secondary)] leading-relaxed">
               Traditional health tools compare everyone to generic population thresholds. AWEN observes your personal physiological baseline and explains meaningful changes.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <FeatureCard
               num="01"
               icon={Brain}
-              color="bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
               title="Your Personal Baseline"
               desc="AWEN learns your own physiological pattern over 3–7 days instead of relying on generic population averages."
-              delay={0}
             />
             <FeatureCard
               num="02"
               icon={Heart}
-              color="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
               title="Context-Aware Companion"
               desc="Combines your personal baseline, physical activity context, and daily check-ins to make observations relevant."
-              delay={100}
             />
             <FeatureCard
               num="03"
               icon={Zap}
-              color="bg-amber-500/10 text-amber-400 border border-amber-500/20"
               title="Observe → Explain → Act"
               desc="AWEN doesn't stop at noticing a change. It explains why it noticed and gives you a calm, practical next step."
-              delay={200}
             />
             <FeatureCard
               num="04"
               icon={Shield}
-              color="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
               title="Privacy-First Architecture"
-              desc="Your wellness data stays isolated to your account and is protected by database row-level security policies."
-              delay={300}
+              desc="Your wellness data stays isolated to your account and is protected by robust row-level security policies."
             />
           </div>
 
@@ -405,52 +351,43 @@ export const LandingPage = ({
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════════ */}
-      {/* SECTION 4: THE CORE AWEN LOOP (VISUAL FLOW)                            */}
+      {/* SECTION 4: THE CORE AWEN LOOP                                         */}
       {/* ══════════════════════════════════════════════════════════════════════ */}
-      <section className="relative z-10 py-20 px-4 bg-slate-950/60 border-y border-white/5">
-        <div className="max-w-6xl mx-auto space-y-12 text-center">
+      <section className="relative z-10 py-24 px-4 border-y-4 border-[var(--border-strong)] bg-[var(--surface-primary)]">
+        <div className="max-w-6xl mx-auto space-y-16 text-center">
           
-          <div className="space-y-3 max-w-3xl mx-auto">
-            <h2 className="font-heading text-3xl sm:text-4xl font-bold text-white">
+          <div className="space-y-4 max-w-3xl mx-auto">
+            <h2 className="text-3xl sm:text-4xl font-black text-[var(--text-primary)] tracking-tight uppercase">
               AWEN doesn't stop at noticing.
             </h2>
-            <p className="text-cyan-300 text-sm sm:text-base font-medium">
+            <p className="text-[var(--accent-green-dark)] text-lg sm:text-xl font-bold uppercase tracking-wide">
               It turns observations into understandable next steps.
             </p>
           </div>
 
           {/* 5-Step Connected Product Loop */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4 text-left">
+          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-6 text-left relative">
             
-            <div className="glass-card p-5 rounded-3xl border border-white/10 relative space-y-3">
-              <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 flex items-center justify-center font-mono text-xs font-bold">01</div>
-              <h4 className="font-heading font-bold text-white text-sm">OBSERVE</h4>
-              <p className="text-xs text-slate-300 font-light leading-relaxed">Physiological signals (HR, SpO₂, Temp) + activity context.</p>
-            </div>
+            <div className="hidden lg:block absolute top-12 left-10 w-[calc(100%-5rem)] h-1 bg-[var(--border-strong)] z-0" />
 
-            <div className="glass-card p-5 rounded-3xl border border-white/10 relative space-y-3">
-              <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 flex items-center justify-center font-mono text-xs font-bold">02</div>
-              <h4 className="font-heading font-bold text-white text-sm">LEARN</h4>
-              <p className="text-xs text-slate-300 font-light leading-relaxed">Build your personal quiet resting baseline pattern signature.</p>
-            </div>
-
-            <div className="glass-card p-5 rounded-3xl border border-white/10 relative space-y-3">
-              <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 flex items-center justify-center font-mono text-xs font-bold">03</div>
-              <h4 className="font-heading font-bold text-white text-sm">NOTICE</h4>
-              <p className="text-xs text-slate-300 font-light leading-relaxed">Detect meaningful deviation from your own normal rhythm.</p>
-            </div>
-
-            <div className="glass-card p-5 rounded-3xl border border-white/10 relative space-y-3">
-              <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 flex items-center justify-center font-mono text-xs font-bold">04</div>
-              <h4 className="font-heading font-bold text-white text-sm">EXPLAIN</h4>
-              <p className="text-xs text-slate-300 font-light leading-relaxed">Transparent reasoning showing why AWEN observed the change.</p>
-            </div>
-
-            <div className="glass-card p-5 rounded-3xl border border-cyan-500/30 bg-cyan-950/20 relative space-y-3">
-              <div className="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-400/40 text-cyan-200 flex items-center justify-center font-mono text-xs font-bold">05</div>
-              <h4 className="font-heading font-bold text-white text-sm">ACT</h4>
-              <p className="text-xs text-cyan-200/90 font-light leading-relaxed">Offer a calm, practical wellness next step (e.g. 2-min pause).</p>
-            </div>
+            {[
+              { num: '01', label: 'OBSERVE', icon: Activity, text: 'Physiological signals (HR, SpO₂, Temp) + activity context.' },
+              { num: '02', label: 'LEARN', icon: Brain, text: 'Build your personal quiet resting baseline pattern signature.' },
+              { num: '03', label: 'NOTICE', icon: Zap, text: 'Detect meaningful deviation from your own normal rhythm.' },
+              { num: '04', label: 'EXPLAIN', icon: HelpCircle, text: 'Transparent reasoning showing why AWEN observed the change.' },
+              { num: '05', label: 'ACT', icon: CheckCircle2, text: 'Offer a calm, practical wellness next step (e.g. 2-min pause).' },
+            ].map((step, idx) => (
+              <div key={step.num} className="relative z-10 bg-[var(--bg-base)] border-2 border-[var(--border-strong)] p-6 shadow-[4px_4px_0px_#111] flex flex-col gap-4">
+                <div className={`w-12 h-12 border-2 border-[var(--border-strong)] bg-[var(--text-primary)] text-white shadow-[2px_2px_0px_var(--accent-green-dark)] flex items-center justify-center mx-auto lg:mx-0`}>
+                  <step.icon className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="text-[10px] font-black text-[var(--text-secondary)] mb-1 uppercase tracking-widest">{step.num}</div>
+                  <h4 className="font-bold uppercase tracking-wide text-[var(--text-primary)] mb-2 border-b-2 border-[var(--border-strong)] pb-1">{step.label}</h4>
+                  <p className="text-xs font-medium text-[var(--text-secondary)] leading-relaxed">{step.text}</p>
+                </div>
+              </div>
+            ))}
 
           </div>
 
@@ -458,190 +395,37 @@ export const LandingPage = ({
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════════ */}
-      {/* SECTION 5: HOW AWEN WORKS (4 STEPS)                                    */}
+      {/* SECTION 10: FINAL CTA                                                 */}
       {/* ══════════════════════════════════════════════════════════════════════ */}
-      <section className="relative z-10 py-20 px-4">
-        <div className="max-w-5xl mx-auto space-y-12">
+      <section className="relative z-10 py-32 px-4 text-center border-t-2 border-[var(--border-strong)] bg-[var(--accent-green-bg)]">
+        <div className="max-w-3xl mx-auto space-y-8">
           
-          <div className="text-center space-y-3">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs font-medium">
-              <Activity className="w-3.5 h-3.5" />
-              <span>How AWEN Works</span>
-            </div>
-            <h2 className="font-heading text-3xl sm:text-4xl font-bold text-white">
-              Clarity in 4 simple steps
-            </h2>
+          <div className="w-20 h-20 mx-auto border-4 border-[var(--border-strong)] bg-[var(--text-primary)] text-white shadow-[6px_6px_0px_var(--accent-green-dark)] flex items-center justify-center">
+            <Eye className="w-10 h-10" />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <StepCard
-              num="01"
-              title="Connect"
-              desc="Explore immediately in Demo Stream mode or connect your supported ESP32 MAX30102 sensor via Web Serial API."
-              delay={0}
-            />
-            <StepCard
-              num="02"
-              title="Learn Your Normal"
-              desc="AWEN observes your quiet resting patterns over 3–7 days to build a personal baseline unique to your body."
-              delay={100}
-            />
-            <StepCard
-              num="03"
-              title="Understand Your Day"
-              desc="AWEN compares current readings against YOUR baseline and physical activity context instead of fixed medical cutoffs."
-              delay={200}
-            />
-            <StepCard
-              num="04"
-              title="Know What To Do Next"
-              desc="AWEN explains meaningful observations in plain language and provides a calm wellness-oriented next action."
-              delay={300}
-            />
-          </div>
-
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════════════════════════════════ */}
-      {/* SECTION 6 & 7: HARDWARE-TO-SOFTWARE PIPELINE STORY                    */}
-      {/* ══════════════════════════════════════════════════════════════════════ */}
-      <section className="relative z-10 py-20 px-4 bg-slate-950/40 border-y border-white/5">
-        <div className="max-w-5xl mx-auto space-y-10 text-center">
-          
-          <div className="space-y-3 max-w-2xl mx-auto">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs font-medium">
-              <Cpu className="w-3.5 h-3.5" />
-              <span>Physical Hardware + Software Architecture</span>
-            </div>
-            <h2 className="font-heading text-3xl sm:text-4xl font-bold text-white">
-              From physical sensors to intelligent observations
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-400 font-light">
-              AWEN integrates directly with micro-controllers via Web Serial API or runs seamlessly in Demo Stream mode.
-            </p>
-          </div>
-
-          {/* Pipeline Visual Flow */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 text-left">
-            <div className="glass-card p-5 rounded-2xl border border-white/10 space-y-2">
-              <div className="flex items-center gap-2 text-cyan-400 font-mono text-xs font-bold">
-                <Cpu className="w-4 h-4" />
-                <span>ESP32 + MAX30102</span>
-              </div>
-              <p className="text-xs text-slate-300 font-light">PPG pulse wave sensor & accelerometer telemetry.</p>
-            </div>
-
-            <div className="glass-card p-5 rounded-2xl border border-white/10 space-y-2">
-              <div className="flex items-center gap-2 text-indigo-400 font-mono text-xs font-bold">
-                <Activity className="w-4 h-4" />
-                <span>Telemetry Signals</span>
-              </div>
-              <p className="text-xs text-slate-300 font-light">Heart rate, SpO₂, skin temp & activity state stream.</p>
-            </div>
-
-            <div className="glass-card p-5 rounded-2xl border border-white/10 space-y-2">
-              <div className="flex items-center gap-2 text-amber-400 font-mono text-xs font-bold">
-                <Brain className="w-4 h-4" />
-                <span>Baseline Engine</span>
-              </div>
-              <p className="text-xs text-slate-300 font-light">Evaluates readings against personal quiet signature.</p>
-            </div>
-
-            <div className="glass-card p-5 rounded-2xl border border-cyan-500/30 text-cyan-200 space-y-2">
-              <div className="flex items-center gap-2 text-cyan-300 font-mono text-xs font-bold">
-                <Sparkles className="w-4 h-4" />
-                <span>AWEN Companion</span>
-              </div>
-              <p className="text-xs text-slate-300 font-light">Explains variations and offers a calm next step.</p>
-            </div>
-          </div>
-
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════════════════════════════════ */}
-      {/* SECTION 9: PERSONALIZATION STORY (GENERIC VS AWEN)                      */}
-      {/* ══════════════════════════════════════════════════════════════════════ */}
-      <section className="relative z-10 py-20 px-4">
-        <div className="max-w-4xl mx-auto space-y-10 text-center">
-          
-          <h2 className="font-heading text-3xl sm:text-4xl font-bold text-white">
-            Your baseline is not everyone else's baseline.
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
-            
-            {/* Generic Apps */}
-            <div className="glass-card p-6 sm:p-7 rounded-3xl border border-rose-500/20 bg-rose-950/10 space-y-4">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/10 text-rose-300 text-xs font-mono font-semibold">
-                Generic Health Apps
-              </div>
-              <blockquote className="font-heading text-lg font-bold text-white leading-snug">
-                "Your heart rate is 82 bpm. You are outside the population average."
-              </blockquote>
-              <p className="text-xs text-slate-400 font-light leading-relaxed">
-                Uses rigid population cutoffs that cause unnecessary anxiety and false alarms.
-              </p>
-            </div>
-
-            {/* AWEN Approach */}
-            <div className="glass-card p-6 sm:p-7 rounded-3xl border border-emerald-500/30 bg-emerald-950/10 space-y-4">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-300 text-xs font-mono font-semibold">
-                AWEN Personal Baseline
-              </div>
-              <blockquote className="font-heading text-lg font-bold text-white leading-snug">
-                "Your heart rate is 72 bpm while sitting, which is +8 bpm above YOUR personal 64.0 bpm resting pattern."
-              </blockquote>
-              <p className="text-xs text-slate-400 font-light leading-relaxed">
-                Compares you to your own learned quiet signature with activity context filtering.
-              </p>
-            </div>
-
-          </div>
-
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════════════════════════════════ */}
-      {/* SECTION 10: FINAL CTA                                                  */}
-      {/* ══════════════════════════════════════════════════════════════════════ */}
-      <section className="relative z-10 py-24 px-4 text-center border-t border-white/5">
-        <div className="max-w-2xl mx-auto space-y-6">
-          
-          <div className="w-16 h-16 rounded-3xl mx-auto flex items-center justify-center shadow-xl shadow-cyan-500/20 bg-gradient-to-tr from-cyan-500 via-indigo-500 to-emerald-400">
-            <Eye className="w-8 h-8 text-white" />
-          </div>
-
-          <h2 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight">
+          <h2 className="text-4xl sm:text-5xl lg:text-6xl font-black text-[var(--text-primary)] tracking-tighter uppercase">
             Let AWEN learn your normal.
           </h2>
 
-          <p className="text-slate-300 text-xs sm:text-sm font-light max-w-md mx-auto leading-relaxed">
-            Start with demo mode or connect your account and begin building your personal baseline.
+          <p className="text-lg font-medium text-[var(--text-primary)] max-w-xl mx-auto leading-relaxed border-2 border-[var(--border-strong)] p-4 bg-white shadow-[4px_4px_0px_#111]">
+            Start with demo mode to see it in action, or connect your account and begin building your personal baseline.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-2">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-6">
             <button
               onClick={handleAuth}
-              className="group flex items-center justify-center gap-2.5 w-full sm:w-auto px-8 py-4 rounded-2xl text-sm font-semibold text-white shadow-xl shadow-cyan-500/25 transition-all duration-300 hover:scale-[1.02] active:scale-95"
-              style={{ background: 'linear-gradient(135deg, #0891b2, #7c3aed)' }}
+              className="w-full sm:w-auto px-10 py-4 bg-[var(--text-primary)] text-white font-black uppercase tracking-widest text-lg border-2 border-[var(--border-strong)] shadow-[4px_4px_0px_var(--accent-green-dark)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all flex items-center justify-center gap-2"
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24">
-                <path fill="#fff" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" opacity="0.9"/>
-                <path fill="#fff" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" opacity="0.8"/>
-                <path fill="#fff" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" opacity="0.7"/>
-                <path fill="#fff" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" opacity="0.9"/>
-              </svg>
-              <span>Continue with Google</span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              Continue with Google
+              <ArrowRight className="w-5 h-5" />
             </button>
 
             <button
               onClick={handleDemo}
-              className="w-full sm:w-auto px-7 py-4 rounded-2xl text-sm font-medium text-slate-200 hover:text-white border border-white/10 hover:border-white/20 hover:bg-white/5 transition-all active:scale-95"
+              className="w-full sm:w-auto px-10 py-4 bg-[var(--surface-primary)] text-[var(--text-primary)] font-bold uppercase tracking-widest text-lg border-2 border-[var(--border-strong)] shadow-[4px_4px_0px_#111] hover:bg-[var(--surface-secondary)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all"
             >
-              Explore Demo
+              Explore Demo UI
             </button>
           </div>
 
@@ -649,17 +433,16 @@ export const LandingPage = ({
       </section>
 
       {/* Footer */}
-      <footer className="relative z-10 border-t border-white/5 py-8 px-4 bg-slate-950">
+      <footer className="relative z-10 border-t-4 border-[var(--border-strong)] py-8 px-4 bg-[var(--text-primary)] text-white">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-cyan-400 via-indigo-500 to-emerald-400 flex items-center justify-center">
-              <span className="text-white font-heading font-black text-[9px]">AW</span>
-            </div>
-            <span className="font-heading text-sm font-bold text-white">AWEN</span>
-            <span className="text-slate-500 text-xs font-light">Adaptive Wellness & Emotional Navigation</span>
+          <div className="flex items-center gap-3">
+            <div className="w-6 h-6 border-2 border-white bg-[var(--accent-green-dark)]" />
+            <span className="font-heading font-black text-sm uppercase tracking-widest">AWEN</span>
+            <span className="opacity-50 text-xs">|</span>
+            <span className="opacity-80 text-[10px] font-bold uppercase tracking-wider">Adaptive Wellness &amp; Emotional Navigation</span>
           </div>
 
-          <div className="text-xs text-slate-500 font-light">
+          <div className="text-[10px] opacity-80 font-bold uppercase tracking-wider">
             Privacy-first architecture · Non-clinical wellness companion
           </div>
         </div>

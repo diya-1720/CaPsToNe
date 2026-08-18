@@ -39,24 +39,24 @@ export const LandingView = ({ onStartBaseline, onTryDemo }) => {
 
         {/* Dynamic Interactive Dialogue Box */}
         <div className="min-h-[90px] flex flex-col items-center justify-center">
-          <div className="inline-block glass-panel px-6 py-3.5 rounded-2xl border border-blue-500/20 shadow-xl shadow-blue-500/10">
-            <p className="font-heading text-xl sm:text-2xl lg:text-3xl font-medium tracking-wide text-slate-100 transition-all duration-700 ease-out">
+          <div className="inline-block neo-surface px-6 py-3.5  border border-2 border-[var(--border-strong)] shadow-[4px_4px_0px_#111] shadow-[2px_2px_0px_#111]">
+            <p className="font-heading text-xl sm:text-2xl lg:text-3xl font-medium tracking-wide text-[var(--text-primary)] transition-all duration-700 ease-out">
               "{dialogues[dialogueIndex]}"
             </p>
           </div>
         </div>
 
         {/* Subtitle & Value Proposition */}
-        <p className="max-w-2xl text-sm sm:text-base text-slate-300 font-normal leading-relaxed">
+        <p className="max-w-2xl text-sm sm:text-base text-[var(--text-secondary)] font-bold font-normal leading-relaxed">
           Traditional stress monitors compare your heart rate against generic population thresholds. 
-          <span className="text-blue-400 font-medium"> AWEN learns your unique physiological baseline</span> over 3–7 days, filtering out staircase climbing, caffeine, and daily exercise to prevent false alarms.
+          <span className="text-[var(--text-primary)] font-medium"> AWEN learns your unique physiological baseline</span> over 3–7 days, filtering out staircase climbing, caffeine, and daily exercise to prevent false alarms.
         </p>
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row items-center gap-4 pt-4 w-full sm:w-auto">
           <button
             onClick={onStartBaseline}
-            className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 hover:from-blue-500 hover:to-indigo-500 text-white font-medium text-sm shadow-xl shadow-blue-600/30 hover:shadow-blue-500/50 hover:scale-[1.02] transition-all duration-300 group"
+            className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4  bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] shadow-[4px_4px_0px_#111] hover:from-blue-500 hover:to-indigo-500 text-[var(--text-primary)] font-medium text-sm shadow-[4px_4px_0px_#111] shadow-[2px_2px_0px_#111] hover:shadow-[2px_2px_0px_#111] hover:scale-[1.02] transition-all duration-300 group"
           >
             <span>Begin Baseline Learning</span>
             <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -64,42 +64,42 @@ export const LandingView = ({ onStartBaseline, onTryDemo }) => {
 
           <button
             onClick={onTryDemo}
-            className="w-full sm:w-auto flex items-center justify-center gap-2.5 px-7 py-4 rounded-2xl glass-panel hover:bg-slate-800/80 text-slate-200 hover:text-white font-medium text-sm border border-white/10 hover:border-white/20 transition-all duration-300"
+            className="w-full sm:w-auto flex items-center justify-center gap-2.5 px-7 py-4  neo-surface hover:bg-[var(--surface-primary)] text-[var(--text-primary)] font-bold hover:text-[var(--text-primary)] font-medium text-sm border border-2 border-[var(--border-strong)] hover:border-2 border-[var(--border-strong)] transition-all duration-300"
           >
-            <Play className="w-4 h-4 text-blue-400 fill-blue-400/20" />
+            <Play className="w-4 h-4 text-[var(--text-primary)] fill-blue-400/20" />
             <span>Try Interactive Demo</span>
           </button>
         </div>
 
         {/* Healthcare Startup Quality Guarantee Pills */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-10 w-full max-w-3xl border-t border-white/10 mt-6">
-          <div className="flex items-center gap-3 glass-card p-3.5 rounded-xl border border-white/5">
-            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-10 w-full max-w-3xl border-t border-2 border-[var(--border-strong)] mt-6">
+          <div className="flex items-center gap-3 neo-surface p-3.5  border border-2 border-[var(--border-strong)]">
+            <div className="p-2 bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111] text-[var(--text-primary)]">
               <Brain className="w-4 h-4" />
             </div>
             <div className="text-left">
-              <h4 className="text-xs font-semibold text-slate-200">Zero False Positives</h4>
-              <p className="text-[11px] text-slate-400">Staircase & exercise filtering</p>
+              <h4 className="text-xs font-semibold text-[var(--text-primary)] font-bold">Zero False Positives</h4>
+              <p className="text-[11px] text-[var(--text-secondary)] font-bold">Staircase & exercise filtering</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 glass-card p-3.5 rounded-xl border border-white/5">
-            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
+          <div className="flex items-center gap-3 neo-surface p-3.5  border border-2 border-[var(--border-strong)]">
+            <div className="p-2 bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111] text-[var(--text-primary)]">
               <Shield className="w-4 h-4" />
             </div>
             <div className="text-left">
-              <h4 className="text-xs font-semibold text-slate-200">Transparent AI</h4>
-              <p className="text-[11px] text-slate-400">Clear explainability for every score</p>
+              <h4 className="text-xs font-semibold text-[var(--text-primary)] font-bold">Transparent AI</h4>
+              <p className="text-[11px] text-[var(--text-secondary)] font-bold">Clear explainability for every score</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 glass-card p-3.5 rounded-xl border border-white/5">
-            <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
+          <div className="flex items-center gap-3 neo-surface p-3.5  border border-2 border-[var(--border-strong)]">
+            <div className="p-2 bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111] text-[var(--text-primary)]">
               <Activity className="w-4 h-4" />
             </div>
             <div className="text-left">
-              <h4 className="text-xs font-semibold text-slate-200">ESP32 IoT Ready</h4>
-              <p className="text-[11px] text-slate-400">MAX30102 Web Serial & REST stream</p>
+              <h4 className="text-xs font-semibold text-[var(--text-primary)] font-bold">ESP32 IoT Ready</h4>
+              <p className="text-[11px] text-[var(--text-secondary)] font-bold">MAX30102 Web Serial & REST stream</p>
             </div>
           </div>
         </div>

@@ -34,6 +34,9 @@ const TodayScreenComponent = ({
   const [isCloudVisible, setIsCloudVisible] = useState(false);
   const [mascotExpression, setMascotExpression] = useState('happy');
   const [isExplainOpen, setIsExplainOpen] = useState(false);
+  
+  // Daily check-in tracking
+  const [selectedFeeling, setSelectedFeeling] = useState(null);
   const [checkinStep, setCheckinStep] = useState(0);
 
   const cloudTimerRef = useRef(null);
@@ -110,14 +113,15 @@ const TodayScreenComponent = ({
   const hrDelta = Math.round(((telemetry?.heartRate || 64.0) - restingHr) * 10) / 10;
 
   return (
-    <div className="relative w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 pb-24 lg:pb-12 animate-fadeIn space-y-6">
+    <>
+      <div className="relative w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-24 lg:pb-12 animate-fadeIn space-y-6">
       
       {/* 1. GREETING / MOMENT */}
-      <div className="text-center space-y-1">
-        <h1 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight">
+      <div className="space-y-1">
+        <h1 className="font-heading text-3xl sm:text-4xl font-bold tracking-tight text-[var(--text-primary)]">
           {getTimeGreeting()}
         </h1>
-        <p className="text-xs sm:text-sm text-slate-300 font-light tracking-wide max-w-lg mx-auto">
+        <p className="text-sm text-[var(--text-secondary)] font-medium">
           {awenState?.wellnessState === AWEN_STATES.LEARNING 
             ? "AWEN is currently observing your daily resting pattern."
             : awenState?.wellnessState === AWEN_STATES.WATCHFUL
@@ -131,7 +135,7 @@ const TodayScreenComponent = ({
       </div>
 
       {/* 2. AWEN MOMENT (Living Mascot Stage) */}
-      <div className="relative flex flex-col items-center justify-center py-2">
+      <div className="relative flex flex-col items-center justify-center py-8 pt-44 neo-surface">
         <AwenSpeechCloud 
           message={cloudMessage}
           isVisible={isCloudVisible}
@@ -140,85 +144,89 @@ const TodayScreenComponent = ({
           onInsights={onOpenInsights}
         />
 
-        <AwenSpirit 
-          expression={isNightMode ? "sleeping" : (evaluation?.emotionalState || mascotExpression || "happy")}
-          wellnessState={awenState?.wellnessState || AWEN_STATES.BALANCED}
-          size={220}
-          interactive={true}
-          onClick={handleAwenTap}
-          caption="Tap AWEN"
-        />
+        <div className="relative z-10 transition-transform duration-300 hover:scale-105 cursor-pointer" onClick={handleAwenTap}>
+          <AwenSpirit 
+            expression={evaluation?.emotionalState || mascotExpression || "happy"}
+            wellnessState={awenState?.wellnessState || AWEN_STATES.BALANCED}
+            size={200}
+            interactive={true}
+            onClick={handleAwenTap}
+            caption="Tap AWEN"
+          />
+        </div>
 
         {/* State Badge */}
-        <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs font-mono">
-          <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-          <span>State: {awenState?.wellnessState || 'BALANCED'}</span>
+        <div className="mt-3 inline-flex items-center gap-2 px-3 py-1 border border-[var(--border-strong)] bg-[var(--text-primary)] text-[var(--bg-base)] text-xs font-mono shadow-[2px_2px_0px_#111]">
+          <span className="w-1.5 h-1.5  bg-[var(--accent-green)] shrink-0" />
+          <span className="font-bold uppercase tracking-widest">
+            {awenState?.wellnessState || 'BALANCED'}
+          </span>
         </div>
       </div>
 
       {/* 3. ONE PRIMARY INSIGHT HERO */}
-      <div className="glass-card p-6 sm:p-7 rounded-3xl border border-white/10 space-y-4 text-left shadow-xl">
-        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+      <div className="neo-surface p-5 sm:p-6 space-y-4 text-left">
+        <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-4">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-cyan-400" />
-            <span className="font-heading text-xs font-semibold uppercase tracking-wider text-cyan-300">
+            <Sparkles className="w-5 h-5 text-[var(--awen-aqua)]" />
+            <span className="font-heading text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-widest">
               Today's Primary Observation
             </span>
           </div>
-          <span className="text-[10px] text-slate-400 font-mono">
-            {telemetry.isHardware ? 'ESP32 Live' : 'Demo Stream'}
+          <span className="text-[10px] text-[var(--text-secondary)] font-mono px-2 py-1 bg-[var(--surface-level-2)] rounded-md">
+            {telemetry.isHardware ? 'ESP32 LIVE' : 'DEMO STREAM'}
           </span>
         </div>
 
-        <p className="text-base sm:text-lg text-white font-medium leading-relaxed">
+        <p className="text-lg sm:text-xl font-medium leading-relaxed">
           "{insight.title}"
         </p>
 
         {/* Baseline vs Current Signal Strip */}
-        <div className="grid grid-cols-3 gap-2.5 pt-1">
-          <div className="p-3 rounded-2xl bg-white/5 border border-white/5 space-y-0.5">
-            <span className="text-[10px] text-slate-400 font-mono block">Current</span>
-            <span className="text-lg font-heading font-bold text-white block">{telemetry?.heartRate || 64.0} bpm</span>
-            <span className="text-[9px] text-slate-400">{telemetry?.activity || 'Resting'}</span>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+          <div className="p-4  bg-[var(--surface-level-2)] space-y-1">
+            <span className="text-[11px] text-[var(--text-secondary)] font-mono font-medium uppercase tracking-wider">Current</span>
+            <span className="text-2xl font-heading font-bold block">{telemetry?.heartRate || 64.0} <span className="text-sm font-sans text-[var(--text-secondary)] font-normal">BPM</span></span>
+            <span className="text-[10px] text-[var(--text-secondary)] font-medium uppercase">{telemetry?.activity || 'Resting'}</span>
           </div>
 
-          <div className="p-3 rounded-2xl bg-white/5 border border-white/5 space-y-0.5">
-            <span className="text-[10px] text-slate-400 font-mono block">Personal Baseline</span>
-            <span className="text-lg font-heading font-bold text-cyan-300 block">{restingHr.toFixed(1)} bpm</span>
-            <span className="text-[9px] text-slate-400">Quiet Signature</span>
+          <div className="p-4  bg-[var(--surface-level-2)] space-y-1">
+            <span className="text-[11px] text-[var(--text-secondary)] font-mono font-medium uppercase tracking-wider">Personal Baseline</span>
+            <span className="text-2xl font-heading font-bold text-[var(--awen-teal)] block">{restingHr.toFixed(1)} <span className="text-sm font-sans text-[var(--text-secondary)] font-normal">BPM</span></span>
+            <span className="text-[10px] text-[var(--text-secondary)] font-medium uppercase">Quiet Signature</span>
           </div>
 
-          <div className="p-3 rounded-2xl bg-white/5 border border-white/5 space-y-0.5">
-            <span className="text-[10px] text-slate-400 font-mono block">Baseline Delta</span>
-            <span className={`text-lg font-heading font-bold block ${hrDelta > 8 ? 'text-amber-400' : 'text-emerald-400'}`}>
-              {hrDelta > 0 ? `+${hrDelta}` : hrDelta} bpm
+          <div className="p-4  bg-[var(--surface-level-2)] space-y-1">
+            <span className="text-[11px] text-[var(--text-secondary)] font-mono font-medium uppercase tracking-wider">Baseline Delta</span>
+            <span className={`text-2xl font-heading font-bold block ${hrDelta > 8 ? 'text-[var(--accent-danger)]' : 'text-[var(--awen-teal)]'}`}>
+              {hrDelta > 0 ? `+${hrDelta}` : hrDelta} <span className="text-sm font-sans text-[var(--text-secondary)] font-normal">BPM</span>
             </span>
-            <span className="text-[9px] text-slate-400">Expected Variation</span>
+            <span className="text-[10px] text-[var(--text-secondary)] font-medium uppercase">Expected Variation</span>
           </div>
         </div>
       </div>
 
       {/* 4. WHY AWEN NOTICED (Expandable Accordion) */}
-      <div className="glass-card rounded-2xl border border-white/10 overflow-hidden text-left transition-all">
+      <div className="neo-surface overflow-hidden text-left">
         <button
           onClick={() => setIsExplainOpen(!isExplainOpen)}
-          className="w-full p-4 flex items-center justify-between text-xs sm:text-sm font-semibold text-slate-200 hover:text-white transition-colors"
+          className="w-full p-4 flex items-center justify-between text-sm font-bold text-[var(--text-primary)] hover:bg-[var(--surface-secondary)] transition-colors"
         >
-          <span className="flex items-center gap-2">
-            <HelpCircle className="w-4 h-4 text-cyan-400 shrink-0" />
-            <span>Why did AWEN notice this observation?</span>
+          <span className="flex items-center gap-3">
+            <HelpCircle className="w-4 h-4 text-[var(--accent-green-dark)] shrink-0" />
+            <span>Why did AWEN notice this?</span>
           </span>
-          <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${isExplainOpen ? 'rotate-90' : ''}`} />
+          <ChevronRight className={`w-4 h-4 text-[var(--text-secondary)] transition-transform ${isExplainOpen ? 'rotate-90' : ''}`} />
         </button>
 
         {isExplainOpen && (
-          <div className="px-4 pb-4 space-y-3 text-xs text-slate-300 font-light border-t border-white/5 pt-3 animate-fadeIn">
-            <p className="italic text-cyan-200/90">"{insight.explanation.summary}"</p>
-            <ul className="space-y-1.5 pt-1">
+          <div className="px-4 pb-4 space-y-3 text-sm text-[var(--text-secondary)] border-t border-[var(--border-light)] pt-4 animate-fadeIn bg-[var(--surface-secondary)]">
+            <p className="font-semibold text-[var(--text-primary)]">"{insight.explanation.summary}"</p>
+            <ul className="space-y-2">
               {insight.explanation.bullets.map((bullet, idx) => (
-                <li key={idx} className="flex items-start gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 mt-1.5 shrink-0" />
-                  <span>{bullet}</span>
+                <li key={idx} className="flex items-start gap-3">
+                  <span className="w-1.5 h-1.5 bg-[var(--accent-green)] border border-[var(--accent-green-dark)] mt-2 shrink-0" />
+                  <span className="font-medium">{bullet}</span>
                 </li>
               ))}
             </ul>
@@ -227,116 +235,135 @@ const TodayScreenComponent = ({
       </div>
 
       {/* 5. WHAT NOW? (Focused Action) */}
-      <div className="glass-card p-5 rounded-3xl border border-cyan-500/20 bg-cyan-950/20 text-left space-y-3">
-        <span className="text-[10px] uppercase tracking-wider text-cyan-300 font-mono font-semibold block">What Now?</span>
-        <p className="text-xs sm:text-sm text-slate-200 font-light">
-          "Take a short 2-minute quiet pause to let your heart rate settle back toward your resting baseline."
+      <div className="neo-surface p-5 text-left space-y-3">
+        <span className="text-xs uppercase tracking-widest text-[var(--accent-green-dark)] font-mono font-bold block">Recommended Action</span>
+        <p className="text-sm font-semibold text-[var(--text-primary)] leading-relaxed">
+          <span className="highlight-yellow">"Take a short 2-minute quiet pause to let your heart rate settle back toward your resting baseline."</span>
         </p>
-        <div className="flex flex-wrap gap-2 pt-1">
+        <div className="flex flex-wrap gap-3 pt-2">
           <button
             onClick={onOpenTalk}
-            className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold shadow-md shadow-cyan-600/30 transition-all active:scale-95 flex items-center gap-1.5"
+            className="nb-btn-green px-5 py-2.5 text-sm flex items-center gap-2"
           >
-            <ActivityIcon className="w-3.5 h-3.5" />
+            <ActivityIcon className="w-4 h-4 shrink-0" />
             <span>Talk with AWEN</span>
           </button>
           <button
             onClick={onOpenInsights}
-            className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-200 text-xs font-medium border border-white/10 transition-colors"
+            className="nb-btn px-5 py-2.5 text-sm"
           >
-            View 7-day pattern →
+            View 7-Day Pattern
           </button>
         </div>
       </div>
 
       {/* 6. TODAY'S SIGNALS (Supporting Evidence Grid) */}
-      <div className="space-y-2 text-left">
-        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block px-1">Supporting Signal Context</span>
-        <div className="grid grid-cols-3 gap-3">
-          <div className="glass-card p-3.5 rounded-2xl border border-white/10 text-left space-y-1">
-            <div className="flex items-center justify-between text-slate-400">
-              <span className="text-[10px] font-semibold uppercase">Heart Rate</span>
-              <Heart className="w-3.5 h-3.5 text-rose-400" />
+      <div className="space-y-3 text-left">
+        <span className="section-label block px-1">Supporting Signal Context</span>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="metric-card text-left space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="metric-label">Heart Rate</span>
+              <Heart className="w-3.5 h-3.5 text-[var(--accent-danger)]" />
             </div>
-            <span className="text-base font-heading font-bold text-white block">{telemetry?.heartRate || 64.0} bpm</span>
-            <span className="text-[9px] text-slate-400 block">{telemetry?.activity || 'Resting'}</span>
+            <div>
+              <span className="metric-value text-2xl block">{telemetry?.heartRate || 64.0} <span className="text-xs text-[var(--text-secondary)] font-normal font-sans">BPM</span></span>
+              <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase block">{telemetry?.activity || 'Resting'}</span>
+            </div>
           </div>
 
-          <div className="glass-card p-3.5 rounded-2xl border border-white/10 text-left space-y-1">
-            <div className="flex items-center justify-between text-slate-400">
-              <span className="text-[10px] font-semibold uppercase">SpO₂</span>
-              <ActivityIcon className="w-3.5 h-3.5 text-sky-400" />
+          <div className="metric-card text-left space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="metric-label">SpO₂</span>
+              <ActivityIcon className="w-3.5 h-3.5 text-[var(--accent-green-dark)]" />
             </div>
-            <span className="text-base font-heading font-bold text-white block">{telemetry?.spo2 || 98.6}%</span>
-            <span className="text-[9px] text-sky-300 block">Optimal</span>
+            <div>
+              <span className="metric-value text-2xl block">{telemetry?.spo2 || 98.6}<span className="text-xs text-[var(--text-secondary)] font-normal font-sans">%</span></span>
+              <span className="text-[10px] font-bold text-[var(--accent-green-dark)] uppercase block">Optimal</span>
+            </div>
           </div>
 
-          <div className="glass-card p-3.5 rounded-2xl border border-white/10 text-left space-y-1">
-            <div className="flex items-center justify-between text-slate-400">
-              <span className="text-[10px] font-semibold uppercase">Skin Temp</span>
-              <Thermometer className="w-3.5 h-3.5 text-amber-400" />
+          <div className="metric-card text-left space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="metric-label">Skin Temp</span>
+              <Thermometer className="w-3.5 h-3.5 text-[var(--accent-warm)]" />
             </div>
-            <span className="text-base font-heading font-bold text-white block">{telemetry?.temperature || 36.6}°C</span>
-            <span className="text-[9px] text-slate-400 block">Nominal</span>
+            <div>
+              <span className="metric-value text-2xl block">{telemetry?.temperature || 36.6}<span className="text-xs text-[var(--text-secondary)] font-normal font-sans">°C</span></span>
+              <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase block">Nominal</span>
+            </div>
           </div>
         </div>
       </div>
 
       {/* 7. OPTIONAL EVENING CHECK-IN */}
-      <div className="glass-card p-5 rounded-3xl border border-white/10 flex items-center justify-between text-left space-x-4">
+      <div className="neo-surface p-5 flex flex-wrap sm:flex-nowrap items-center justify-between gap-4 text-left">
         <div>
-          <h4 className="font-heading text-sm font-bold text-white">Daily Evening Check-in</h4>
-          <p className="text-xs text-slate-400 mt-0.5 font-light">Log subjective context to refine personal observations.</p>
+          <h4 className="font-heading text-base font-bold text-[var(--text-primary)]">Daily Check-in</h4>
+          <p className="text-sm text-[var(--text-secondary)] mt-0.5">Log subjective context to refine personal observations.</p>
         </div>
         <button
           onClick={() => setCheckinStep(1)}
-          className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold shadow-md shadow-cyan-600/30 transition-colors shrink-0"
+          className="neo-btn px-6 py-2.5 text-sm font-bold shrink-0 w-full sm:w-auto text-center"
         >
-          Check in
+          Check In
         </button>
+      </div>
       </div>
 
       {/* Check-in Modal */}
       {checkinStep > 0 && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
-          <div className="relative w-full max-w-md glass-card p-6 rounded-3xl border border-cyan-500/30 space-y-4 shadow-2xl text-left bg-[#0d1527]">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <span className="text-xs font-semibold text-cyan-400 uppercase tracking-wider">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-[#111111]/80 animate-fadeIn">
+          <div className="relative w-full max-w-md neo-surface p-6 text-left">
+            <div className="flex items-center justify-between border-b border-[var(--border-light)] pb-4">
+              <span className="section-label">
                 Step {checkinStep} of 2 — Daily Check-in
               </span>
-              <button onClick={() => setCheckinStep(0)} className="p-1 text-slate-400 hover:text-white">
+              <button onClick={() => setCheckinStep(0)} className="p-1.5 border border-[var(--border-strong)] bg-[var(--surface-secondary)] hover:bg-[var(--surface-tertiary)] transition-colors">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {checkinStep === 1 ? (
-              <div className="space-y-4">
-                <h3 className="font-heading text-lg font-bold text-white">How did today feel?</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {FEELINGS.map((f) => (
-                    <button
-                      key={f.label}
-                      onClick={() => setCheckinStep(2)}
-                      className="p-3.5 rounded-2xl glass-card hover:bg-white/10 border border-white/10 text-xs font-medium text-white flex items-center gap-3 transition-colors"
-                    >
-                      <span className="text-2xl">{f.emoji}</span>
-                      <span>{f.label}</span>
-                    </button>
-                  ))}
+              <div className="space-y-4 mt-4">
+                <h3 className="font-heading text-xl font-bold">How did today feel?</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  {FEELINGS.map((f) => {
+                    const isSelected = selectedFeeling === f.label;
+                    return (
+                      <button
+                        key={f.label}
+                        onClick={() => {
+                          setSelectedFeeling(f.label);
+                          setTimeout(() => setCheckinStep(2), 300);
+                        }}
+                        className={`p-4 border-[2px] border-[var(--border-strong)] text-sm font-bold flex flex-col items-center justify-center gap-2 transition-all shadow-[2px_2px_0px_#111]
+                          ${isSelected 
+                            ? 'bg-[var(--accent-green)] translate-x-[2px] translate-y-[2px] shadow-none' 
+                            : 'bg-[var(--surface-primary)] hover:bg-[var(--surface-secondary)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none'
+                          }
+                        `}
+                      >
+                        <span className="text-2xl">{f.emoji}</span>
+                        <span>{f.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             ) : (
-              <div className="space-y-4">
-                <h3 className="font-heading text-lg font-bold text-white">What best describes today?</h3>
-                <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-4 mt-4">
+                <h3 className="font-heading text-xl font-bold">What best describes today?</h3>
+                <div className="grid grid-cols-2 gap-2">
                   {ACTIVITIES_CHECKIN.map((act) => (
                     <button
                       key={act.label}
                       onClick={() => {
                         onSelectActivity(act.label);
+                        setSelectedFeeling(null); // reset for next time
                         setCheckinStep(0);
                       }}
-                      className="p-3.5 rounded-2xl glass-card hover:bg-white/10 border border-white/10 text-xs font-medium text-white flex items-center gap-3 transition-colors"
+                      className="p-4 border-[2px] border-[var(--border-strong)] bg-[var(--surface-primary)] hover:bg-[var(--surface-secondary)] text-sm font-bold flex flex-col items-center justify-center gap-2 transition-all active:translate-x-[2px] active:translate-y-[2px] shadow-[2px_2px_0px_#111] active:shadow-none text-center"
                     >
                       <span className="text-xl">{act.icon}</span>
                       <span>{act.label}</span>
@@ -351,46 +378,46 @@ const TodayScreenComponent = ({
 
       {/* Dynamic Plain-Language Explainability Reasoning Modal */}
       {isExplainOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
-          <div className="relative w-full max-w-md glass-card p-6 rounded-3xl border border-cyan-500/30 space-y-4 shadow-2xl text-left bg-[#0d1527] max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <h3 className="font-heading text-base font-bold text-white flex items-center gap-2">
-                <HelpCircle className="w-4 h-4 text-cyan-400" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#111111]/80 animate-fadeIn">
+          <div className="relative w-full max-w-md neo-surface p-6 text-left max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-[var(--border-light)] pb-4">
+              <h3 className="font-heading text-base font-bold flex items-center gap-2">
+                <HelpCircle className="w-4 h-4 text-[var(--accent-green-dark)]" />
                 <span>Why AWEN Reached This Conclusion</span>
               </h3>
-              <button onClick={() => setIsExplainOpen(false)} className="p-1 text-slate-400 hover:text-white">
+              <button onClick={() => setIsExplainOpen(false)} className="p-1.5 border border-[var(--border-strong)] bg-[var(--surface-secondary)] hover:bg-[var(--surface-tertiary)] transition-colors">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Dynamic Explanation Summary */}
-            <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-white/5 space-y-1">
-              <span className="text-[10px] uppercase font-semibold text-slate-400 block">Summary</span>
-              <p className="text-xs text-slate-200 font-light leading-relaxed italic">
+            {/* Summary */}
+            <div className="p-4 mt-4 border border-[var(--border-light)] bg-[var(--surface-secondary)] space-y-2">
+              <span className="section-label block">Summary</span>
+              <p className="text-sm font-semibold text-[var(--text-primary)]">
                 "{insight.explanation.summary}"
               </p>
             </div>
 
-            {/* Physiological Factors Breakdown */}
-            <div className="space-y-2.5">
-              <span className="text-[10px] uppercase font-semibold text-slate-400 block">Evaluated Signal Factors</span>
+            {/* Signal Factors */}
+            <div className="space-y-2 mt-4">
+              <span className="section-label block">Evaluated Signal Factors</span>
               {insight.explanation.bullets.map((bullet, idx) => (
-                <div key={idx} className="bg-slate-900/60 p-3 rounded-2xl border border-white/5 flex items-start gap-2.5 text-xs text-slate-300 font-light">
-                  <span className="w-2 h-2 rounded-full bg-cyan-400 mt-1 shrink-0" />
-                  <span>{bullet}</span>
+                <div key={idx} className="bg-[var(--surface-secondary)] border border-[var(--border-light)] p-3 flex items-start gap-3 text-sm font-medium">
+                  <span className="w-1.5 h-1.5 bg-[var(--accent-green)] border border-[var(--accent-green-dark)] mt-1.5 shrink-0" />
+                  <span className="text-[var(--text-primary)]">{bullet}</span>
                 </div>
               ))}
             </div>
 
-            {/* Non-clinical Disclaimer Banner */}
-            <div className="p-3 rounded-xl bg-cyan-950/40 border border-cyan-500/20 text-[11px] text-cyan-300 font-light">
+            {/* Non-clinical Disclaimer */}
+            <div className="p-3 mt-4 border border-[var(--accent-warm)] bg-[var(--accent-warm-bg)] text-xs text-[var(--text-secondary)] font-medium">
               AWEN uses non-clinical statistical comparison against your personal baseline signature to provide supportive wellness observations.
             </div>
 
-            <div className="pt-2 border-t border-white/10 flex justify-end">
+            <div className="pt-4 mt-4 flex justify-end">
               <button
                 onClick={() => setIsExplainOpen(false)}
-                className="px-4 py-2 rounded-xl bg-cyan-600 text-xs font-semibold text-white shadow-md shadow-cyan-600/30 hover:bg-cyan-500 transition-colors"
+                className="neo-btn neo-btn-primary px-6 py-2.5 text-sm font-bold"
               >
                 Understood
               </button>
@@ -399,7 +426,7 @@ const TodayScreenComponent = ({
         </div>
       )}
 
-    </div>
+    </>
   );
 };
 

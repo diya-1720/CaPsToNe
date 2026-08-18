@@ -88,10 +88,10 @@ const AwenSpiritComponent = ({
         
         {/* Sleeping Zzz Particles */}
         {activeExpression === "sleeping" && (
-          <div className="absolute -top-6 right-2 flex flex-col items-center pointer-events-none space-y-1">
-            <span className="text-xs font-bold text-indigo-300 animate-bounce">Z</span>
-            <span className="text-[10px] font-bold text-indigo-300/80 animate-bounce [animation-delay:0.2s]">z</span>
-            <span className="text-[8px] font-bold text-indigo-300/60 animate-bounce [animation-delay:0.4s]">z</span>
+          <div className="absolute -top-12 -right-4 flex flex-col items-center gap-0.5">
+            <span className="text-xs font-bold text-[var(--text-primary)] animate-bounce">Z</span>
+            <span className="text-[10px] font-bold text-[var(--text-primary)] animate-bounce [animation-delay:0.2s]">z</span>
+            <span className="text-[8px] font-bold text-[var(--text-primary)] animate-bounce [animation-delay:0.4s]">z</span>
           </div>
         )}
 
@@ -271,7 +271,7 @@ const AwenSpiritComponent = ({
       </div>
 
       {caption && (
-        <span className="mt-2 px-3 py-1 rounded-full text-[11px] font-medium bg-white/10 backdrop-blur-md text-slate-200 border border-white/10 shadow-lg">
+        <span className="mt-2 px-3 py-1 bg-[var(--surface-secondary)] border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111] text-[10px] font-bold uppercase tracking-wider text-[var(--text-primary)]">
           {caption}
         </span>
       )}

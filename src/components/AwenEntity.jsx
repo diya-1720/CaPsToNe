@@ -210,18 +210,16 @@ export const AwenEntity = ({
       {/* Floating State Badge & Subtext */}
       <div className="absolute bottom-1 flex flex-col items-center text-center pointer-events-none">
         <span 
-          className="px-3 py-1 rounded-full text-xs font-medium backdrop-blur-md transition-colors duration-500 shadow-lg"
+          className="px-3 py-1 bg-white border-2 border-slate-900 text-[10px] font-bold uppercase tracking-wider text-slate-900 shadow-[2px_2px_0px_#111] transition-colors duration-500"
           style={{
-            backgroundColor: currentPalette.halo,
-            borderColor: currentPalette.secondary,
-            color: '#ffffff',
-            borderWidth: '1px'
+            backgroundColor: '#ffffff',
+            borderColor: '#111111'
           }}
         >
           {currentPalette.label}
         </span>
         {subtext && (
-          <p className="text-[11px] text-slate-400 mt-1.5 max-w-[200px] leading-tight">
+          <p className="text-[11px] text-[var(--text-secondary)] font-bold mt-1.5 max-w-[200px] leading-tight">
             {subtext}
           </p>
         )}

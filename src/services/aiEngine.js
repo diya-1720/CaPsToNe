@@ -1,3 +1,5 @@
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
 /**
  * AWEN Human Conversational AI Engine
  * 
@@ -22,6 +24,10 @@ export class AwenAiEngine {
       lastCheckinActivity: "Resting"
     };
     this.replyHistory = new Set();
+    // Load API key from environment variables for future LLM integration
+    this.apiKey = import.meta.env.VITE_CHATBOT_API_KEY || null;
+    this.genAI = this.apiKey ? new GoogleGenerativeAI(this.apiKey) : null;
+    this.chatSession = null;
   }
 
   /** Update remembered user name */
@@ -250,7 +256,7 @@ export class AwenAiEngine {
   /**
    * AWEN System Prompt Enforced Conversational Engine with Intent-Routing
    */
-  generateChatReply(userMessage, telemetry) {
+  async generateChatReply(userMessage, telemetry) {
     const msg = (userMessage || "").trim();
     const lower = msg.toLowerCase();
     
@@ -260,13 +266,41 @@ export class AwenAiEngine {
       return safetyCheck.reply;
     }
 
-    // 2. Classify Conversational Intent
-    const intent = this.classifyIntent(msg);
-
     const hr = Math.round(telemetry?.heartRate || telemetry?.heart_rate || 64);
     const spo2 = Math.round((telemetry?.spo2 || 98.6) * 10) / 10;
     const temp = Math.round((telemetry?.temperature || 36.6) * 10) / 10;
     const activity = telemetry?.activity || "Resting";
+
+    // Call Gemini API if available
+    if (this.genAI) {
+      try {
+        if (!this.chatSession) {
+          const model = this.genAI.getGenerativeModel({ model: "gemini-3.5-flash-lite" });
+          this.chatSession = model.startChat({ history: [] });
+        }
+        
+        const systemContext = `[System Context: You are AWEN, a non-clinical wellness companion. Be empathetic, concise (1-3 sentences). DO NOT give medical advice. Frame variations as 'comparing against personal baseline'. Current Telemetry - HR: ${hr} bpm, SpO2: ${spo2}%, Temp: ${temp}C, Activity: ${activity}. Use only if relevant.]\n\nUser: `;
+        
+        const prompt = systemContext + msg;
+        
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("Request timed out (API is taking too long)")), 60000)
+        );
+        
+        const result = await Promise.race([
+          this.chatSession.sendMessage(prompt),
+          timeoutPromise
+        ]);
+        
+        return result.response.text().trim();
+      } catch (error) {
+        console.error("Gemini API Error:", error);
+        return `I encountered an error connecting to the AI service: ${error.message}. Please check your API key and connection.`;
+      }
+    }
+
+    // 2. Classify Conversational Intent
+    const intent = this.classifyIntent(msg);
 
     // --- INTENT ROUTING LOGIC ---
 

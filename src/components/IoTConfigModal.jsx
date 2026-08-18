@@ -25,20 +25,20 @@ export const IoTConfigModal = ({ isOpen, onClose, telemetryStream, telemetry }) 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
-      <div className="relative w-full max-w-xl glass-panel p-6 sm:p-8 rounded-3xl border border-blue-500/30 shadow-2xl space-y-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#111111]/80 animate-fadeIn">
+      <div className="relative w-full max-w-xl neo-surface p-6 sm:p-8 space-y-6 max-h-[90dvh] overflow-y-auto">
         
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/10 pb-4">
+        <div className="flex items-center justify-between border-b-2 border-[var(--border-strong)] pb-4">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
-              <Cpu className="w-5 h-5" />
+            <div className="p-2.5 border-2 border-[var(--border-strong)] bg-[var(--surface-secondary)] shadow-[2px_2px_0px_#111]">
+              <Cpu className="w-5 h-5 text-[var(--text-primary)]" />
             </div>
             <div>
-              <h3 className="font-heading text-xl font-bold text-white">
+              <h3 className="font-heading text-xl font-bold text-[var(--text-primary)] uppercase tracking-wide">
                 ESP32 IoT Sensor Configuration
               </h3>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs font-medium text-[var(--text-secondary)]">
                 Connect physical MAX30102 PPG sensor hardware or control telemetry stream
               </p>
             </div>
@@ -46,25 +46,25 @@ export const IoTConfigModal = ({ isOpen, onClose, telemetryStream, telemetry }) 
 
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+            className="p-2 border border-[var(--border-strong)] hover:bg-[var(--surface-secondary)] shadow-[2px_2px_0px_#111] transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5 text-[var(--text-primary)]" />
           </button>
         </div>
 
         {/* Connection Status Banner */}
-        <div className={`p-4 rounded-2xl border flex items-center justify-between text-xs ${
+        <div className={`p-4 border-2 shadow-[2px_2px_0px_#111] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs ${
           telemetry?.isHardware 
-            ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300' 
-            : 'bg-blue-950/40 border-blue-500/30 text-blue-300'
+            ? 'bg-[var(--accent-green-bg)] border-[var(--accent-green-dark)] text-[var(--accent-green-dark)]' 
+            : 'bg-[var(--surface-secondary)] border-[var(--border-strong)] text-[var(--text-primary)]'
         }`}>
           <div className="flex items-center gap-3">
-            <Radio className={`w-5 h-5 ${telemetry?.isHardware ? 'animate-pulse text-emerald-400' : 'text-blue-400'}`} />
+            <Radio className={`w-5 h-5 ${telemetry?.isHardware ? 'animate-pulse text-[var(--accent-green-dark)]' : 'text-[var(--text-primary)]'}`} />
             <div>
-              <span className="font-semibold block">
+              <span className="font-bold block uppercase tracking-wide text-[11px]">
                 Status: {telemetry?.isHardware ? 'ESP32 Hardware Connected' : 'Simulated Sensor Telemetry Active'}
               </span>
-              <span className="text-[11px] opacity-80">
+              <span className="text-[10px] font-medium opacity-80">
                 {telemetry?.isHardware ? 'Live PPG serial stream at 115200 baud' : 'Simulating MAX30102 PPG optical telemetry'}
               </span>
             </div>
@@ -73,7 +73,7 @@ export const IoTConfigModal = ({ isOpen, onClose, telemetryStream, telemetry }) 
           {telemetry?.isHardware ? (
             <button
               onClick={handleDisconnect}
-              className="px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 font-medium transition-colors"
+              className="px-3 py-1.5 font-bold uppercase tracking-wider text-[10px] bg-[var(--accent-danger-bg)] hover:bg-[var(--accent-danger)] hover:text-white text-[var(--accent-danger)] border-2 border-[var(--accent-danger)] shadow-[2px_2px_0px_var(--accent-danger)] transition-colors whitespace-nowrap"
             >
               Disconnect
             </button>
@@ -81,7 +81,7 @@ export const IoTConfigModal = ({ isOpen, onClose, telemetryStream, telemetry }) 
             <button
               onClick={handleConnectHardware}
               disabled={connecting}
-              className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium shadow-md shadow-blue-600/30 transition-all"
+              className="px-4 py-1.5 font-bold uppercase tracking-wider text-[10px] bg-[var(--text-primary)] text-white hover:bg-[var(--accent-green-dark)] border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111] transition-colors whitespace-nowrap disabled:opacity-50"
             >
               {connecting ? 'Pairing...' : 'Connect Hardware'}
             </button>
@@ -89,7 +89,7 @@ export const IoTConfigModal = ({ isOpen, onClose, telemetryStream, telemetry }) 
         </div>
 
         {errorMsg && (
-          <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
+          <div className="p-3 border-2 border-[var(--accent-danger)] bg-[var(--accent-danger-bg)] text-[var(--accent-danger)] text-xs font-bold uppercase tracking-wide flex items-center gap-2 shadow-[2px_2px_0px_var(--accent-danger)]">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{errorMsg}</span>
           </div>
@@ -97,57 +97,47 @@ export const IoTConfigModal = ({ isOpen, onClose, telemetryStream, telemetry }) 
 
         {/* Baud Rate & Serial Terminal Stream Preview */}
         <div className="space-y-3">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-semibold text-slate-300 flex items-center gap-1.5">
-              <Terminal className="w-3.5 h-3.5 text-blue-400" />
+          <div className="flex items-center justify-between text-[11px] uppercase tracking-wide">
+            <span className="font-bold text-[var(--text-primary)] flex items-center gap-1.5">
+              <Terminal className="w-3.5 h-3.5" />
               <span>Live Serial Data Stream</span>
             </span>
-            <span className="text-slate-400 font-mono">Baud Rate: 115200</span>
+            <span className="font-mono font-bold text-[var(--text-secondary)]">Baud Rate: 115200</span>
           </div>
 
-          <div className="w-full h-28 bg-slate-950 p-3 rounded-2xl border border-white/10 font-mono text-[11px] text-emerald-400 overflow-y-auto space-y-1">
-            <p className="text-slate-500">// AWEN ESP32 Telemetry Monitor</p>
+          <div className="w-full h-28 bg-[var(--text-primary)] p-3 border-2 border-[var(--border-strong)] shadow-[3px_3px_0px_#111] font-mono text-[11px] text-[var(--accent-green)] overflow-y-auto space-y-1">
+            <p className="text-[var(--text-muted)]">// AWEN ESP32 Telemetry Monitor</p>
             <p>{"{"} "ir": 54200, "bpm": {telemetry?.heartRate || 65}, "spo2": {telemetry?.spo2 || 98.6}, "temp": {telemetry?.temperature || 36.6} {"}"}</p>
             <p>{"{"} "status": "baseline_normal", "activity": "{telemetry?.activity || 'Resting'}" {"}"}</p>
           </div>
         </div>
 
         {/* Simulated Telemetry Controls */}
-        <div className="space-y-2 border-t border-white/10 pt-4">
-          <label className="text-xs font-semibold text-slate-300">Simulate Physical Telemetry Scenarios:</label>
+        <div className="space-y-3 border-t-2 border-[var(--border-strong)] pt-4">
+          <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--text-primary)]">Simulate Physical Telemetry Scenarios:</label>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <button
-              onClick={() => telemetryStream.setScenario('normal')}
-              className="px-3 py-2 rounded-xl glass-card hover:bg-white/10 text-xs text-slate-200 border border-white/5 transition-colors"
-            >
-              Resting (65 bpm)
-            </button>
-            <button
-              onClick={() => telemetryStream.setScenario('stairs')}
-              className="px-3 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-xs text-amber-300 border border-amber-500/20 transition-colors"
-            >
-              Stairs (+34 bpm)
-            </button>
-            <button
-              onClick={() => telemetryStream.setScenario('caffeine')}
-              className="px-3 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-xs text-blue-300 border border-blue-500/20 transition-colors"
-            >
-              Caffeine Spike
-            </button>
-            <button
-              onClick={() => telemetryStream.setScenario('exercise')}
-              className="px-3 py-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-xs text-purple-300 border border-purple-500/20 transition-colors"
-            >
-              Running Workout
-            </button>
+            {[
+              { id: 'normal', label: 'Resting (65 bpm)' },
+              { id: 'stairs', label: 'Stairs (+34 bpm)' },
+              { id: 'caffeine', label: 'Caffeine Spike' },
+              { id: 'exercise', label: 'Running Workout' },
+            ].map(scenario => (
+              <button
+                key={scenario.id}
+                onClick={() => telemetryStream.setScenario(scenario.id)}
+                className="px-2 py-2 text-[10px] font-bold uppercase tracking-wider bg-[var(--surface-primary)] hover:bg-[var(--surface-secondary)] text-[var(--text-primary)] border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all"
+              >
+                {scenario.label}
+              </button>
+            ))}
           </div>
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end pt-2 border-t border-white/10">
+        <div className="flex justify-end pt-4 border-t-2 border-[var(--border-strong)]">
           <button
             onClick={onClose}
-            className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs transition-colors"
+            className="px-5 py-2.5 font-bold uppercase tracking-wide text-xs bg-[var(--surface-secondary)] hover:bg-[var(--surface-tertiary)] border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111] transition-colors"
           >
             Close Settings
           </button>

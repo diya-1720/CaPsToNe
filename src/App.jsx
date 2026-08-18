@@ -9,7 +9,7 @@ import { AuthModal } from './components/AuthModal';
 import { ObservationModal } from './components/ObservationModal';
 import { LandingPage } from './components/LandingPage';
 
-import { Moon, User, MessageCircle, ArrowLeft } from 'lucide-react';
+import { User, MessageCircle, ArrowLeft } from 'lucide-react';
 
 import { BaselineEngine, DEFAULT_BASELINE } from './services/baselineEngine';
 import { TelemetryStream } from './services/telemetryStream';
@@ -20,7 +20,6 @@ import { aiEngine } from './services/aiEngine';
 export default function App() {
   const [activeTab, setActiveTab] = useState('today');
   const [previousTab, setPreviousTab] = useState('today');
-  const [isNightMode, setIsNightMode] = useState(false);
   const [currentUser, setCurrentUser] = useState(apiService.currentUser);
 
   const handleOpenTalk = () => {
@@ -70,7 +69,7 @@ export default function App() {
         }
       }
 
-      if (isSupabaseConfigured()) {
+      if (isSupabaseConfigured) {
         const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
           if (session?.user) {
             const userObj = {
@@ -145,7 +144,7 @@ export default function App() {
           heartRate: telemetry.heartRate || telemetry.heart_rate || 64.0,
           baselineHeartRate: baselineEngineRef.current.baseline.restingHr,
           activityState: telemetry.activity,
-          isNightMode: isNightMode
+          isNightMode: false
         });
 
         setAwenState(prevState => {
@@ -184,7 +183,7 @@ export default function App() {
 
     runAnalysis();
     return () => { isMounted = false; };
-  }, [telemetry, isNightMode, currentUser, userBaseline]);
+  }, [telemetry, currentUser, userBaseline]);
 
   const handleSelectActivity = (activity) => {
     if (telemetryStreamRef.current) {
@@ -264,87 +263,77 @@ export default function App() {
 
   return (
     <div 
-      data-theme={isNightMode ? 'dark' : 'light'}
-      className={`min-h-[100dvh] w-full transition-colors duration-700 flex flex-col font-sans selection:bg-cyan-500 selection:text-white relative overflow-x-hidden ${isNightMode ? 'dark' : ''}`}
-      style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+      className="min-h-[100dvh] w-full flex flex-col font-sans relative"
+      style={{ backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)' }}
     >
-      
-      {/* Night Mode Starlight Ambient Glow Overlay */}
-      {isNightMode && (
-        <div className="fixed inset-0 pointer-events-none z-0">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-600/10 rounded-full blur-3xl" />
-          <div className="absolute bottom-1/3 left-0 w-80 h-80 bg-teal-500/10 rounded-full blur-3xl" />
-          <div className="absolute top-12 left-10 w-1 h-1 bg-white rounded-full animate-ping opacity-60" />
-          <div className="absolute top-36 right-16 w-1 h-1 bg-teal-300 rounded-full animate-pulse opacity-70" />
-          <div className="absolute top-1/2 left-8 w-1.5 h-1.5 bg-emerald-300 rounded-full animate-ping opacity-50 [animation-delay:1s]" />
-        </div>
-      )}
+      {/* ── TOP HEADER ── */}
+      <header className="sticky top-0 z-40 w-full bg-[var(--bg-base)] border-b-2 border-[var(--border-strong)] pt-safe">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
 
-      {/* Top Corner Header Bar */}
-      <header className="sticky top-0 z-40 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3 pt-safe flex items-center justify-between pointer-events-auto backdrop-blur-md bg-[var(--glass-bg)] border-b border-[var(--border-color)] transition-colors duration-300">
-        
-        {/* Left Header: Brand Logo Pill & Talk Assistant Launcher OR Back Button */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          {activeTab === 'talk' ? (
-            <button
-              onClick={handleBackFromTalk}
-              className="flex items-center gap-1.5 glass-pill px-3 py-1.5 rounded-full text-xs font-medium text-cyan-300 hover:text-white border border-cyan-500/30 transition-colors active:scale-95"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back to {previousTab.charAt(0).toUpperCase() + previousTab.slice(1)}</span>
-            </button>
-          ) : (
-            <>
-              <div className="flex items-center gap-1.5 sm:gap-2 glass-pill px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-semibold text-slate-200 shadow-md">
-                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shrink-0" />
-                <span className="font-heading font-bold tracking-wider text-xs sm:text-sm">AWEN</span>
-                <span className="text-[10px] text-slate-400 font-mono hidden md:inline">| Wellness Companion</span>
-              </div>
-
-              {/* Compact Top-Left Assistant Launcher */}
+          {/* Left: Brand or Back */}
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            {activeTab === 'talk' ? (
               <button
-                onClick={handleOpenTalk}
-                className="flex items-center gap-1.5 glass-pill px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-medium text-cyan-300 hover:text-white border border-cyan-500/30 hover:border-cyan-400/50 shadow-sm transition-all active:scale-95"
+                onClick={handleBackFromTalk}
+                className="neo-btn px-3 py-2 text-xs flex items-center gap-1.5"
               >
-                <MessageCircle className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                <span>Talk to AWEN</span>
+                <ArrowLeft className="w-4 h-4" />
+                <span className="hidden sm:inline">Back to {previousTab.charAt(0).toUpperCase() + previousTab.slice(1)}</span>
+                <span className="sm:hidden">Back</span>
               </button>
-            </>
-          )}
+            ) : (
+              <>
+                {/* AWEN Brand Pill */}
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--text-primary)] text-[var(--bg-base)] border-2 border-[var(--border-strong)] rounded-sm shadow-[2px_2px_0px_#111]">
+                  <span className="w-2 h-2 rounded-full bg-[var(--accent-green)] shrink-0" />
+                  <span className="font-heading font-bold text-sm tracking-widest uppercase">AWEN</span>
+                </div>
 
-          <span className={`text-[9px] sm:text-[10px] font-mono px-2 sm:px-2.5 py-0.5 rounded-full border shrink-0 ${telemetry.isHardware ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300'}`}>
-            {telemetry.isHardware ? 'ESP32 Live' : 'Demo Stream'}
-          </span>
+                {/* Talk Launcher */}
+                <button
+                  onClick={handleOpenTalk}
+                  className="neo-btn px-3 py-2 text-xs flex items-center gap-1.5"
+                >
+                  <MessageCircle className="w-4 h-4 shrink-0" />
+                  <span className="hidden sm:inline">Talk to AWEN</span>
+                  <span className="sm:hidden">Talk</span>
+                </button>
+              </>
+            )}
+
+            {/* Hardware Badge */}
+            <span className={`text-[10px] font-mono font-bold px-2 py-1 border border-[var(--border-strong)] rounded-sm shrink-0 hidden lg:inline-block uppercase tracking-wider ${
+              telemetry.isHardware
+                ? 'bg-[var(--accent-green)] text-[var(--text-primary)]'
+                : 'bg-[var(--surface-secondary)] text-[var(--text-muted)]'
+            }`}>
+              {telemetry.isHardware ? '● ESP32 Live' : '○ Demo Stream'}
+            </span>
+          </div>
+
+          {/* Center: Desktop Navigation (snaps to bottom on mobile) */}
+          <BottomNav 
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+          />
+
+          {/* Right: Profile */}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => currentUser ? setActiveTab('you') : setIsAuthOpen(true)}
+              className="neo-btn px-3 py-2 text-xs flex items-center gap-1.5"
+            >
+              <User className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline max-w-[120px] truncate font-semibold">
+                {currentUser?.name || 'Sign In'}
+              </span>
+            </button>
+          </div>
         </div>
-
-        {/* Top Right Corner Controls: Auth Profile & Moon Symbol Button */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          <button
-            onClick={() => currentUser ? setActiveTab('you') : setIsAuthOpen(true)}
-            className="flex items-center gap-1.5 glass-pill px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-medium text-slate-200 hover:text-white transition-colors"
-          >
-            <User className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-            <span className="max-w-[80px] sm:max-w-[120px] truncate">{currentUser?.name || 'Sign In'}</span>
-          </button>
-
-          <button
-            onClick={() => setIsNightMode(!isNightMode)}
-            className={`p-2 sm:p-2.5 rounded-full backdrop-blur-md border transition-all duration-300 shadow-lg ${
-              isNightMode 
-                ? 'bg-indigo-950/80 border-indigo-500/40 text-indigo-300 shadow-indigo-500/20 scale-105' 
-                : 'glass-pill text-slate-300 hover:text-white border-white/10 hover:bg-white/10'
-            }`}
-            title={isNightMode ? "Switch to Ambient Mode" : "Activate Deep Night Mode"}
-            aria-label="Night Mode Toggle"
-          >
-            <Moon className={`w-4 h-4 sm:w-5 sm:h-5 ${isNightMode ? 'fill-indigo-300 text-indigo-200 animate-pulse' : 'text-slate-300 hover:text-cyan-300'}`} />
-          </button>
-        </div>
-
       </header>
 
-      {/* Mobile Screen Router */}
-      <main className="flex-1 w-full relative z-10 flex flex-col min-h-0">
+      {/* ── MAIN CONTENT ── */}
+      <main className="flex-1 w-full flex flex-col min-h-0 pb-28 md:pb-0">
         {activeTab === 'today' && (
           <TodayScreen 
             telemetry={telemetry}
@@ -354,7 +343,7 @@ export default function App() {
             onSelectMood={handleSelectMood}
             onOpenTalk={handleOpenTalk}
             onOpenInsights={() => setActiveTab('journey')}
-            isNightMode={isNightMode}
+            isNightMode={false}
             currentUser={currentUser}
             baselineData={baselineEngineRef.current?.baseline}
           />
@@ -399,13 +388,7 @@ export default function App() {
         )}
       </main>
 
-      {/* Bottom Navigation */}
-      <BottomNav 
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-      />
-
-      {/* Auth & Observation Onboarding Modals */}
+      {/* ── MODALS ── */}
       <AuthModal 
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
@@ -420,8 +403,15 @@ export default function App() {
             localStorage.setItem(`awen_obs_modal_${currentUser.id}`, 'true');
           }
         }}
-        onConfirmObservation={() => {
+        onStartObservation={() => {
           handleToggleObservation(true);
+          setIsObsModalOpen(false);
+          if (currentUser) {
+            localStorage.setItem(`awen_obs_modal_${currentUser.id}`, 'true');
+          }
+        }}
+        onSkipObservation={() => {
+          handleToggleObservation(false);
           setIsObsModalOpen(false);
           if (currentUser) {
             localStorage.setItem(`awen_obs_modal_${currentUser.id}`, 'true');

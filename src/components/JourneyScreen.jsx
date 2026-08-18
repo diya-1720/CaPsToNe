@@ -102,45 +102,45 @@ export const JourneyScreen = ({ baselineData, evaluation, currentUser }) => {
   const todayStr = new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
 
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 pb-24 lg:pb-12 space-y-6 animate-fadeIn">
+    <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-24 lg:pb-12 space-y-6 animate-fadeIn">
       
       {/* 1. TITLE & SUBTITLE */}
-      <div className="space-y-1 text-center sm:text-left">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs font-medium">
-          <Compass className="w-3.5 h-3.5" />
+      <div className="space-y-2 text-center sm:text-left">
+        <div className="inline-flex items-center gap-2 px-3 py-1.5  bg-[var(--surface-level-2)] border border-[var(--border-subtle)] text-[var(--awen-aqua)] text-xs font-semibold tracking-wide uppercase shadow-sm">
+          <Compass className="w-4 h-4" />
           <span>Your Wellness Journey</span>
         </div>
-        <h1 className="font-heading text-3xl sm:text-4xl font-bold text-white tracking-tight">
+        <h1 className="font-heading text-3xl sm:text-4xl font-bold text-[var(--text-primary)] tracking-tight">
           Your Journey
         </h1>
-        <p className="text-xs sm:text-sm text-slate-300 font-light">
+        <p className="text-sm text-[var(--text-secondary)] font-medium max-w-xl">
           See how your personal physiological patterns change over time compared against your own baseline.
         </p>
       </div>
 
       {/* 2. PRIMARY VISUAL HERO: 7-DAY GRAPH */}
-      <div className="glass-card p-6 sm:p-7 rounded-3xl border border-white/10 space-y-4 text-left shadow-xl relative overflow-hidden">
-        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+      <div className="neo-surface p-5 sm:p-7 space-y-4 text-left relative overflow-hidden">
+        <div className="flex flex-wrap sm:flex-nowrap items-center justify-between border-b border-[var(--border-light)] pb-3 gap-3">
           <div className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-emerald-400" />
-            <span className="font-heading text-xs sm:text-sm font-bold text-white">
-              7-Day Resting Pattern & Baseline Range
+            <TrendingUp className="w-4 h-4 text-[var(--accent-green-dark)]" />
+            <span className="font-heading text-sm font-bold text-[var(--text-primary)]">
+              7-Day Resting Pattern &amp; Baseline Range
             </span>
           </div>
-          <span className="text-[10px] text-emerald-300 font-mono">
+          <span className="text-xs text-[var(--text-primary)] font-mono font-bold bg-[var(--accent-green-bg)] px-2.5 py-1 border border-[var(--border-strong)] shrink-0 tracking-wide uppercase">
             Baseline: {restingHr.toFixed(1)} bpm (±{hrStdDev.toFixed(1)})
           </span>
         </div>
 
-        {/* Spacious SVG Graph Stage */}
+        {/* SVG Graph */}
         <div className="w-full h-56 pt-2 relative">
           {isLoading ? (
-            <div className="absolute inset-0 flex items-center justify-center text-xs text-slate-400 gap-2">
-              <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
-              <span>Loading history...</span>
+            <div className="absolute inset-0 flex items-center justify-center text-xs text-[var(--text-secondary)] gap-2">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span className="font-medium">Loading history...</span>
             </div>
           ) : validDays.length === 0 ? (
-            <div className="absolute inset-0 flex items-center justify-center p-4 text-center text-xs text-slate-400 font-light leading-relaxed">
+            <div className="absolute inset-0 flex items-center justify-center p-4 text-center text-xs text-[var(--text-secondary)] font-medium leading-relaxed">
               AWEN is observing your daily resting pattern. Recorded daily averages will appear here as telemetry accumulates.
             </div>
           ) : null}
@@ -152,26 +152,25 @@ export const JourneyScreen = ({ baselineData, evaluation, currentUser }) => {
               y={maxRangeY} 
               width="300" 
               height={Math.max(4, minRangeY - maxRangeY)} 
-              fill="#34d399" 
-              fillOpacity="0.08" 
-              rx="4"
+              fill="#32E875"
+              fillOpacity="0.12" 
             />
 
-            {/* Baseline Center Dash Line */}
-            <line x1="10" y1={baselineY} x2="310" y2={baselineY} stroke="#34d399" strokeWidth="1.5" strokeDasharray="4 4" />
+            {/* Baseline Center Line */}
+            <line x1="10" y1={baselineY} x2="310" y2={baselineY} stroke="#32E875" strokeWidth="1.5" strokeDasharray="5 5" opacity="0.8" />
 
-            {/* Real Recorded Data Connection Line */}
+            {/* Data Connection Line */}
             {svgPathD && (
               <path
                 d={svgPathD}
                 fill="none"
-                stroke="#38bdf8"
-                strokeWidth="2.5"
+                stroke="#111111"
+                strokeWidth="2"
                 strokeLinecap="round"
               />
             )}
 
-            {/* Day Dots & Interactive Inspection */}
+            {/* Day Dots */}
             {weeklyHistory.map((pt, i) => {
               const x = 20 + i * 45;
               const hasValue = pt.averageHeartRate !== null;
@@ -182,15 +181,15 @@ export const JourneyScreen = ({ baselineData, evaluation, currentUser }) => {
                 <g key={pt.date || i} className="cursor-pointer" onClick={() => hasValue && setSelectedDay(pt)}>
                   {hasValue ? (
                     <>
-                      <circle cx={x} cy={y} r={isSelected ? "7" : "5"} fill={isSelected ? "#06b6d4" : "#38bdf8"} stroke="#080d18" strokeWidth="2" />
-                      <text x={x} y={y - 10} fill="#e2e8f0" fontSize="8" textAnchor="middle" fontWeight="bold">
+                      <circle cx={x} cy={y} r={isSelected ? "6" : "4"} fill={isSelected ? "#32E875" : "#111111"} stroke={isSelected ? "#111111" : "var(--bg-base)"} strokeWidth="2" className="transition-all duration-300" />
+                      <text x={x} y={y - 10} fill="var(--text-primary)" fontSize="8" textAnchor="middle" fontWeight="700">
                         {Math.round(pt.averageHeartRate)}
                       </text>
                     </>
                   ) : (
-                    <circle cx={x} cy={baselineY} r="2" fill="#475569" opacity="0.4" />
+                    <circle cx={x} cy={baselineY} r="3" fill="var(--border-light)" opacity="0.6" />
                   )}
-                  <text x={x} y="96" fill={isSelected ? "#06b6d4" : "#94a3b8"} fontSize="9" textAnchor="middle" fontWeight={isSelected ? "bold" : "normal"}>
+                  <text x={x} y="96" fill={isSelected ? "#15803D" : "var(--text-muted)"} fontSize="9" textAnchor="middle" fontWeight={isSelected ? "700" : "500"} className="transition-colors">
                     {pt.label}
                   </text>
                 </g>
@@ -200,81 +199,86 @@ export const JourneyScreen = ({ baselineData, evaluation, currentUser }) => {
         </div>
 
         {/* Legend */}
-        <div className="flex items-center justify-between pt-2 border-t border-white/5 text-[10px] text-slate-400 font-mono">
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1">
-              <span className="w-2.5 h-0.5 bg-sky-400 inline-block" /> Daily Resting Avg
+        <div className="flex flex-wrap sm:flex-nowrap items-center justify-between pt-3 border-t border-[var(--border-light)] text-[11px] text-[var(--text-secondary)] font-bold gap-3 uppercase tracking-wider">
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-0.5 bg-[var(--text-primary)] inline-block" /> Daily Resting Avg
             </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2.5 h-2.5 bg-emerald-500/20 border border-emerald-500/40 rounded inline-block" /> Normal Range
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-3 bg-[var(--accent-green-bg)] border border-[var(--accent-green)] inline-block" /> Normal Range
             </span>
           </div>
-          <span>Tap day dot for detail</span>
+          <span className="text-[10px] bg-[var(--surface-secondary)] px-2 py-1 border border-[var(--border-light)]">Tap day dot for detail</span>
         </div>
       </div>
 
       {/* 3. SELECTED DAY PANEL */}
       {selectedDay ? (
-        <div className="glass-card p-4 rounded-2xl border border-cyan-500/40 bg-cyan-950/20 text-left space-y-1 animate-fadeIn">
-          <div className="flex items-center justify-between">
-            <span className="font-heading text-xs font-bold text-cyan-300">
+        <div className="p-4 neo-surface text-left space-y-2 animate-fadeIn">
+          <div className="flex items-center justify-between border-b border-[var(--border-light)] pb-3 mb-3">
+            <span className="font-heading text-sm font-bold text-[var(--accent-green-dark)]">
               {selectedDay.label} Inspection ({selectedDay.date})
             </span>
-            <button onClick={() => setSelectedDay(null)} className="text-[10px] text-slate-400 hover:text-white underline">
+            <button onClick={() => setSelectedDay(null)} className="text-xs font-bold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors px-2 py-1 border border-[var(--border-light)] hover:border-[var(--border-strong)] bg-[var(--surface-secondary)]">
               Close
             </button>
           </div>
-          <div className="text-xs text-slate-200 font-light flex flex-wrap gap-4 pt-1">
-            <span>Average Resting Rate: <strong>{selectedDay.averageHeartRate} bpm</strong></span>
-            <span>Recorded Samples: <strong>{selectedDay.sampleCount}</strong></span>
-            <span>Deviation: <strong className="text-emerald-300">Within usual range</strong></span>
+          <div className="text-sm text-[var(--text-primary)] font-medium flex flex-wrap gap-3 pt-1">
+            <span className="bg-[var(--surface-secondary)] border border-[var(--border-strong)] px-3 py-1.5">Avg Resting: <strong className="text-[var(--accent-green-dark)] font-bold">{selectedDay.averageHeartRate} bpm</strong></span>
+            <span className="bg-[var(--surface-secondary)] border border-[var(--border-strong)] px-3 py-1.5">Samples: <strong className="text-[var(--accent-green-dark)] font-bold">{selectedDay.sampleCount}</strong></span>
+            <span className="bg-[var(--surface-secondary)] border border-[var(--border-strong)] px-3 py-1.5">Deviation: <strong className="font-bold">Within usual range</strong></span>
           </div>
         </div>
       ) : (
-        <div className="text-[11px] text-slate-400 italic text-center">
+        <div className="text-xs text-[var(--text-secondary)] font-bold text-center p-4 border border-dashed border-[var(--border-light)] bg-[var(--surface-secondary)] uppercase tracking-wider">
           Tap any recorded day node on the graph to inspect daily readings breakdown.
         </div>
       )}
 
       {/* 4. WHAT AWEN IS LEARNING (PATTERN STORY) */}
-      <div className="glass-card p-6 sm:p-7 rounded-3xl border border-white/10 space-y-3 text-left">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold uppercase tracking-wider text-purple-300 flex items-center gap-1.5 font-mono">
-            <Sparkles className="w-4 h-4 text-purple-400" />
+      <div className="neo-surface p-6 sm:p-8 space-y-4 text-left shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span className="text-sm font-semibold uppercase tracking-wider text-[var(--awen-aqua)] flex items-center gap-2 font-mono">
+            <Sparkles className="w-5 h-5 text-[var(--awen-aqua)]" />
             <span>What AWEN Is Learning</span>
           </span>
-          <span className="text-[10px] text-slate-400 font-mono">
-            {validDays.length >= 3 ? `${validDays.length} Days Analyzed` : 'Calibration'}
+          <span className="text-[11px] text-[var(--text-secondary)] font-mono font-medium tracking-wide bg-[var(--surface-level-2)] border border-[var(--border-subtle)] rounded-md px-2.5 py-1">
+            {validDays.length >= 3 ? `${validDays.length} DAYS ANALYZED` : 'CALIBRATION'}
           </span>
         </div>
 
-        <h3 className="font-heading text-base sm:text-lg font-bold text-white">
+        <h3 className="font-heading text-lg sm:text-xl font-bold text-[var(--text-primary)] mt-2">
           {weeklyRef.title}
         </h3>
 
-        <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-light">
+        <p className="text-sm sm:text-base text-[var(--text-secondary)] leading-relaxed font-medium">
           {weeklyRef.body}
         </p>
 
         {validDays.length >= 3 && (
-          <p className="text-xs text-slate-400 leading-relaxed font-light bg-purple-950/20 p-3.5 rounded-2xl border border-purple-500/15 pt-2">
-            AWEN detected that your recorded resting averages remained within a stable ±{hrStdDev} bpm range of your {restingHr.toFixed(1)} bpm baseline signature.
-          </p>
+          <div className="mt-4 p-4  bg-[var(--surface-level-2)] border border-[var(--border-subtle)]">
+            <p className="text-sm text-[var(--text-primary)] font-medium leading-relaxed">
+              AWEN detected that your recorded resting averages remained within a stable ±{hrStdDev} bpm range of your {restingHr.toFixed(1)} bpm baseline signature.
+            </p>
+          </div>
         )}
       </div>
 
       {/* 5. PERSONAL BASELINE FOOTER STRIP */}
-      <div className="glass-card p-5 rounded-3xl border border-white/10 flex flex-wrap items-center justify-between gap-4 text-left">
-        <div className="space-y-0.5">
-          <span className="text-[10px] uppercase font-mono text-slate-400 block">Personal Resting Signature</span>
-          <span className="font-heading text-lg font-bold text-white">{restingHr.toFixed(1)} bpm</span>
-          <span className="text-[10px] text-slate-400 block">±{hrStdDev.toFixed(1)} bpm usual range</span>
+      <div className="neo-surface p-6 sm:p-7 bg-[var(--surface-level-1)] flex flex-wrap sm:flex-nowrap items-center justify-between gap-6 text-left shadow-sm">
+        <div className="space-y-1">
+          <span className="text-[11px] uppercase font-mono font-medium text-[var(--text-secondary)] tracking-wider block">Personal Resting Signature</span>
+          <div className="flex items-baseline gap-2">
+            <span className="font-heading text-3xl font-bold text-[var(--text-primary)]">{restingHr.toFixed(1)}</span>
+            <span className="text-sm font-medium text-[var(--text-secondary)]">BPM</span>
+          </div>
+          <span className="text-xs text-[var(--text-secondary)] font-medium block">±{hrStdDev.toFixed(1)} bpm usual range</span>
         </div>
 
-        <div className="space-y-0.5 text-right">
-          <span className="text-[10px] uppercase font-mono text-slate-400 block">Baseline Confidence</span>
-          <span className="font-heading text-xs font-bold text-emerald-400 uppercase tracking-wider block">{confidenceState}</span>
-          <span className="text-[10px] text-slate-400 block">{validDays.length} days observed</span>
+        <div className="space-y-1 text-left sm:text-right w-full sm:w-auto mt-2 sm:mt-0 pt-4 sm:pt-0 border-t sm:border-t-0 border-[var(--border-subtle)]">
+          <span className="text-[11px] uppercase font-mono font-medium text-[var(--text-secondary)] tracking-wider block">Baseline Confidence</span>
+          <span className="font-heading text-sm font-semibold text-[var(--awen-teal)] block">{confidenceState}</span>
+          <span className="text-xs text-[var(--text-secondary)] font-medium block">{validDays.length} days observed</span>
         </div>
       </div>
 

@@ -8,7 +8,7 @@ export const AchievementsView = () => {
       description: "Successfully established a 5-day physiological baseline signature.",
       date: "Aug 07, 2026",
       icon: ShieldCheck,
-      color: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10",
+      color: "text-[var(--accent-green-dark)] border-2 border-[var(--border-strong)] bg-emerald-500/10",
       completed: true
     },
     {
@@ -16,7 +16,7 @@ export const AchievementsView = () => {
       description: "Logged daily physical activity context for 7 consecutive days.",
       date: "Aug 06, 2026",
       icon: CheckCircle2,
-      color: "text-blue-400 border-blue-500/30 bg-blue-500/10",
+      color: "text-[var(--text-primary)] border-2 border-[var(--border-strong)] bg-blue-500/10",
       completed: true
     },
     {
@@ -41,15 +41,15 @@ export const AchievementsView = () => {
     <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
       
       {/* Header */}
-      <div className="glass-panel p-6 rounded-3xl border border-white/10 space-y-2">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-medium">
+      <div className="neo-surface p-6  border border-2 border-[var(--border-strong)] space-y-2">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1  bg-blue-500/10 border border-2 border-[var(--border-strong)] text-[var(--text-primary)] text-xs font-medium">
           <Award className="w-3.5 h-3.5" />
           <span>Wellness Milestones</span>
         </div>
-        <h2 className="font-heading text-2xl font-bold text-white">
+        <h2 className="font-heading text-2xl font-bold text-[var(--text-primary)]">
           Minimal Physiological Achievements
         </h2>
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-[var(--text-secondary)] font-bold">
           Recognizing long-term physiological consistency and baseline accuracy. Non-gamified milestones.
         </p>
       </div>
@@ -61,23 +61,23 @@ export const AchievementsView = () => {
           return (
             <div 
               key={index}
-              className="glass-panel glass-panel-hover p-6 rounded-2xl border border-white/10 flex items-start gap-4"
+              className="neo-surface neo-surface-hover p-6  border border-2 border-[var(--border-strong)] flex items-start gap-4"
             >
-              <div className={`p-3.5 rounded-2xl border ${item.color} shrink-0`}>
+              <div className={`p-3.5  border ${item.color} shrink-0`}>
                 <IconComponent className="w-6 h-6" />
               </div>
 
               <div className="space-y-1 text-left flex-1">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-heading text-base font-semibold text-white">
+                  <h3 className="font-heading text-base font-semibold text-[var(--text-primary)]">
                     {item.title}
                   </h3>
-                  <span className="text-[10px] text-slate-400 font-mono">{item.date}</span>
+                  <span className="text-[10px] text-[var(--text-secondary)] font-bold font-mono">{item.date}</span>
                 </div>
-                <p className="text-xs text-slate-300 leading-relaxed">
+                <p className="text-xs text-[var(--text-secondary)] font-bold leading-relaxed">
                   {item.description}
                 </p>
-                <div className="pt-2 flex items-center gap-1.5 text-[11px] text-emerald-400 font-medium">
+                <div className="pt-2 flex items-center gap-1.5 text-[11px] text-[var(--accent-green-dark)] font-medium">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>Milestone Verified</span>
                 </div>

@@ -110,7 +110,7 @@ export const TalkScreen = ({
       textareaRef.current.style.height = 'auto';
     }
 
-    setTimeout(() => {
+    setTimeout(async () => {
       // 1. Evaluate Safety Guardrails (ACUTE_SYMPTOM & MEDICAL_RECOVERY)
       const safetyCheck = aiEngine.evaluateSafetyGuardrails(userText, telemetry);
       let replyText = "";
@@ -120,7 +120,12 @@ export const TalkScreen = ({
         replyText = safetyCheck.reply;
         isSafetyTriggered = true;
       } else {
-        replyText = aiEngine.generateChatReply(userText, telemetry);
+        try {
+          replyText = await aiEngine.generateChatReply(userText, telemetry);
+        } catch (error) {
+          console.error("AI Error:", error);
+          replyText = "I'm having trouble connecting right now, but I'm still here with you. How are you feeling today?";
+        }
       }
 
       // 2. Attach safe action pills (STRICT RULE: Zero exertion pills if safety triggered)
@@ -155,7 +160,7 @@ export const TalkScreen = ({
 
       setMessages((prev) => [...prev, awenMsgObj]);
       setIsTyping(false);
-    }, 850);
+    }, 150);
   };
 
   const handleKeyDown = (e) => {
@@ -177,39 +182,41 @@ export const TalkScreen = ({
     <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 pb-8 sm:pb-10 flex flex-col space-y-4 animate-fadeIn">
       
       {/* ZONE A: COMPACT HEADER & DYNAMIC BASELINE STRIP */}
-      <div className="border-b border-white/10 pb-2.5 shrink-0 space-y-2">
+      <div className="border-b-2 border-[var(--border-strong)] pb-3 shrink-0 space-y-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            <AwenSpirit 
-              expression="listening" 
-              size={52} 
-              interactive={true} 
-              onClick={() => handleSend(null, "How am I doing today?")} 
-            />
+          <div className="flex items-center gap-3">
+            <div className="relative hover:scale-105 transition-transform duration-300">
+              <AwenSpirit 
+                expression="listening" 
+                size={52} 
+                interactive={true} 
+                onClick={() => handleSend(null, "How am I doing today?")} 
+              />
+            </div>
             <div className="text-left">
-              <h1 className="font-heading text-base sm:text-lg font-bold text-white flex items-center gap-1.5">
+              <h1 className="font-heading text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
                 <span>AWEN</span>
-                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+                <span className="text-[10px] uppercase font-mono px-2 py-0.5 border border-[var(--border-strong)] bg-[var(--accent-green)] text-[var(--text-primary)] font-bold tracking-wide">
                   Personal Companion
                 </span>
               </h1>
-              <p className="text-[11px] text-slate-400 font-light">Context-aware non-clinical dialogue</p>
+              <p className="text-xs text-[var(--text-secondary)] font-medium">Context-aware non-clinical dialogue</p>
             </div>
           </div>
 
           {/* Dynamic Baseline Badge (Clickable for Detail Modal) */}
-          <div className="flex flex-col items-end gap-1">
+          <div className="flex flex-col items-end gap-1.5">
             <button
               onClick={() => setIsBaselineModalOpen(true)}
-              className="flex items-center gap-1.5 text-[10px] sm:text-xs text-cyan-300 bg-cyan-950/60 hover:bg-cyan-900/60 px-2.5 py-1 rounded-full border border-cyan-500/20 font-medium transition-colors"
+              className="flex items-center gap-1.5 text-xs text-[var(--accent-green-dark)] bg-[var(--accent-green-bg)] hover:bg-[var(--surface-secondary)] px-3 py-1.5 border border-[var(--border-strong)] font-bold transition-all shadow-[2px_2px_0px_#111] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none"
               title="Click to view baseline details"
             >
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              <span>Baseline: {restingHr.toFixed(1)} bpm</span>
-              <span className="text-slate-400 hidden sm:inline">· {confidenceState}</span>
+              <ShieldCheck className="w-4 h-4 shrink-0" />
+              <span>Baseline: {restingHr.toFixed(1)} <span className="text-[10px] font-normal">BPM</span></span>
+              <span className="text-[var(--text-secondary)] hidden sm:inline">· {confidenceState}</span>
             </button>
-            <span className={`text-[9px] font-mono px-2 py-0.5 rounded-full border ${isHardware ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300'}`}>
-              {isHardware ? 'ESP32 Live' : 'Demo Stream'}
+            <span className={`text-[10px] font-mono px-2 py-0.5 font-bold tracking-wide border border-[var(--border-strong)] uppercase ${isHardware ? 'bg-[var(--accent-green)] text-[var(--text-primary)]' : 'bg-[var(--surface-secondary)] text-[var(--text-secondary)]'}`}>
+              {isHardware ? '● ESP32 LIVE' : '○ Demo Stream'}
             </span>
           </div>
         </div>
@@ -220,13 +227,13 @@ export const TalkScreen = ({
         
         {/* COMPACT FIRST-USE / EMPTY CONVERSATION STATE */}
         {isInitialWelcome && (
-          <div className="my-2 p-5 sm:p-6 rounded-3xl glass-card border border-white/10 text-center space-y-3 animate-fadeIn">
-            <div className="flex justify-center">
+          <div className="my-4 p-6 sm:p-8 neo-surface text-center space-y-4 animate-fadeIn">
+            <div className="flex justify-center hover:scale-105 transition-transform duration-300">
               <AwenSpirit expression="happy" size={110} interactive={true} caption="Tap AWEN" />
             </div>
-            <div className="space-y-1.5 max-w-md mx-auto">
-              <h2 className="font-heading text-lg font-bold text-white">Talk to AWEN</h2>
-              <p className="text-xs sm:text-sm text-slate-300 font-light leading-relaxed">
+            <div className="space-y-2 max-w-md mx-auto">
+              <h2 className="font-heading text-xl font-bold text-[var(--text-primary)]">Talk to AWEN</h2>
+              <p className="text-sm text-[var(--text-secondary)] font-medium leading-relaxed">
                 Tell me how you're feeling, what you've noticed, or what you'd like to understand about your body pattern today. Select a quick prompt below or type your question.
               </p>
             </div>
@@ -237,25 +244,27 @@ export const TalkScreen = ({
         {messages.map((m) => (
           <div
             key={m.id}
-            className={`flex items-start gap-2.5 sm:gap-3 ${m.sender === 'user' ? 'flex-row-reverse' : ''}`}
+            className={`flex items-start gap-3 ${m.sender === 'user' ? 'flex-row-reverse' : ''}`}
           >
-            <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs shrink-0 ${
-              m.sender === 'user' ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/30' : 'bg-slate-800 text-cyan-400 border border-white/10'
+            <div className={`w-7 h-7 flex items-center justify-center text-xs shrink-0 ${
+              m.sender === 'user'
+                ? 'bg-[var(--text-primary)] text-[var(--bg-base)]'
+                : 'bg-[var(--accent-green)] border border-[var(--border-strong)] text-[var(--text-primary)]'
             }`}>
-              {m.sender === 'user' ? <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+              {m.sender === 'user' ? <User className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
             </div>
 
-            <div className={`max-w-[85%] sm:max-w-[78%] space-y-1.5 ${m.sender === 'user' ? 'text-right' : 'text-left'}`}>
-              <div className={`p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl text-xs sm:text-sm leading-relaxed ${
+            <div className={`max-w-[85%] sm:max-w-[78%] space-y-1 ${m.sender === 'user' ? 'text-right' : 'text-left'}`}>
+              <div className={`p-3.5 text-sm leading-relaxed ${
                 m.sender === 'user' 
-                  ? 'bg-cyan-600 text-white rounded-tr-none whitespace-pre-wrap break-words shadow-md' 
+                  ? 'bg-[var(--text-primary)] text-[var(--bg-base)] font-semibold whitespace-pre-wrap break-words border border-[var(--border-strong)] shadow-[2px_2px_0px_#111]' 
                   : m.isSafety
-                  ? 'bg-indigo-950/80 border border-indigo-500/40 text-indigo-100 rounded-tl-none font-light space-y-2'
-                  : 'glass-card border border-white/10 text-slate-200 rounded-tl-none font-light space-y-2'
+                  ? 'bg-[var(--accent-danger-bg)] border-2 border-[var(--accent-danger)] text-[var(--text-primary)] font-medium space-y-3'
+                  : 'bg-[var(--surface-primary)] border border-[var(--border-strong)] text-[var(--text-primary)] font-medium space-y-3 shadow-[2px_2px_0px_#111]'
               }`}>
                 {m.isSafety && (
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-rose-300 pb-1 border-b border-indigo-500/30">
-                    <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
+                  <div className="flex items-center gap-2 text-xs font-semibold text-[var(--accent-danger)] pb-2 border-b border-[var(--accent-danger)]/20 uppercase tracking-wide">
+                    <ShieldAlert className="w-4 h-4 shrink-0" />
                     <span>Medical Safety Guidance</span>
                   </div>
                 )}
@@ -264,71 +273,75 @@ export const TalkScreen = ({
 
                 {/* AWEN Context Tag */}
                 {m.sender === 'awen' && m.telemetryContext && !m.isSafety && (
-                  <div className="pt-2 border-t border-white/5 flex items-center gap-2 text-[10px] text-slate-400 font-mono">
-                    <Activity className="w-3 h-3 text-cyan-400" />
-                    <span>Context: {m.telemetryContext.hr} bpm ({m.telemetryContext.activity})</span>
+                  <div className="pt-2 border-t border-[var(--border-light)] flex items-center gap-2 text-[11px] text-[var(--text-secondary)] font-mono font-bold tracking-wide uppercase">
+                    <Activity className="w-3.5 h-3.5 text-[var(--accent-green-dark)]" />
+                    <span>Context: {m.telemetryContext.hr} BPM ({m.telemetryContext.activity})</span>
                   </div>
                 )}
 
                 {/* Optional Action Pills */}
                 {m.sender === 'awen' && m.actions && (
-                  <div className="pt-2 border-t border-white/10 flex flex-wrap gap-1.5">
+                  <div className="pt-2 border-t border-[var(--border-light)] flex flex-wrap gap-2">
                     {m.actions.map((act, aIdx) => (
                       <button
                         key={aIdx}
                         onClick={() => {
-                          if (act.type === 'JOURNEY' && onOpenJourney) onOpenJourney();
-                          else if (act.type === 'BASELINE') setIsBaselineModalOpen(true);
-                          else handleSend(null, "I'd like to take a 2-minute pause");
+                          if (act.type === 'JOURNEY') {
+                            if (onOpenJourney) onOpenJourney();
+                          } else if (act.type === 'BASELINE') {
+                            setIsBaselineModalOpen(true);
+                          } else {
+                            handleSend(null, "I'd like to take a 2-minute pause");
+                          }
                         }}
-                        className="px-2.5 py-1 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-200 border border-cyan-400/30 text-[10px] font-medium flex items-center gap-1 transition-colors active:scale-95"
+                        className="px-3 py-1.5 bg-[var(--surface-secondary)] hover:bg-[var(--surface-tertiary)] text-[var(--text-primary)] border border-[var(--border-strong)] text-xs font-bold flex items-center gap-1.5 transition-all active:translate-x-[1px] active:translate-y-[1px] shadow-[1px_1px_0px_#111] active:shadow-none"
                       >
-                        {act.type === 'JOURNEY' ? <Compass className="w-3 h-3 text-cyan-300" /> : <Play className="w-3 h-3 text-cyan-300 fill-cyan-300" />}
+                        {act.type === 'JOURNEY' ? <Compass className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 fill-current" />}
                         <span>{act.label}</span>
                       </button>
                     ))}
                   </div>
                 )}
               </div>
-              <span className="text-[10px] text-slate-500 block px-1">{m.time}</span>
+              <span className="text-[11px] text-[var(--text-secondary)] font-medium block px-1">{m.time}</span>
             </div>
           </div>
         ))}
 
         {/* POLISHED 3-DOT ANIMATED TYPING INDICATOR */}
         {isTyping && (
-          <div className="flex items-start gap-2.5 sm:gap-3" aria-live="polite">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-slate-800 text-cyan-400 border border-white/10 flex items-center justify-center text-xs shrink-0">
-              <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          <div className="flex items-start gap-3" aria-live="polite">
+            <div className="w-8 h-8 flex items-center justify-center text-xs shrink-0  shadow-sm bg-[var(--surface-level-1)] text-[var(--awen-aqua)] border border-[var(--border-subtle)]">
+              <Bot className="w-4 h-4" />
             </div>
-            <div className="glass-card px-4 py-3 rounded-2xl rounded-tl-none border border-white/10 text-slate-300 flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-cyan-400 animate-bounce" />
-              <div className="w-2 h-2 rounded-full bg-cyan-400 animate-bounce [animation-delay:0.2s]" />
-              <div className="w-2 h-2 rounded-full bg-cyan-400 animate-bounce [animation-delay:0.4s]" />
+            <div className="px-4 py-4  rounded-tl-sm shadow-sm bg-[var(--surface-level-1)] border border-[var(--border-subtle)] flex items-center gap-2">
+              <div className="w-2 h-2  bg-[var(--text-muted)] animate-bounce" />
+              <div className="w-2 h-2  bg-[var(--text-muted)] animate-bounce [animation-delay:0.2s]" />
+              <div className="w-2 h-2  bg-[var(--text-muted)] animate-bounce [animation-delay:0.4s]" />
             </div>
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* ZONE C: CONTEXTUAL QUICK ACTION CHIPS (Flexible Wrapping, Directly Above Composer) */}
-      <div className="px-1 pt-1 flex flex-wrap gap-2 text-xs shrink-0">
+      {/* ZONE C: CONTEXTUAL QUICK ACTION CHIPS */}
+      <div className="px-1 pt-2 flex flex-wrap gap-2 shrink-0">
         {currentPrompts.map((p, idx) => (
           <button 
             key={idx}
             onClick={() => handleSend(null, p.text)}
             disabled={isTyping}
-            className="px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 disabled:opacity-50 text-slate-300 border border-white/10 active:scale-95 transition-transform font-medium"
+            className="neo-btn px-4 py-2 text-xs text-[var(--text-primary)] font-bold disabled:opacity-50"
           >
             {p.label}
           </button>
         ))}
       </div>
 
-      {/* ZONE D: STICKY CHAT COMPOSER (Natural Document Flow) */}
+      {/* ZONE D: STICKY CHAT COMPOSER */}
       <form 
         onSubmit={handleSend} 
-        className="p-1.5 sm:p-2 glass-card rounded-2xl border border-white/10 focus-within:border-cyan-500/50 focus-within:ring-1 focus-within:ring-cyan-500/40 transition-all flex items-end gap-2 shrink-0 relative"
+        className="border-2 border-[var(--border-strong)] bg-[var(--surface-primary)] flex items-end gap-2 shrink-0 relative shadow-[3px_3px_0px_#111] focus-within:shadow-[4px_4px_0px_#111] transition-all p-2"
       >
         <textarea
           ref={textareaRef}
@@ -338,63 +351,63 @@ export const TalkScreen = ({
           onKeyDown={handleKeyDown}
           disabled={isTyping}
           placeholder={isTyping ? "AWEN is reflecting..." : "Talk to AWEN... (Enter to send, Shift+Enter for new line)"}
-          className="flex-1 px-3 sm:px-4 py-2 bg-transparent text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none resize-none max-h-32 min-h-[38px] leading-relaxed"
+          className="flex-1 px-3 sm:px-4 py-2 bg-transparent text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none resize-none max-h-32 min-h-[40px] leading-relaxed font-medium"
         />
         
         <button
           type="submit"
           disabled={!inputMsg.trim() || isTyping}
-          className="p-2 sm:p-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 text-white transition-all shadow-md shadow-cyan-600/30 active:scale-95 shrink-0 mb-0.5"
+          className="p-2.5 bg-[var(--text-primary)] hover:bg-[var(--border-medium)] disabled:opacity-40 text-[var(--bg-base)] transition-colors shrink-0 mb-0.5 border border-[var(--border-strong)] shadow-[2px_2px_0px_#111] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
           title="Send Message"
         >
-          <Send className="w-4 h-4" />
+          <Send className="w-5 h-5" />
         </button>
       </form>
 
       {/* BASELINE DETAIL MODAL */}
       {isBaselineModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
-          <div className="relative w-full max-w-md glass-card p-6 rounded-3xl border border-cyan-500/30 space-y-4 shadow-2xl text-left bg-[#0d1527]">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <h3 className="font-heading text-base font-bold text-white flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-emerald-400" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#111111]/80 animate-fadeIn">
+          <div className="relative w-full max-w-md neo-surface p-6 text-left">
+            <div className="flex items-center justify-between border-b border-[var(--border-light)] pb-4">
+              <h3 className="font-heading text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-[var(--accent-green-dark)]" />
                 <span>Your Personal Baseline</span>
               </h3>
-              <button onClick={() => setIsBaselineModalOpen(false)} className="p-1 text-slate-400 hover:text-white">
+              <button onClick={() => setIsBaselineModalOpen(false)} className="p-1.5 border border-[var(--border-strong)] bg-[var(--surface-secondary)] hover:bg-[var(--surface-tertiary)] transition-colors">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <p className="text-xs text-slate-300 leading-relaxed font-light">
+            <p className="text-sm text-[var(--text-secondary)] font-medium leading-relaxed mt-4">
               AWEN compares your daily readings against your personal baseline pattern rather than generic medical thresholds.
             </p>
 
-            <div className="grid grid-cols-2 gap-3 pt-1">
-              <div className="p-3 rounded-2xl bg-white/5 space-y-1">
-                <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Typical Resting Pattern</span>
-                <span className="text-base font-heading font-bold text-white block">{restingHr.toFixed(1)} bpm</span>
+            <div className="grid grid-cols-2 gap-3 pt-4">
+              <div className="p-4 border border-[var(--border-strong)] bg-[var(--surface-secondary)] space-y-1">
+                <span className="section-label block">Typical Resting</span>
+                <span className="text-2xl font-heading font-bold text-[var(--text-primary)] block">{restingHr.toFixed(1)} <span className="text-xs font-sans font-normal text-[var(--text-secondary)]">BPM</span></span>
               </div>
 
-              <div className="p-3 rounded-2xl bg-white/5 space-y-1">
-                <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Typical Resting Variation</span>
-                <span className="text-base font-heading font-bold text-emerald-400 block">±{hrStdDev.toFixed(1)} bpm</span>
+              <div className="p-4 border border-[var(--border-strong)] bg-[var(--surface-secondary)] space-y-1">
+                <span className="section-label block">Usual Variation</span>
+                <span className="text-2xl font-heading font-bold text-[var(--accent-green-dark)] block">±{hrStdDev.toFixed(1)} <span className="text-xs font-sans font-normal text-[var(--text-secondary)]">BPM</span></span>
               </div>
 
-              <div className="p-3 rounded-2xl bg-white/5 space-y-1">
-                <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Confidence Tier</span>
-                <span className="text-base font-heading font-bold text-cyan-300 block truncate">{confidenceState}</span>
+              <div className="p-4 border border-[var(--border-strong)] bg-[var(--surface-secondary)] space-y-1">
+                <span className="section-label block">Confidence Tier</span>
+                <span className="text-sm font-heading font-bold text-[var(--accent-green-dark)] block truncate">{confidenceState}</span>
               </div>
 
-              <div className="p-3 rounded-2xl bg-white/5 space-y-1">
-                <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Signature ID</span>
-                <span className="text-xs font-mono font-semibold text-slate-300 block truncate">{signatureId}</span>
+              <div className="p-4 border border-[var(--border-strong)] bg-[var(--surface-secondary)] space-y-1">
+                <span className="section-label block">Signature ID</span>
+                <span className="text-sm font-mono font-bold text-[var(--text-primary)] block truncate">{signatureId}</span>
               </div>
             </div>
 
-            <div className="pt-2 border-t border-white/10 flex justify-end">
+            <div className="pt-4 mt-4 flex justify-end">
               <button
                 onClick={() => setIsBaselineModalOpen(false)}
-                className="px-4 py-2 rounded-xl bg-cyan-600 text-xs font-semibold text-white shadow-md shadow-cyan-600/30 hover:bg-cyan-500 transition-colors"
+                className="neo-btn neo-btn-primary px-6 py-2.5 text-sm font-bold"
               >
                 Close
               </button>

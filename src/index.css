@@ -1,39 +1,64 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+/* ============================================================
+   AWEN — NEO-BRUTALIST DESIGN SYSTEM
+   Light Mode Only · Off-White + Black + Green
+   ============================================================ */
 
 :root {
-  /* DAY MODE DESIGN TOKENS */
-  --bg-primary: #F7F7F2;
+  /* === BACKGROUND HIERARCHY === */
+  --bg-base: #F4F4EF;
   --surface-primary: #FFFFFF;
-  --surface-secondary: #EEF5F2;
-  --text-primary: #182329;
-  --text-secondary: #617174;
-  --awen-teal: #39B8A5;
-  --awen-teal-soft: #DDF3EC;
-  --awen-aqua: #8ED8CD;
-  --accent-warm: #F3B49F;
-  --border-color: rgba(24, 35, 41, 0.08);
-  --glass-bg: rgba(255, 255, 255, 0.85);
-  --glass-border: rgba(24, 35, 41, 0.08);
-  --shadow-color: rgba(24, 35, 41, 0.06);
+  --surface-secondary: #EBEBEB;
+  --surface-tertiary: #E0E0DA;
+
+  /* === TEXT === */
+  --text-primary: #111111;
+  --text-secondary: #444444;
+  --text-muted: #777777;
+
+  /* === ACCENT === */
+  --accent-green: #32E875;
+  --accent-green-mid: #22C55E;
+  --accent-green-dark: #15803D;
+  --accent-green-bg: #DCFCE7;
+
+  /* === BORDERS === */
+  --border-strong: #111111;
+  --border-medium: #555555;
+  --border-light: #CCCCCC;
+
+  /* === HARD SHADOWS (Neo-Brutalist) === */
+  --shadow-hard: 4px 4px 0px #111111;
+  --shadow-hard-sm: 2px 2px 0px #111111;
+  --shadow-hard-lg: 6px 6px 0px #111111;
+
+  /* === SEMANTIC === */
+  --accent-danger: #DC2626;
+  --accent-danger-bg: #FEE2E2;
+  --accent-warm: #D97706;
+  --accent-warm-bg: #FEF3C7;
+
+  /* === LEGACY ALIASES (keep existing components using these) === */
+  --bg-primary: var(--bg-base);
+  --surface-level-1: var(--surface-primary);
+  --surface-level-2: var(--surface-secondary);
+  --surface-level-3: var(--surface-tertiary);
+  --awen-teal: var(--accent-green-dark);
+  --awen-teal-soft: var(--accent-green-bg);
+  --awen-aqua: var(--accent-green-dark);
+  --border-subtle: var(--border-light);
+  --shadow-subtle: var(--shadow-hard-sm);
+  --shadow-elevated: var(--shadow-hard);
+  /* Glass aliases — map to brutalist equivalents */
+  --glass-bg: var(--surface-primary);
+  --border-color: var(--border-light);
 }
 
-.dark, [data-theme="dark"] {
-  /* NIGHT MODE DESIGN TOKENS (Deep Blue-Green Environment) */
-  --bg-primary: #0B181B;
-  --surface-primary: #122326;
-  --surface-secondary: #172D30;
-  --text-primary: #F1F7F5;
-  --text-secondary: #A8BCBD;
-  --awen-teal: #52D0BE;
-  --awen-teal-soft: #B9EEE4;
-  --awen-aqua: #8ED8CD;
-  --accent-warm: #E9A58F;
-  --border-color: rgba(185, 238, 228, 0.10);
-  --glass-bg: rgba(18, 35, 38, 0.75);
-  --glass-border: rgba(185, 238, 228, 0.10);
-  --shadow-color: rgba(0, 0, 0, 0.4);
-}
-
+/* ============================================================
+   BASE RESET
+   ============================================================ */
 @layer base {
   html, body, #root {
     min-height: 100dvh;
@@ -43,93 +68,244 @@
   }
 
   body {
-    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background-color: var(--bg-primary);
+    font-family: 'Stallman Medium 125', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: var(--bg-base);
+    /* Engineering grid paper background */
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(0,0,0,0.06) 39px, rgba(0,0,0,0.06) 40px),
+      repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(0,0,0,0.06) 39px, rgba(0,0,0,0.06) 40px);
     color: var(--text-primary);
     -webkit-tap-highlight-color: transparent;
     -webkit-overflow-scrolling: touch;
     overflow-x: hidden;
     touch-action: manipulation;
-    transition: background-color 0.4s ease, color 0.4s ease;
   }
-  
-  h1, h2, h3, h4, .font-heading {
-    font-family: 'Space Grotesk', sans-serif;
+
+  h1, .text-h1 { font-size: clamp(1.75rem, 5vw, 2.75rem); line-height: 1.15; font-weight: 800; letter-spacing: -0.03em; }
+  h2, .text-h2 { font-size: clamp(1.3rem, 4vw, 2rem); line-height: 1.2; font-weight: 700; letter-spacing: -0.02em; }
+  h3, .text-h3 { font-size: clamp(1.1rem, 3vw, 1.5rem); line-height: 1.3; font-weight: 700; }
+
+  .font-heading {
+    font-family: 'Stallman Medium 125', 'Space Grotesk', sans-serif;
     letter-spacing: -0.02em;
   }
 
   .font-brand {
-    font-family: 'Outfit', sans-serif;
+    font-family: 'Stallman Medium 125', 'Space Grotesk', sans-serif;
+    font-weight: 700;
   }
 }
 
-/* iOS Safe Area Utilities */
-.pt-safe {
-  padding-top: env(safe-area-inset-top, 0px);
-}
-.pb-safe {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-.mb-safe {
-  margin-bottom: env(safe-area-inset-bottom, 0px);
+/* ============================================================
+   iOS SAFE AREA
+   ============================================================ */
+.pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.mb-safe { margin-bottom: env(safe-area-inset-bottom, 0px); }
+
+/* ============================================================
+   NEO-BRUTALIST CORE COMPONENTS
+   ============================================================ */
+
+/* Primary Panel — main dashboard sections */
+.nb-panel {
+  background: var(--surface-primary);
+  border: 1.5px solid var(--border-strong);
+  border-radius: 4px;
+  box-shadow: var(--shadow-hard);
 }
 
-/* Glassmorphism Utilities Bound to Design Tokens */
-.glass-card {
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
-  box-shadow: 0 10px 30px -10px var(--shadow-color);
-  transition: background-color 0.3s ease, border-color 0.3s ease;
-}
-
-.glass-card-hover {
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.glass-card-hover:active, .glass-card-hover:hover {
+/* Secondary Panel — supporting info */
+.nb-panel-sm {
   background: var(--surface-secondary);
-  border-color: var(--awen-teal);
-  transform: translateY(-2px);
+  border: 1px solid var(--border-strong);
+  border-radius: 2px;
+  box-shadow: var(--shadow-hard-sm);
 }
 
-.glass-pill {
-  background: var(--glass-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--glass-border);
+/* Inset Panel — no shadow, for nested content */
+.nb-inset {
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: 2px;
 }
 
-/* Ambient Radial Aura Gradients */
-.aura-relaxed {
-  background: radial-gradient(circle at 50% 40%, rgba(57, 184, 165, 0.2) 0%, transparent 70%);
+/* === LEGACY ALIAS (keep neo-surface working) === */
+.neo-surface {
+  background: var(--surface-primary);
+  border: 1.5px solid var(--border-strong);
+  border-radius: 4px;
+  box-shadow: var(--shadow-hard);
 }
 
-.aura-happy {
-  background: radial-gradient(circle at 50% 40%, rgba(82, 208, 190, 0.2) 0%, transparent 70%);
+.neo-surface-hover:hover {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px var(--border-strong);
 }
 
-.aura-thinking {
-  background: radial-gradient(circle at 50% 40%, rgba(168, 85, 247, 0.2) 0%, transparent 70%);
+/* ============================================================
+   NEO-BRUTALIST BUTTON SYSTEM
+   Tactile physical press behavior
+   ============================================================ */
+
+/* Base button — off-white with hard shadow */
+.nb-btn {
+  background: var(--surface-primary);
+  color: var(--text-primary);
+  border: 1.5px solid var(--border-strong);
+  border-radius: 2px;
+  font-weight: 700;
+  font-size: 0.875rem;
+  box-shadow: var(--shadow-hard-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.nb-btn:hover:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px var(--border-strong);
+}
+.nb-btn:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 0px 0px 0px var(--border-strong);
+}
+.nb-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
-.aura-concerned {
-  background: radial-gradient(circle at 50% 40%, rgba(243, 180, 159, 0.22) 0%, transparent 70%);
+/* Primary button — black fill */
+.nb-btn-primary {
+  background: var(--text-primary);
+  color: var(--bg-base);
+  border: 1.5px solid var(--border-strong);
+  box-shadow: var(--shadow-hard-sm);
+}
+.nb-btn-primary:hover:not(:disabled) {
+  background: #222222;
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px var(--border-strong);
+}
+.nb-btn-primary:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: none;
 }
 
-.aura-sleeping {
-  background: radial-gradient(circle at 50% 40%, rgba(129, 140, 248, 0.2) 0%, transparent 70%);
+/* Green accent button */
+.nb-btn-green {
+  background: var(--accent-green);
+  color: var(--text-primary);
+  border: 1.5px solid var(--border-strong);
+  box-shadow: var(--shadow-hard-sm);
+}
+.nb-btn-green:hover:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px var(--border-strong);
+}
+.nb-btn-green:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: none;
 }
 
-/* Smooth Keyframes */
+/* === LEGACY ALIASES ===  */
+.neo-btn {
+  background: var(--surface-primary);
+  border: 1.5px solid var(--border-strong);
+  border-radius: 2px;
+  font-weight: 700;
+  box-shadow: var(--shadow-hard-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+.neo-btn:hover:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px var(--border-strong);
+}
+.neo-btn:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+.neo-btn-primary {
+  background: var(--text-primary);
+  color: var(--bg-base);
+  border: 1.5px solid var(--border-strong);
+}
+.neo-btn-primary:hover:not(:disabled) {
+  background: #222222;
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px var(--border-strong);
+}
+
+/* ============================================================
+   STATUS INDICATORS
+   ============================================================ */
+.status-online {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-green-dark);
+}
+.status-online::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  background: var(--accent-green);
+  border: 1px solid var(--accent-green-dark);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-offline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.status-offline::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  background: var(--border-light);
+  border: 1px solid var(--border-medium);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   AURA EXPRESSIONS (muted, flat — no glow)
+   ============================================================ */
+.aura-relaxed  { background: rgba(50, 232, 117, 0.06); }
+.aura-happy    { background: rgba(50, 232, 117, 0.06); }
+.aura-thinking { background: rgba(251, 191, 36, 0.06); }
+.aura-concerned{ background: rgba(220, 38, 38, 0.05); }
+.aura-sleeping { background: rgba(100, 100, 100, 0.04); }
+
+/* ============================================================
+   ANIMATIONS
+   ============================================================ */
 @keyframes spiritFloat {
-  0%, 100% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-10px) rotate(1deg); }
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
 }
 
 @keyframes spiritPulse {
-  0%, 100% { transform: scale(1); opacity: 0.85; }
-  50% { transform: scale(1.05); opacity: 1; }
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.04); opacity: 1; }
 }
 
 @keyframes haloRotate {
@@ -138,16 +314,21 @@
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 .animate-fadeIn {
-  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: fadeIn 0.3s ease forwards;
 }
 
 .animate-spirit-float {
-  animation: spiritFloat 5s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  animation: spiritFloat 5s ease-in-out infinite;
 }
 
 .animate-spirit-pulse {
@@ -158,18 +339,94 @@
   animation: haloRotate 12s linear infinite;
 }
 
-/* Custom Scrollbars */
-::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
+/* ============================================================
+   SCROLLBAR — Minimal, flat
+   ============================================================ */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--surface-secondary); }
 ::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 999px;
+  background: var(--border-light);
+  border-radius: 0;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: var(--awen-teal);
+::-webkit-scrollbar-thumb:hover { background: var(--border-medium); }
+
+/* ============================================================
+   FORM INPUTS — Brutalist
+   ============================================================ */
+.nb-input {
+  background: var(--surface-primary);
+  border: 1.5px solid var(--border-strong);
+  border-radius: 2px;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  outline: none;
+  transition: box-shadow 0.1s ease;
+}
+.nb-input:focus {
+  box-shadow: 3px 3px 0px var(--border-strong);
+}
+.nb-input::placeholder {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* ============================================================
+   METRIC CARDS
+   ============================================================ */
+.metric-card {
+  background: var(--surface-primary);
+  border: 1.5px solid var(--border-strong);
+  border-radius: 4px;
+  box-shadow: var(--shadow-hard-sm);
+  padding: 1.25rem;
+}
+.metric-value {
+  font-family: 'Stallman Medium 125', 'Space Grotesk', sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: var(--text-primary);
+  line-height: 1;
+}
+.metric-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ============================================================
+   SECTION LABELS
+   ============================================================ */
+.section-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-family: 'Stallman Medium 125', 'Inter', monospace;
+}
+
+/* ============================================================
+   DIVIDERS
+   ============================================================ */
+.nb-divider {
+  border: none;
+  border-top: 1px solid var(--border-light);
+  margin: 0;
+}
+
+/* ============================================================
+   YELLOW HIGHLIGHT (Marker Style)
+   ============================================================ */
+.highlight-yellow {
+  background-color: var(--accent-warm-bg);
+  color: var(--text-primary);
+  padding: 0 0.25em;
+  border-radius: 2px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  font-weight: 700;
+  display: inline;
 }

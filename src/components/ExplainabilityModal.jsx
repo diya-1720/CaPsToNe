@@ -11,21 +11,20 @@ export const ExplainabilityModal = ({ isOpen, onClose, evaluation, telemetry }) 
     { title: "Model Confidence", detail: "96% match", status: "high" }
   ];
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
-      <div className="relative w-full max-w-xl glass-panel p-6 sm:p-8 rounded-3xl border border-blue-500/30 shadow-2xl space-y-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#111111]/80 animate-fadeIn">
+      <div className="relative w-full max-w-xl neo-surface p-6 sm:p-8 space-y-6 max-h-[90dvh] overflow-y-auto">
         
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/10 pb-4">
+        <div className="flex items-center justify-between border-b-2 border-[var(--border-strong)] pb-4">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
-              <Brain className="w-5 h-5" />
+            <div className="p-2.5 border-2 border-[var(--border-strong)] bg-[var(--surface-secondary)] shadow-[2px_2px_0px_#111]">
+              <Brain className="w-5 h-5 text-[var(--text-primary)]" />
             </div>
             <div>
-              <h3 className="font-heading text-xl font-bold text-white">
+              <h3 className="font-heading text-xl font-bold text-[var(--text-primary)] uppercase tracking-wide">
                 Explainable AI Reasoning
               </h3>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs font-medium text-[var(--text-secondary)]">
                 Transparent breakdown of why AWEN reached this wellness score
               </p>
             </div>
@@ -33,26 +32,26 @@ export const ExplainabilityModal = ({ isOpen, onClose, evaluation, telemetry }) 
 
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+            className="p-2 border border-[var(--border-strong)] hover:bg-[var(--surface-secondary)] shadow-[2px_2px_0px_#111] transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5 text-[var(--text-primary)]" />
           </button>
         </div>
 
         {/* Core Diagnosis Callout */}
-        <div className="p-4 rounded-2xl bg-blue-950/40 border border-blue-500/20 space-y-2">
-          <div className="flex items-center justify-between text-xs font-semibold text-blue-300">
+        <div className="p-4 border-2 border-[var(--border-strong)] bg-[var(--surface-secondary)] shadow-[2px_2px_0px_#111] space-y-2">
+          <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wide text-[var(--text-primary)]">
             <span>Assessment: {evaluation?.wellnessIndex || "Balanced"}</span>
             <span>Confidence: {evaluation?.confidenceScore || 96}%</span>
           </div>
-          <p className="text-xs text-slate-200 leading-relaxed italic">
+          <p className="text-xs text-[var(--text-secondary)] leading-relaxed italic font-medium">
             "{evaluation?.explainability?.summary || "Physiological metrics closely align with your 5-day resting baseline."}"
           </p>
         </div>
 
         {/* Factor Breakdown List */}
         <div className="space-y-3">
-          <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+          <h4 className="text-[11px] font-bold text-[var(--text-primary)] uppercase tracking-wider">
             Physiological Factors Evaluated
           </h4>
 
@@ -60,13 +59,13 @@ export const ExplainabilityModal = ({ isOpen, onClose, evaluation, telemetry }) 
             {factors.map((f, i) => (
               <div 
                 key={i} 
-                className="flex items-center justify-between p-3.5 rounded-xl glass-card border border-white/5 text-xs"
+                className="flex items-center justify-between p-3.5 border-2 border-[var(--border-strong)] bg-[var(--surface-primary)] shadow-[2px_2px_0px_#111] text-xs"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-blue-400 shadow-[0_0_8px_#60a5fa]" />
-                  <span className="font-medium text-slate-200">{f.title}</span>
+                  <div className="w-2 h-2 bg-[var(--text-primary)] border border-[var(--border-strong)]" />
+                  <span className="font-bold uppercase tracking-wide text-[var(--text-primary)]">{f.title}</span>
                 </div>
-                <span className="text-slate-300 font-mono text-[11px] bg-slate-900/80 px-2.5 py-1 rounded-lg border border-white/5">
+                <span className="text-[var(--text-secondary)] font-mono font-bold text-[11px] bg-[var(--surface-secondary)] px-2.5 py-1 border-2 border-[var(--border-strong)] shadow-[1px_1px_0px_#111]">
                   {f.detail}
                 </span>
               </div>
@@ -75,35 +74,35 @@ export const ExplainabilityModal = ({ isOpen, onClose, evaluation, telemetry }) 
         </div>
 
         {/* Comparison Table: Generic Threshold vs AWEN Personal Baseline */}
-        <div className="p-4 rounded-2xl bg-slate-900/70 border border-white/10 space-y-2 text-xs">
-          <div className="font-semibold text-slate-200 flex items-center justify-between border-b border-white/5 pb-2">
-            <span>Metric</span>
-            <span className="text-rose-400">Generic Threshold</span>
-            <span className="text-emerald-400">AWEN Baseline</span>
+        <div className="p-4 border-2 border-[var(--border-strong)] bg-[var(--surface-primary)] shadow-[3px_3px_0px_#111] space-y-2 text-[11px] font-bold uppercase tracking-wide">
+          <div className="text-[var(--text-primary)] flex items-center justify-between border-b-2 border-[var(--border-strong)] pb-2 mb-2">
+            <span className="w-1/3">Metric</span>
+            <span className="w-1/3 text-center text-[var(--accent-danger)]">Generic Threshold</span>
+            <span className="w-1/3 text-right text-[var(--accent-green-dark)]">AWEN Baseline</span>
           </div>
 
-          <div className="flex justify-between text-slate-300 py-1 border-b border-white/5">
-            <span>Staircase HR Spike</span>
-            <span className="text-rose-400 font-mono">Flagged (Stressed)</span>
-            <span className="text-emerald-400 font-mono">Filtered (Physical Exertion)</span>
+          <div className="flex justify-between items-center text-[var(--text-secondary)] py-2 border-b border-[var(--border-light)]">
+            <span className="w-1/3">Staircase HR Spike</span>
+            <span className="w-1/3 text-center text-[var(--accent-danger)] font-mono text-[10px]">Flagged (Stressed)</span>
+            <span className="w-1/3 text-right text-[var(--accent-green-dark)] font-mono text-[10px]">Filtered (Exertion)</span>
           </div>
 
-          <div className="flex justify-between text-slate-300 py-1">
-            <span>Resting HR Baseline</span>
-            <span className="text-slate-400 font-mono">Population Avg (72 bpm)</span>
-            <span className="text-emerald-400 font-mono">Your Avg ({evaluation?.baselineComparison?.restingHr || 64} bpm)</span>
+          <div className="flex justify-between items-center text-[var(--text-secondary)] py-2">
+            <span className="w-1/3">Resting HR Baseline</span>
+            <span className="w-1/3 text-center font-mono text-[10px]">Population Avg (72 bpm)</span>
+            <span className="w-1/3 text-right text-[var(--accent-green-dark)] font-mono text-[10px]">Your Avg ({evaluation?.baselineComparison?.restingHr || 64} bpm)</span>
           </div>
         </div>
 
         {/* Footer Note */}
-        <div className="flex items-center justify-between pt-2 text-[11px] text-slate-400 border-t border-white/10">
+        <div className="flex items-center justify-between pt-4 border-t-2 border-[var(--border-strong)] text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">
           <span className="flex items-center gap-1">
-            <Lock className="w-3 h-3 text-emerald-400" />
+            <Lock className="w-3 h-3 text-[var(--accent-green-dark)]" />
             <span>On-device Baseline Privacy</span>
           </span>
           <button
             onClick={onClose}
-            className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs transition-colors"
+            className="px-5 py-2.5 bg-[var(--text-primary)] text-white hover:bg-[var(--accent-green-dark)] border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111] transition-colors"
           >
             Understood
           </button>
