@@ -33,3 +33,8 @@ __pycache__/
 *.njsproj
 *.sln
 *.sw?
+
+# SQLite Database
+*.db
+*.sqlite3
+

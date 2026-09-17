@@ -1,28 +1,32 @@
 import React from 'react';
-import { Sun, Compass, User } from 'lucide-react';
+import { Home, Sun, Compass, BarChart3, MessageCircle, Settings } from 'lucide-react';
 
 /**
- * Neo-Brutalist Bottom Navigation Bar
+ * Neo-Brutalist Mobile Bottom Navigation Bar (md:hidden)
  * Solid off-white panel · black top border · green active indicator
+ * 6 mobile tabs: Home, Today, Journey, Insights, AI Chat, Settings
  */
 const BottomNavComponent = ({ activeTab, setActiveTab }) => {
-  if (activeTab === 'talk') return null;
-
   const navItems = [
-    { id: 'today',   label: 'Today',   icon: Sun },
-    { id: 'journey', label: 'Journey', icon: Compass },
-    { id: 'you',     label: 'You',     icon: User },
+    { id: 'home',     label: 'Home',     icon: Home },
+    { id: 'today',    label: 'Today',    icon: Sun },
+    { id: 'journey',  label: 'Journey',  icon: Compass },
+    { id: 'insights', label: 'Insights', icon: BarChart3 },
+    { id: 'talk',     label: 'AI Chat',  icon: MessageCircle },
+    { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
   return (
     <nav
       className="
-        fixed bottom-0 left-0 right-0 z-50 w-full bg-[var(--surface-primary)] border-t-2 border-[var(--border-strong)] shadow-[0_-4px_0px_#111111]
-        md:static md:w-auto md:bg-transparent md:border-t-0 md:shadow-none md:flex-1 md:flex md:justify-center md:pb-0
+        fixed bottom-0 left-0 right-0 z-50 w-full bg-[var(--surface-primary)] 
+        border-t-2 border-[var(--border-strong)] shadow-[0_-4px_0px_#111111]
+        md:hidden
       "
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      aria-label="Mobile Navigation"
     >
-      <div className="w-full max-w-lg mx-auto flex items-stretch md:max-w-none md:justify-center md:gap-2">
+      <div className="w-full flex items-stretch">
         {navItems.map((item) => {
           const IconComponent = item.icon;
           const isActive = activeTab === item.id;
@@ -35,31 +39,30 @@ const BottomNavComponent = ({ activeTab, setActiveTab }) => {
               aria-current={isActive ? 'page' : undefined}
               className={`
                 relative flex flex-col items-center justify-center flex-1
-                py-3.5 px-2 gap-1 touch-manipulation select-none
-                border-r-2 border-[var(--border-strong)] last:border-r-0
+                py-2.5 px-1 gap-1 touch-manipulation select-none
+                border-r border-[var(--border-strong)] last:border-r-0
                 transition-all duration-100
-                md:flex-row md:flex-none md:px-4 md:py-2 md:border-2 md:shadow-[2px_2px_0px_#111] md:active:translate-x-[1px] md:active:translate-y-[1px] md:active:shadow-none
                 ${isActive
-                  ? 'bg-[var(--text-primary)] text-white md:shadow-[2px_2px_0px_var(--accent-green-dark)] md:border-[var(--border-strong)]'
-                  : 'bg-[var(--surface-primary)] hover:bg-[var(--surface-secondary)] text-[var(--text-secondary)] md:text-[var(--text-primary)]'
+                  ? 'bg-[var(--text-primary)] text-white'
+                  : 'bg-[var(--surface-primary)] hover:bg-[var(--surface-secondary)] text-[var(--text-secondary)]'
                 }
               `}
             >
-              {/* Green active top border on mobile only */}
+              {/* Green active top border on mobile */}
               <span
-                className={`absolute top-0 left-0 right-0 h-[4px] md:hidden transition-opacity duration-150 ${
+                className={`absolute top-0 left-0 right-0 h-[3px] transition-opacity duration-150 ${
                   isActive ? 'opacity-100' : 'opacity-0'
                 }`}
-                style={{ backgroundColor: 'var(--accent-green-dark)' }}
+                style={{ backgroundColor: 'var(--accent-green)' }}
               />
 
               <IconComponent
-                className={`w-5 h-5 md:w-4 md:h-4 shrink-0 ${
-                  isActive ? 'text-[var(--accent-green)] md:text-[var(--accent-green)]' : 'text-[var(--text-primary)] md:text-[var(--text-primary)]'
+                className={`w-4 h-4 shrink-0 ${
+                  isActive ? 'text-[var(--accent-green)]' : 'text-[var(--text-primary)]'
                 }`}
               />
               <span
-                className={`text-[10px] md:text-xs font-bold tracking-widest uppercase leading-none ${
+                className={`text-[9px] font-bold tracking-tight uppercase leading-none truncate w-full px-0.5 text-center ${
                   isActive ? 'text-white' : 'text-[var(--text-primary)]'
                 }`}
               >

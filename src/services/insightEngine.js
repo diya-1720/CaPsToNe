@@ -9,11 +9,6 @@ import { ACTIVITY_PROFILES } from './baselineEngine';
  * 
  * Enforces the 5-step Product Loop:
  * OBSERVE -> UNDERSTAND -> ACT -> FOLLOW UP -> LEARN
- * 
- * Low-Noise Significance Model:
- * Normal readings (BALANCED state with |hrDelta| <= 8) remain calm and low-noise.
- * Intrusive action cards are activated only for statistically or contextually
- * meaningful observations (WATCHFUL, LEARNING, or elevated resting HR).
  */
 
 export class InsightEngine {
@@ -21,15 +16,52 @@ export class InsightEngine {
    * Evaluate telemetry against personal baseline & state engine
    */
   evaluateInsight(telemetry, evaluation, awenState, baselineData) {
-    const hr = Math.round((telemetry?.heartRate ?? telemetry?.heart_rate ?? 64.0) * 10) / 10;
-    const spo2 = Math.round((telemetry?.spo2 ?? 98.6) * 10) / 10;
-    const temp = Math.round((telemetry?.temperature ?? 36.6) * 10) / 10;
+    const isHardware = Boolean(telemetry?.isHardware);
+    const rawHr = telemetry?.heartRate ?? telemetry?.heart_rate ?? null;
+    const hr = (rawHr !== null && rawHr !== undefined) ? Math.round(Number(rawHr) * 10) / 10 : null;
+    const spo2 = (telemetry?.spo2 !== null && telemetry?.spo2 !== undefined) ? Math.round(Number(telemetry.spo2) * 10) / 10 : null;
+    const temp = (telemetry?.temperature !== null && telemetry?.temperature !== undefined) ? Math.round(Number(telemetry.temperature) * 10) / 10 : null;
     const activity = telemetry?.activity || "Resting";
-    const isHardware = telemetry?.isHardware || false;
 
     const restingHr = baselineData?.restingHr ? Number(baselineData.restingHr) : 64.0;
     const hrStdDev = baselineData?.hrStdDev ? Number(baselineData.hrStdDev) : 4.8;
-    const confidenceState = baselineData?.confidence || awenState?.confidenceState || 'Stable baseline';
+    const confidenceState = baselineData?.confidence || awenState?.confidence || 'Stable baseline';
+    const wellnessState = awenState?.wellnessState || AWEN_STATES.BALANCED;
+
+    // When hardware is disconnected or no live readings exist
+    if (!isHardware || hr === null) {
+      return {
+        isSignificant: false,
+        wellnessState,
+        isHardware: false,
+        title: "Hardware Not Connected",
+        metrics: { hr: null, spo2: null, temp: null, activity },
+        baseline: { restingHr, expectedHr: restingHr, hrStdDev, confidenceState },
+        deltas: { hrDeltaFromResting: 0, hrDeltaFromExpected: 0 },
+        observe: {
+          title: "Hardware Not Connected",
+          summary: "Connect your ESP32 sensor (MAX30102) to stream live telemetry against your personal baseline."
+        },
+        explanation: {
+          summary: "Awaiting sensor connection. AWEN requires active telemetry to observe your real-time body pattern.",
+          bullets: [
+            "Your baseline pattern is saved in local SQLite storage.",
+            "Connect your ESP32 via USB Web Serial to stream live PPG signals.",
+            "No fake or default values are attached."
+          ]
+        },
+        action: {
+          recommended: false,
+          type: "CONNECT",
+          label: "Connect ESP32 Sensor",
+          instruction: "Attach your MAX30102 sensor via USB Serial to begin live comparison."
+        },
+        learning: {
+          confidenceState,
+          summary: `Baseline signature calibrated at ${restingHr.toFixed(1)} bpm resting HR.`
+        }
+      };
+    }
 
     const actConfig = ACTIVITY_PROFILES[activity] || ACTIVITY_PROFILES["Resting"];
     const expectedHr = Math.round((restingHr + actConfig.hrOffset) * 10) / 10;
@@ -38,9 +70,8 @@ export class InsightEngine {
 
     const isExertion = ["Walking", "Climbing Stairs", "Gym", "Running"].includes(activity);
     const isExertionExplained = evaluation?.isExertionExplained ?? (isExertion && hrDeltaFromExpected <= 18);
-    const wellnessState = awenState?.wellnessState || AWEN_STATES.BALANCED;
 
-    // Significance Model: Only flag if resting HR is elevated > 8 bpm without exertion, or in learning mode, or watchful state
+    // Significance Model
     const isSignificant = (
       wellnessState === AWEN_STATES.WATCHFUL ||
       wellnessState === AWEN_STATES.LEARNING ||
@@ -70,20 +101,19 @@ export class InsightEngine {
     const explanationBullets = [];
     
     if (wellnessState === AWEN_STATES.LEARNING) {
-      explanationBullets.push(`AWEN is collecting quiet resting samples to compute your 7th-percentile baseline.`);
+      explanationBullets.push(`AWEN is collecting quiet resting samples to compute your baseline.`);
       explanationBullets.push(`Current confidence tier: ${confidenceState}.`);
     } else if (isExertion) {
-      explanationBullets.push(`Physical movement (${activity}) naturally raises heart rate to supply oxygen.`);
-      explanationBullets.push(`Activity filter applied (+${actConfig.hrOffset} bpm expected lift). Exertion is explained.`);
-      explanationBullets.push(`AWEN will observe how smoothly your signal settles after movement stops.`);
+      explanationBullets.push(`Physical movement (${activity}) naturally raises heart rate.`);
+      explanationBullets.push(`Activity filter applied (+${actConfig.hrOffset} bpm expected lift).`);
     } else if (hrDeltaFromResting > 8) {
       explanationBullets.push(`Reading captured during low physical movement (${activity.toLowerCase()}).`);
       explanationBullets.push(`Heart rate (${hr} bpm) exceeds your typical resting range of ${Math.round(restingHr - hrStdDev)}–${Math.round(restingHr + hrStdDev)} bpm.`);
-      explanationBullets.push(`Non-exertional variation may be related to focus, caffeine, recent meal, or reduced sleep.`);
     } else {
       explanationBullets.push(`Reading captured during ${activity.toLowerCase()}.`);
       explanationBullets.push(`Heart rate (${hr} bpm) is within your natural resting variance (±${hrStdDev} bpm).`);
-      explanationBullets.push(`Oxygen saturation (${spo2}%) and temperature (${temp}°C) are nominal.`);
+      if (spo2) explanationBullets.push(`Oxygen saturation (${spo2}%) is nominal.`);
+      if (temp) explanationBullets.push(`Skin temperature (${temp}°C) is nominal.`);
     }
 
     // 3. ACT Step
@@ -107,6 +137,7 @@ export class InsightEngine {
       isSignificant,
       wellnessState,
       isHardware,
+      title: observeTitle,
       metrics: { hr, spo2, temp, activity },
       baseline: { restingHr, expectedHr, hrStdDev, confidenceState },
       deltas: { hrDeltaFromResting, hrDeltaFromExpected },
@@ -117,10 +148,6 @@ export class InsightEngine {
     };
   }
 
-  /**
-   * Evaluates Follow-Up delta using actual live telemetry vs baseline snapshot at start of action.
-   * NEVER fabricates fake follow-up numbers.
-   */
   evaluateFollowUp(startHr, currentHr, restingHr) {
     if (!startHr || !currentHr) return null;
 

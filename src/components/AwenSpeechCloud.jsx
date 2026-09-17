@@ -3,18 +3,18 @@ import { ArrowRight, MessageCircle, Heart, TrendingUp } from 'lucide-react';
 
 /**
  * AwenSpeechCloud Component
- * Soft organic glass speech bubble positioned directly ABOVE AWEN.
- * Features a soft downward tail pointing to AWEN, clean 2-3 lines of text,
+ * Neo-Brutalist speech bubble positioned directly ABOVE AWEN.
+ * Features a downward tail pointing to AWEN, clean 2-3 lines of text,
  * and quick contextual options (Talk to AWEN, Explain My Wellness, Today's Insight).
  */
 const AwenSpeechCloudComponent = ({ message, isVisible, onTalkMore, onExplain, onInsights }) => {
   if (!isVisible || !message) return null;
 
   return (
-    <div className="absolute top-8 left-1/2 -translate-x-1/2 z-40 w-72 sm:w-80 pointer-events-auto animate-fadeIn duration-300">
+    <div className="absolute bottom-[104%] left-1/2 -translate-x-1/2 z-40 w-72 sm:w-80 mb-2 pointer-events-auto animate-fadeIn duration-200">
       
       {/* Main Neo-Brutalist Speech Cloud Body */}
-      <div className="relative neo-surface p-4 space-y-3 bg-[var(--surface-primary)]">
+      <div className="relative neo-surface p-4 space-y-3 bg-[var(--surface-primary)] shadow-[4px_4px_0px_#111]">
         
         <p className="text-xs font-bold uppercase tracking-wide leading-relaxed">
           <span className="highlight-yellow">"{message}"</span>
@@ -46,7 +46,7 @@ const AwenSpeechCloudComponent = ({ message, isVisible, onTalkMore, onExplain, o
                 className="py-1.5 px-2 bg-[var(--surface-secondary)] hover:bg-[var(--surface-tertiary)] border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111] text-[var(--text-primary)] text-[9px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 transition-all active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
               >
                 <Heart className="w-3 h-3 text-[var(--accent-danger)]" />
-                <span>Explain Wellness</span>
+                <span>Explain</span>
               </button>
             )}
 
@@ -59,7 +59,7 @@ const AwenSpeechCloudComponent = ({ message, isVisible, onTalkMore, onExplain, o
                 className="py-1.5 px-2 bg-[var(--surface-secondary)] hover:bg-[var(--surface-tertiary)] border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111] text-[var(--text-primary)] text-[9px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 transition-all active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
               >
                 <TrendingUp className="w-3 h-3 text-[var(--accent-green-dark)]" />
-                <span>Today's Insight</span>
+                <span>Insights</span>
               </button>
             )}
           </div>
@@ -85,4 +85,3 @@ const AwenSpeechCloudComponent = ({ message, isVisible, onTalkMore, onExplain, o
 };
 
 export const AwenSpeechCloud = React.memo(AwenSpeechCloudComponent);
-

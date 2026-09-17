@@ -1,5 +1,3 @@
-import { supabase, isSupabaseConfigured } from './supabaseClient';
-
 const STORAGE_KEYS = {
   USER: 'awen_user_session',
   READINGS: 'awen_readings_history',
@@ -7,6 +5,13 @@ const STORAGE_KEYS = {
   CHAT: 'awen_chat_history'
 };
 
+const getApiBaseUrl = () => {
+  const envUrl = import.meta.env?.VITE_API_URL;
+  if (envUrl && envUrl.trim() !== '') {
+    return envUrl.trim().replace(/\/+$/, '');
+  }
+  return 'http://localhost:8000';
+};
 
 export class ApiService {
   constructor() {
@@ -22,7 +27,6 @@ export class ApiService {
       const saved = localStorage.getItem(STORAGE_KEYS.USER);
       if (saved) {
         const parsed = JSON.parse(saved);
-        // Invalidate legacy hardcoded demo sessions (old "Diya" user)
         if (
           parsed?.id === 'usr_8841' ||
           parsed?.email === 'diya@awen.ai' ||
@@ -34,184 +38,157 @@ export class ApiService {
         return parsed;
       }
     } catch (e) {}
-    // Return null — unauthenticated users see the Landing Page
     return null;
   }
 
   saveLocalSession(user) {
-    this.currentUser = { ...user };
-    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(this.currentUser));
+    this.currentUser = user ? { ...user } : null;
+    if (this.currentUser) {
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(this.currentUser));
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.USER);
+    }
     return this.currentUser;
   }
 
-  /**
-   * Restore Session Alias
-   */
   async restoreSession() {
     return await this.getActiveSession();
   }
 
+  getHeaders() {
+    const headers = { 'Content-Type': 'application/json' };
+    if (this.currentUser?.token) {
+      headers['Authorization'] = `Bearer ${this.currentUser.token}`;
+    }
+    return headers;
+  }
+
   /**
-   * Get Active Authenticated Supabase Session
+   * Get Active Session from SQLite Backend with Local Fallback
    */
   async getActiveSession() {
-    if (!isSupabaseConfigured) return this.currentUser;
+    if (!this.currentUser?.token) return this.currentUser;
 
     try {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error || !session?.user) return this.currentUser;
-
-      const profile = await this.fetchUserProfile(session.user.id);
-      const userObj = {
-        id: session.user.id,
-        email: session.user.email,
-        name: profile?.name || session.user.user_metadata?.full_name || session.user.email.split('@')[0],
-        timezone: profile?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
-        observation_mode: profile?.observation_mode ?? true,
-        observation_start: profile?.observation_start || new Date().toISOString(),
-        baseline_confidence: profile?.baseline_confidence || 'Learning',
-        token: session.access_token
-      };
-
-      return this.saveLocalSession(userObj);
+      const res = await fetch(`${getApiBaseUrl()}/api/auth/me`, {
+        headers: this.getHeaders()
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const userObj = {
+          ...this.currentUser,
+          ...data,
+          token: this.currentUser.token
+        };
+        return this.saveLocalSession(userObj);
+      }
     } catch (e) {
-      return this.currentUser;
+      // Backend offline — use local cached session
     }
+    return this.currentUser;
   }
 
   /**
-   * Fetch User Profile from Supabase `profiles` table
-   */
-  async fetchUserProfile(userId) {
-    if (!isSupabaseConfigured || !userId) return null;
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-      if (error) return null;
-      return data;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  /**
-   * Sign In with Email & Password
+   * Sign In with Email & Password via SQLite Backend
    */
   async login(email, password) {
-    if (isSupabaseConfigured) {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
       });
-      if (error) throw new Error(error.message || "That email or password doesn't look right. Try again?");
-      
-      const user = data.user;
-      const profile = await this.fetchUserProfile(user.id);
 
-      const userObj = {
-        id: user.id,
-        email: user.email,
-        name: profile?.name || user.user_metadata?.full_name || user.email.split('@')[0],
-        timezone: profile?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
-        observation_mode: profile?.observation_mode ?? true,
-        observation_start: profile?.observation_start || new Date().toISOString(),
-        baseline_confidence: profile?.baseline_confidence || 'Learning',
-        token: data.session.access_token
-      };
-
-      return this.saveLocalSession(userObj);
-    }
-
-    // Local Fallback
-    const user = {
-      ...this.currentUser,
-      email: email || this.currentUser.email,
-      name: email ? email.split('@')[0] : 'User',
-      token: `jwt_${Date.now()}`
-    };
-    return this.saveLocalSession(user);
-  }
-
-  /**
-   * Sign Up with Name, Email & Password
-   */
-  async signup(name, email, password) {
-    if (isSupabaseConfigured) {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { full_name: name }
-        }
-      });
-      if (error) throw new Error(error.message || "Could not create account. Please check your credentials.");
-
-      const user = data.user;
-      if (user) {
-        // Upsert initial profile record in Supabase
-        await supabase.from('profiles').upsert({
-          id: user.id,
-          name: name || 'User',
-          email: user.email,
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
-          observation_mode: true,
-          baseline_confidence: 'Learning'
-        });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || "Invalid email or password.");
       }
 
+      const data = await res.json();
       const userObj = {
-        id: user?.id || `usr_${Date.now()}`,
-        name: name || 'User',
-        email: email || 'user@awen.ai',
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
-        observation_mode: true,
-        observation_start: new Date().toISOString(),
-        baseline_confidence: 'Learning',
-        token: data.session?.access_token || `jwt_${Date.now()}`
+        id: data.user.id,
+        name: data.user.name,
+        email: data.user.email,
+        timezone: data.user.timezone || 'Asia/Kolkata',
+        observation_mode: Boolean(data.user.observation_mode),
+        baseline_confidence: data.user.baseline_confidence || 'Learning',
+        token: data.token
       };
 
       return this.saveLocalSession(userObj);
+    } catch (err) {
+      // If backend unreachable, permit local development login
+      if (err.message && err.message.includes("Failed to fetch")) {
+        const userObj = {
+          id: `usr_${Date.now()}`,
+          name: email.split('@')[0],
+          email,
+          timezone: 'Asia/Kolkata',
+          observation_mode: true,
+          baseline_confidence: 'Learning',
+          token: `local_${Date.now()}`
+        };
+        return this.saveLocalSession(userObj);
+      }
+      throw err;
     }
-
-    // Local Fallback
-    const userObj = {
-      id: `usr_${Date.now().toString().slice(-4)}`,
-      name: name || 'User',
-      email: email || 'user@awen.ai',
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
-      observation_mode: true,
-      observation_start: new Date().toISOString(),
-      baseline_confidence: 'Learning',
-      token: `jwt_${Date.now()}`
-    };
-    return this.saveLocalSession(userObj);
   }
 
   /**
-   * Sign In with Google OAuth
+   * Sign Up with Name, Email & Password via SQLite Backend
+   */
+  async signup(name, email, password) {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password })
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || "Could not create account.");
+      }
+
+      const data = await res.json();
+      const userObj = {
+        id: data.user.id,
+        name: data.user.name,
+        email: data.user.email,
+        timezone: data.user.timezone || 'Asia/Kolkata',
+        observation_mode: Boolean(data.user.observation_mode),
+        baseline_confidence: data.user.baseline_confidence || 'Learning',
+        token: data.token
+      };
+
+      return this.saveLocalSession(userObj);
+    } catch (err) {
+      if (err.message && err.message.includes("Failed to fetch")) {
+        const userObj = {
+          id: `usr_${Date.now()}`,
+          name: name || 'User',
+          email,
+          timezone: 'Asia/Kolkata',
+          observation_mode: true,
+          baseline_confidence: 'Learning',
+          token: `local_${Date.now()}`
+        };
+        return this.saveLocalSession(userObj);
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Sign In with Google OAuth (Simulated Local Fallback)
    */
   async signInWithGoogle() {
-    if (isSupabaseConfigured) {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: window.location.origin
-        }
-      });
-      if (error) throw new Error(error.message || "Google sign-in didn't complete. Please try again.");
-      return data;
-    }
-    // Fallback simulation for demo
     const userObj = {
       id: `usr_google_${Date.now().toString().slice(-4)}`,
-      name: 'User (Google)',
+      name: 'Google Explorer',
       email: 'user.google@gmail.com',
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
+      timezone: 'Asia/Kolkata',
       observation_mode: true,
-      observation_start: new Date().toISOString(),
       baseline_confidence: 'Learning',
       token: `jwt_google_${Date.now()}`
     };
@@ -222,11 +199,7 @@ export class ApiService {
    * Log Out Session
    */
   async logout() {
-    if (isSupabaseConfigured) {
-      await supabase.auth.signOut();
-    }
-    localStorage.removeItem(STORAGE_KEYS.USER);
-    this.currentUser = null;
+    this.saveLocalSession(null);
   }
 
   /**
@@ -236,12 +209,13 @@ export class ApiService {
     if (!this.currentUser) return;
     const confidence = enabled ? 'Learning' : 'Stable baseline';
 
-    if (isSupabaseConfigured && this.currentUser.id) {
-      await supabase.from('profiles').update({
-        observation_mode: enabled,
-        baseline_confidence: confidence
-      }).eq('id', this.currentUser.id);
-    }
+    try {
+      await fetch(`${getApiBaseUrl()}/api/user/observation-mode`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ enabled })
+      });
+    } catch (e) {}
 
     const updated = {
       ...this.currentUser,
@@ -251,63 +225,93 @@ export class ApiService {
     return this.saveLocalSession(updated);
   }
 
-  /**
-   * Update Profile Observation Mode Alias
-   */
   async updateProfileObservationMode(userId, enabled) {
-    if (isSupabaseConfigured && userId && !this.currentUser?.isGuest) {
-      try {
-        const confidence = enabled ? 'Learning' : 'Stable baseline';
-        await supabase.from('profiles').update({
-          observation_mode: enabled,
-          baseline_confidence: confidence
-        }).eq('id', userId);
-      } catch (e) {
-        console.warn('Error updating profile observation mode:', e);
-      }
-    }
     return this.updateObservationMode(enabled);
   }
 
   /**
-   * Fetch User Baseline from Supabase `user_baselines`
-   */
-  /**
-   * Fetch User Baseline from Supabase `user_baselines` with fallback computation
+   * Fetch User Baseline from SQLite Backend
    */
   async fetchUserBaseline(userId) {
-    if (!isSupabaseConfigured || !userId || this.currentUser?.isGuest) {
-      return await this.computeAndSaveBaseline(userId);
-    }
     try {
-      const { data, error } = await supabase
-        .from('user_baselines')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (error || !data) {
-        return await this.computeAndSaveBaseline(userId);
+      const res = await fetch(`${getApiBaseUrl()}/api/user/baseline`, {
+        headers: this.getHeaders()
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return {
+          restingHr: Number(data.restingHr) || 64.0,
+          restingSpo2: Number(data.restingSpo2) || 98.6,
+          restingTemp: Number(data.restingTemp) || 36.6,
+          hrStdDev: Number(data.hrStdDev) || 4.8,
+          confidence: data.confidence || 'Learning',
+          isDynamic: Boolean(data.isDynamic),
+          updatedAt: data.updatedAt
+        };
       }
+    } catch (e) {}
 
-      return {
-        restingHr: Number(data.resting_hr) || 64.0,
-        restingSpo2: Number(data.resting_spo2) || 98.6,
-        restingTemp: Number(data.resting_temp) || 36.6,
-        hrStdDev: Number(data.hr_variance) || 4.8,
-        confidence: data.confidence || 'Learning',
-        isDynamic: true,
-        updatedAt: data.updated_at
-      };
-    } catch (e) {
-      return await this.computeAndSaveBaseline(userId);
-    }
+    return await this.computeAndSaveBaseline(userId);
   }
 
   /**
-   * Development Testing Helper: Seed Test Resting Readings & Calculate Dynamic Baseline
-   * Inserts valid resting readings (targetHr +/- 2 bpm) to test baseline calculation
-   * without polluting production code or waiting 7 days.
+   * Save / Compute User Baseline
+   */
+  async computeAndSaveBaseline(userId) {
+    const defaultBaseline = {
+      restingHr: 64.0,
+      restingSpo2: 98.6,
+      restingTemp: 36.6,
+      hrStdDev: 4.8,
+      confidence: 'Learning',
+      isDynamic: false,
+      sampleCount: 0
+    };
+
+    try {
+      const history = JSON.parse(localStorage.getItem(STORAGE_KEYS.READINGS) || '[]');
+      const resting = history.filter(r => (!r.activity || r.activity === 'Resting') && r.heart_rate);
+      if (resting.length >= 5) {
+        const hrValues = resting.map(r => Number(r.heart_rate)).sort((a, b) => a - b);
+        const pIndex = (hrValues.length - 1) * 0.07;
+        const low = Math.floor(pIndex);
+        const high = Math.ceil(pIndex);
+        const weight = pIndex - low;
+        const calcHr = Math.round((hrValues[low] + weight * (hrValues[high] - hrValues[low])) * 10) / 10;
+        const confidence = resting.length >= 30 ? 'Stable baseline' : resting.length >= 15 ? 'Developing baseline' : 'Early baseline';
+
+        const computed = {
+          restingHr: calcHr,
+          restingSpo2: 98.6,
+          restingTemp: 36.6,
+          hrStdDev: 4.8,
+          confidence,
+          isDynamic: true,
+          sampleCount: resting.length
+        };
+
+        // Sync with backend if possible
+        fetch(`${getApiBaseUrl()}/api/user/baseline`, {
+          method: 'POST',
+          headers: this.getHeaders(),
+          body: JSON.stringify({
+            resting_hr: computed.restingHr,
+            resting_spo2: computed.restingSpo2,
+            resting_temp: computed.restingTemp,
+            hr_variance: computed.hrStdDev,
+            confidence: computed.confidence
+          })
+        }).catch(() => {});
+
+        return computed;
+      }
+    } catch (e) {}
+
+    return defaultBaseline;
+  }
+
+  /**
+   * Seed Test Resting Readings for Baseline testing
    */
   async seedTestReadings(userId = null, targetHr = 58) {
     const readingsToSeed = [];
@@ -323,24 +327,11 @@ export class ApiService {
       });
     }
 
-    const effectiveUserId = userId || this.currentUser?.id;
-
-    if (isSupabaseConfigured && effectiveUserId && !this.currentUser?.isGuest) {
-      try {
-        const rows = readingsToSeed.map(r => ({
-          user_id: effectiveUserId,
-          ...r
-        }));
-        await supabase.from('physiological_readings').insert(rows);
-      } catch (e) {}
-    }
-
-    // Also seed local storage history
     try {
       const history = JSON.parse(localStorage.getItem(STORAGE_KEYS.READINGS) || '[]');
       const localRows = readingsToSeed.map((r, idx) => ({
         id: `seed_${Date.now()}_${idx}`,
-        user_id: effectiveUserId,
+        user_id: userId || this.currentUser?.id,
         timestamp: new Date().toISOString(),
         device_id: 'test_seed',
         ...r
@@ -348,132 +339,7 @@ export class ApiService {
       localStorage.setItem(STORAGE_KEYS.READINGS, JSON.stringify([...localRows, ...history].slice(0, 100)));
     } catch (e) {}
 
-    return await this.computeAndSaveBaseline(effectiveUserId);
-  }
-
-  /**
-   * Compute User Baseline from Supabase `physiological_readings` and save to `user_baselines`
-   */
-  async computeAndSaveBaseline(userId) {
-    let readings = [];
-
-    if (isSupabaseConfigured && userId && !this.currentUser?.isGuest) {
-      try {
-        const { data, error } = await supabase
-          .from('physiological_readings')
-          .select('heart_rate, spo2, temperature, activity_state, created_at')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false })
-          .limit(200);
-
-        if (!error && data) {
-          readings = data;
-        }
-      } catch (e) {}
-    }
-
-    if (readings.length === 0) {
-      try {
-        const localHistory = JSON.parse(localStorage.getItem(STORAGE_KEYS.READINGS) || '[]');
-        readings = localHistory.map(r => ({
-          heart_rate: r.heart_rate ?? r.heartRate,
-          spo2: r.spo2,
-          temperature: r.temperature,
-          activity_state: r.activity_state ?? r.activity,
-          created_at: r.created_at ?? r.timestamp
-        }));
-      } catch (e) {}
-    }
-
-    if (!readings || readings.length === 0) {
-      return null;
-    }
-
-    // Filter resting readings ONLY with valid HR (30-220 bpm)
-    const restingReadings = readings.filter(r => 
-      (!r.activity_state || r.activity_state === 'Resting') &&
-      r.heart_rate && Number(r.heart_rate) >= 30 && Number(r.heart_rate) <= 220
-    );
-
-    // Require at least 5 resting readings for a dynamic baseline
-    if (restingReadings.length < 5) {
-      return {
-        restingHr: 64.0,
-        restingSpo2: 98.6,
-        restingTemp: 36.6,
-        hrStdDev: 4.8,
-        confidence: 'Learning',
-        isDynamic: false,
-        sampleCount: restingReadings.length
-      };
-    }
-
-    // Sort resting heart rates in ascending order for 7th-percentile baseline calculation
-    const hrValues = restingReadings.map(r => Number(r.heart_rate)).sort((a, b) => a - b);
-    
-    // Calculate 7th percentile resting HR using linear interpolation
-    const pIndex = (hrValues.length - 1) * 0.07;
-    const lowerIdx = Math.floor(pIndex);
-    const upperIdx = Math.ceil(pIndex);
-    const pWeight = pIndex - lowerIdx;
-    const rawPercentileHr = hrValues[lowerIdx] + pWeight * (hrValues[upperIdx] - hrValues[lowerIdx]);
-    const computedRestingHr = Math.round(rawPercentileHr * 10) / 10;
-
-    const spo2Values = restingReadings
-      .map(r => Number(r.spo2))
-      .filter(val => val && val >= 80 && val <= 100);
-    const computedSpo2 = spo2Values.length > 0
-      ? Math.round((spo2Values.reduce((a, b) => a + b, 0) / spo2Values.length) * 10) / 10
-      : 98.6;
-
-    const tempValues = restingReadings
-      .map(r => Number(r.temperature))
-      .filter(val => val && val >= 30 && val <= 45);
-    const computedTemp = tempValues.length > 0
-      ? Math.round((tempValues.reduce((a, b) => a + b, 0) / tempValues.length) * 10) / 10
-      : 36.6;
-
-    const variance = hrValues.reduce((acc, val) => acc + Math.pow(val - computedRestingHr, 2), 0) / hrValues.length;
-    const computedStdDev = Math.round(Math.sqrt(variance) * 10) / 10 || 4.8;
-
-    let confidenceState = 'Learning';
-    if (restingReadings.length >= 30) {
-      confidenceState = 'Stable baseline';
-    } else if (restingReadings.length >= 15) {
-      confidenceState = 'Developing baseline';
-    } else if (restingReadings.length >= 5) {
-      confidenceState = 'Early baseline';
-    }
-
-    const baselinePayload = {
-      user_id: userId || 'local_user',
-      resting_hr: computedRestingHr,
-      resting_spo2: computedSpo2,
-      resting_temp: computedTemp,
-      hr_variance: computedStdDev,
-      confidence: confidenceState,
-      updated_at: new Date().toISOString()
-    };
-
-    if (isSupabaseConfigured && userId && !this.currentUser?.isGuest) {
-      try {
-        await supabase.from('user_baselines').upsert(baselinePayload, { onConflict: 'user_id' });
-        await supabase.from('profiles').update({
-          baseline_confidence: confidenceState
-        }).eq('id', userId);
-      } catch (e) {}
-    }
-
-    return {
-      restingHr: computedRestingHr,
-      restingSpo2: computedSpo2,
-      restingTemp: computedTemp,
-      hrStdDev: computedStdDev,
-      confidence: confidenceState,
-      isDynamic: true,
-      sampleCount: restingReadings.length,
-      updatedAt: baselinePayload.updated_at
-    };
+    return await this.computeAndSaveBaseline(userId || this.currentUser?.id);
   }
 
   /**
@@ -496,69 +362,29 @@ export class ApiService {
       });
     }
 
-    if (isSupabaseConfigured && userId && !this.currentUser?.isGuest) {
-      try {
-        const sevenDaysAgo = new Date(now);
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-        const { data, error } = await supabase
-          .from('physiological_readings')
-          .select('created_at, heart_rate, activity_state')
-          .eq('user_id', userId)
-          .gte('created_at', sevenDaysAgo.toISOString());
-
-        if (!error && data && data.length > 0) {
-          const grouped = {};
-          data.forEach(item => {
-            const dayKey = new Date(item.created_at).toISOString().split('T')[0];
-            if (!grouped[dayKey]) grouped[dayKey] = [];
-            if (item.heart_rate) grouped[dayKey].push(Number(item.heart_rate));
-          });
-
-          days.forEach(day => {
-            if (grouped[day.date] && grouped[day.date].length > 0) {
-              const sum = grouped[day.date].reduce((a, b) => a + b, 0);
-              day.averageHeartRate = Math.round((sum / grouped[day.date].length) * 10) / 10;
-              day.sampleCount = grouped[day.date].length;
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/history/weekly`, {
+        headers: this.getHeaders()
+      });
+      if (res.ok) {
+        const rows = await res.json();
+        if (Array.isArray(rows) && rows.length > 0) {
+          const map = {};
+          rows.forEach(r => { map[r.date] = r; });
+          days.forEach(d => {
+            if (map[d.date]) {
+              d.averageHeartRate = map[d.date].averageHeartRate;
+              d.sampleCount = map[d.date].sampleCount;
             }
           });
-
           if (days.some(d => d.averageHeartRate !== null)) {
             return days;
           }
         }
-      } catch (e) {
-        console.warn('Error fetching weekly heart rate history from Supabase:', e);
-      }
-    }
-
-    try {
-      const localReadings = JSON.parse(localStorage.getItem(STORAGE_KEYS.READINGS) || '[]');
-      if (localReadings.length > 0) {
-        const grouped = {};
-        localReadings.forEach(item => {
-          const itemDate = item.timestamp ? new Date(item.timestamp).toISOString().split('T')[0] : null;
-          const hr = item.heart_rate || item.heartRate;
-          if (itemDate && hr) {
-            if (!grouped[itemDate]) grouped[itemDate] = [];
-            grouped[itemDate].push(Number(hr));
-          }
-        });
-
-        days.forEach(day => {
-          if (grouped[day.date] && grouped[day.date].length > 0) {
-            const sum = grouped[day.date].reduce((a, b) => a + b, 0);
-            day.averageHeartRate = Math.round((sum / grouped[day.date].length) * 10) / 10;
-            day.sampleCount = grouped[day.date].length;
-          }
-        });
-
-        if (days.some(d => d.averageHeartRate !== null)) {
-          return days;
-        }
       }
     } catch (e) {}
 
+    // Fallback if no readings yet
     const mockVariances = [-1.2, 0.8, -0.4, 1.5, -0.8, 0.3, 0.0];
     const baseHr = 64.0;
     days.forEach((day, idx) => {
@@ -570,7 +396,7 @@ export class ApiService {
   }
 
   /**
-   * Save Daily Check-in to Supabase `user_checkins`
+   * Save Daily Check-in to SQLite Backend
    */
   async saveCheckin(checkinData) {
     const entry = {
@@ -580,14 +406,17 @@ export class ApiService {
       ...checkinData
     };
 
-    if (isSupabaseConfigured && this.currentUser?.id) {
-      await supabase.from('user_checkins').insert([{
-        user_id: this.currentUser.id,
-        mood: checkinData.mood || checkinData.label,
-        activity_context: checkinData.activity || checkinData.context,
-        notes: checkinData.notes || ''
-      }]);
-    }
+    try {
+      await fetch(`${getApiBaseUrl()}/api/user/checkins`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({
+          mood: checkinData.mood || checkinData.label || 'Good',
+          activity: checkinData.activity || checkinData.context || 'Resting',
+          notes: checkinData.notes || ''
+        })
+      });
+    } catch (e) {}
 
     try {
       const history = JSON.parse(localStorage.getItem(STORAGE_KEYS.CHECKINS) || '[]');
@@ -599,18 +428,17 @@ export class ApiService {
   }
 
   /**
-   * Send Telemetry to FastAPI ML Engine or Fallback to Client Baseline Engine
-   * Conforms to standardized data contract: device_id, timestamp, heart_rate, spo2, temperature, activity, mood
+   * Send Telemetry to FastAPI ML Engine
    */
   async analyzeTelemetry(telemetryData, fallbackBaselineEngine, userBaselineData = null) {
     const activeBaseline = userBaselineData || fallbackBaselineEngine?.baseline || null;
 
     const payload = {
-      device_id: telemetryData.device_id || (telemetryData.isHardware ? 'esp32_max30102' : 'demo_simulator'),
+      device_id: telemetryData.device_id || (telemetryData.isHardware ? 'esp32_max30102' : 'disconnected'),
       timestamp: telemetryData.timestamp || new Date().toISOString(),
-      heart_rate: telemetryData.heart_rate ?? telemetryData.heartRate ?? 64.0,
-      spo2: telemetryData.spo2 ?? 98.6,
-      temperature: telemetryData.temperature ?? 36.6,
+      heart_rate: telemetryData.heartRate ?? telemetryData.heart_rate ?? null,
+      spo2: telemetryData.spo2 ?? null,
+      temperature: telemetryData.temperature ?? null,
       activity: telemetryData.activity || 'Resting',
       mood: telemetryData.mood || 'Normal',
       user_baseline: activeBaseline ? {
@@ -622,133 +450,101 @@ export class ApiService {
       } : null
     };
 
-    let evaluation = null;
-    const now = Date.now();
-    const shouldCheckBackend = this.isBackendAvailable || (now - this.lastBackendCheckTime >= this.BACKEND_RETRY_COOLDOWN);
-
-    if (shouldCheckBackend) {
-      try {
-        if (this.activeFetchController) {
-          this.activeFetchController.abort();
+    // If hardware is not connected and no HR reading is present, return safe awaiting state
+    if (payload.heart_rate === null || payload.heart_rate === undefined) {
+      return {
+        wellnessIndex: 'Awaiting Signal',
+        emotionalState: 'happy',
+        confidenceScore: 0,
+        isHardwareConnected: false,
+        metrics: { hr: null, spo2: null, temp: null, activity: 'Resting' },
+        baselineComparison: {
+          restingHr: activeBaseline?.restingHr || 64.0,
+          expectedHr: activeBaseline?.restingHr || 64.0,
+          hrDelta: 0
+        },
+        explainability: {
+          summary: 'Hardware not connected. Connect your ESP32 sensor to begin live physiological comparison.',
+          factors: []
         }
-        this.activeFetchController = new AbortController();
-        const controller = this.activeFetchController;
-        const timeoutId = setTimeout(() => controller.abort(), 1200);
-
-        const getApiEndpoint = (path) => {
-          const envUrl = import.meta.env?.VITE_API_URL;
-          const baseUrl = envUrl && envUrl.trim() !== '' ? envUrl.trim() : 'http://localhost:8000';
-          const cleanBase = baseUrl.replace(/\/+$/, '');
-          const cleanPath = path.replace(/^\/+/, '');
-          return cleanBase.endsWith(cleanPath) ? cleanBase : `${cleanBase}/${cleanPath}`;
-        };
-
-        const endpoint = getApiEndpoint('api/analyze');
-
-        const headers = { 'Content-Type': 'application/json' };
-        if (this.currentUser?.token) {
-          headers['Authorization'] = `Bearer ${this.currentUser.token}`;
-        }
-
-        const res = await fetch(endpoint, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(payload),
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-        if (this.activeFetchController === controller) {
-          this.activeFetchController = null;
-        }
-
-        if (res.ok) {
-          this.isBackendAvailable = true;
-          const data = await res.json();
-          evaluation = {
-            wellnessIndex: data.wellness_index || 'Balanced',
-            emotionalState: data.stress_level === 'elevated' ? 'stress' : data.stress_level === 'moderate' ? 'attention' : 'relaxed',
-            confidenceScore: data.confidence_score || 95,
-            isExertionExplained: data.baseline_comparison?.is_activity_explained || false,
-            metrics: {
-              hr: payload.heart_rate,
-              spo2: payload.spo2,
-              temp: payload.temperature,
-              activity: payload.activity,
-              mood: payload.mood
-            },
-            baselineComparison: {
-              restingHr: data.baseline_comparison?.resting_hr || 64.0,
-              expectedHr: data.baseline_comparison?.expected_hr_for_activity || payload.heart_rate,
-              hrDelta: data.baseline_comparison?.hr_delta || 0,
-              rawRestingDelta: data.baseline_comparison?.hr_delta || 0
-            },
-            explainability: {
-              summary: data.explainability?.summary || 'Physiological signals align smoothly with baseline.',
-              factors: data.explainability?.factors?.map(f => ({
-                key: f.key || f.label?.toLowerCase()?.replace(/\s+/g, '_') || 'factor',
-                title: f.title || f.label || 'Baseline Metric',
-                label: f.label || f.title || 'Baseline Metric',
-                value: f.value || f.detail || 'Normal',
-                detail: f.detail || f.value || 'Normal',
-                status: f.status || (f.value?.includes('Normal') || f.value?.includes('Optimal') ? 'normal' : 'elevated'),
-                explanation: f.explanation || f.detail || f.value || 'Matches learned baseline.'
-              })) || []
-            }
-          };
-        } else {
-          this.isBackendAvailable = false;
-          this.lastBackendCheckTime = now;
-          console.warn(`[AWEN API] FastAPI /api/analyze returned status ${res.status}. Falling back to client BaselineEngine.`);
-        }
-      } catch (e) {
-        if (e.name !== 'AbortError') {
-          this.isBackendAvailable = false;
-          this.lastBackendCheckTime = now;
-          console.warn('[AWEN API] FastAPI backend unreachable at http://localhost:8000/api/analyze. Active fallback to client BaselineEngine.', e.message);
-        }
-      }
+      };
     }
 
-    if (!evaluation && fallbackBaselineEngine) {
-      evaluation = fallbackBaselineEngine.evaluateReadings(
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/analyze`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        return {
+          wellnessIndex: data.wellness_index || 'Balanced',
+          emotionalState: data.stress_level === 'elevated' ? 'stress' : data.stress_level === 'moderate' ? 'attention' : 'relaxed',
+          confidenceScore: data.confidence_score || 95,
+          isExertionExplained: data.baseline_comparison?.is_activity_explained || false,
+          isHardwareConnected: true,
+          metrics: {
+            hr: payload.heart_rate,
+            spo2: payload.spo2,
+            temp: payload.temperature,
+            activity: payload.activity
+          },
+          baselineComparison: {
+            restingHr: data.baseline_comparison?.resting_hr || 64.0,
+            expectedHr: data.baseline_comparison?.expected_hr_for_activity || payload.heart_rate,
+            hrDelta: data.baseline_comparison?.hr_delta || 0
+          },
+          explainability: {
+            summary: data.explainability?.summary || 'Physiological signals align smoothly with baseline.',
+            factors: data.explainability?.factors || []
+          }
+        };
+      }
+    } catch (e) {}
+
+    if (fallbackBaselineEngine) {
+      return fallbackBaselineEngine.evaluateReadings(
         payload.heart_rate,
-        payload.spo2,
-        payload.temperature,
+        payload.spo2 || 98.6,
+        payload.temperature || 36.6,
         payload.activity,
         payload.mood
       );
     }
 
-    return evaluation;
+    return null;
   }
 
   /**
-   * Save Telemetry Reading to Supabase `physiological_readings`
+   * Save Telemetry Reading to SQLite Backend
    */
   async saveReading(readingData) {
+    if (!readingData.heartRate && !readingData.heart_rate) return;
+
     const entry = {
       id: `rdg_${Date.now()}`,
       user_id: this.currentUser?.id,
       timestamp: readingData.timestamp || new Date().toISOString(),
-      device_id: readingData.device_id || (readingData.isHardware ? 'esp32_max30102' : 'demo_simulator'),
-      data_source: readingData.isHardware ? 'esp32' : 'demo',
+      device_id: readingData.isHardware ? 'esp32_max30102' : 'manual',
+      data_source: readingData.isHardware ? 'esp32' : 'manual',
       ...readingData
     };
 
-    if (isSupabaseConfigured && this.currentUser?.id && !this.currentUser.isGuest) {
-      await supabase.from('physiological_readings').insert([{
-        user_id: this.currentUser.id,
-        heart_rate: readingData.heart_rate ?? readingData.heartRate,
-        spo2: readingData.spo2,
-        temperature: readingData.temperature,
-        activity_state: readingData.activity,
-        data_source: readingData.isHardware ? 'esp32' : 'demo'
-      }]);
-
-      if (!readingData.activity || readingData.activity === 'Resting') {
-        this.computeAndSaveBaseline(this.currentUser.id).catch(() => {});
-      }
-    }
+    try {
+      await fetch(`${getApiBaseUrl()}/api/user/readings`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({
+          heart_rate: readingData.heartRate ?? readingData.heart_rate,
+          spo2: readingData.spo2 ?? 98.6,
+          temperature: readingData.temperature ?? 36.6,
+          activity: readingData.activity || 'Resting',
+          data_source: readingData.isHardware ? 'esp32' : 'manual'
+        })
+      });
+    } catch (e) {}
 
     try {
       const history = JSON.parse(localStorage.getItem(STORAGE_KEYS.READINGS) || '[]');
@@ -760,17 +556,20 @@ export class ApiService {
   }
 
   /**
-   * Save Conversation to Supabase `awen_conversations`
+   * Save Conversation to SQLite Backend
    */
   async saveConversation(userMsg, awenReply, topic = 'general') {
-    if (isSupabaseConfigured && this.currentUser?.id) {
-      await supabase.from('awen_conversations').insert([{
-        user_id: this.currentUser.id,
-        user_message: userMsg,
-        awen_response: awenReply,
-        topic
-      }]);
-    }
+    try {
+      await fetch(`${getApiBaseUrl()}/api/conversations`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({
+          message: userMsg,
+          response: awenReply,
+          topic
+        })
+      });
+    } catch (e) {}
   }
 }
 

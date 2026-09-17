@@ -105,17 +105,49 @@ export const JourneyScreen = ({ baselineData, evaluation, currentUser }) => {
     <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-24 lg:pb-12 space-y-6 animate-fadeIn">
       
       {/* 1. TITLE & SUBTITLE */}
-      <div className="space-y-2 text-center sm:text-left">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5  bg-[var(--surface-level-2)] border border-[var(--border-subtle)] text-[var(--awen-aqua)] text-xs font-semibold tracking-wide uppercase shadow-sm">
-          <Compass className="w-4 h-4" />
-          <span>Your Wellness Journey</span>
+      <div className="space-y-3 text-left">
+        <div className="inline-flex items-center gap-2 px-3 py-1 bg-[var(--surface-secondary)] border-2 border-[var(--border-strong)] text-[var(--accent-green-dark)] text-xs font-mono font-bold tracking-wider uppercase shadow-[2px_2px_0px_#111]">
+          <Compass className="w-4 h-4 text-[var(--accent-green-dark)]" />
+          <span>Longitudinal Pattern Learning · Baseline Evolution</span>
         </div>
-        <h1 className="font-heading text-3xl sm:text-4xl font-bold text-[var(--text-primary)] tracking-tight">
+        <h1 className="font-heading text-3xl sm:text-4xl font-extrabold text-[var(--text-primary)] tracking-tight uppercase">
           Your Journey
         </h1>
-        <p className="text-sm text-[var(--text-secondary)] font-medium max-w-xl">
-          See how your personal physiological patterns change over time compared against your own baseline.
+        <p className="text-xs sm:text-sm text-[var(--text-secondary)] font-medium max-w-xl">
+          See how your personal physiological patterns evolve over time compared against your own learned baseline.
         </p>
+
+        {/* 4-Stage Progression Strip */}
+        <div className="pt-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {[
+              { num: '01', title: 'TODAY', desc: 'Hourly Chronology' },
+              { num: '02', title: 'DAYS', desc: '7-Day History' },
+              { num: '03', title: 'WEEKS', desc: 'Baseline Stability' },
+              { num: '04', title: 'PERSONAL PATTERN', desc: 'Body Signature' }
+            ].map((stg, idx) => (
+              <div 
+                key={stg.num}
+                className={`p-2.5 border-2 border-[var(--border-strong)] ${
+                  idx <= 1 
+                    ? 'bg-[var(--accent-green)] text-[var(--text-primary)] shadow-[2px_2px_0px_#111]' 
+                    : 'bg-[var(--surface-secondary)] text-[var(--text-muted)] opacity-70'
+                }`}
+              >
+                <div className="flex items-center justify-between text-[10px] font-mono font-bold">
+                  <span>{stg.num}</span>
+                  {idx <= 1 && <span className="w-1.5 h-1.5 rounded-full bg-black shrink-0" />}
+                </div>
+                <span className="font-heading text-xs font-extrabold block truncate uppercase mt-0.5">
+                  {stg.title}
+                </span>
+                <span className="text-[9px] font-mono font-medium block truncate">
+                  {stg.desc}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* 2. PRIMARY VISUAL HERO: 7-DAY GRAPH */}

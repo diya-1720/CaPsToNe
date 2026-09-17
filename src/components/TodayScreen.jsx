@@ -1,433 +1,475 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { AwenSpirit } from './AwenSpirit';
-import { AwenSpeechCloud } from './AwenSpeechCloud';
-import { evaluateAwenSpeech } from '../services/speechEngine';
-import { insightEngine } from '../services/insightEngine';
-import { BaselineHeroCard } from './BaselineHeroCard';
-import { InsightCard } from './InsightCard';
-import { Heart, Activity as ActivityIcon, Thermometer, HelpCircle, ChevronRight, X, ShieldCheck, Radio, Sparkles } from 'lucide-react';
-import { AWEN_STATES } from '../services/stateEngine';
+import React, { useState } from 'react';
+import { 
+  Calendar, 
+  Heart, 
+  TrendingUp, 
+  Footprints, 
+  Moon, 
+  Clock, 
+  CheckCircle2, 
+  Sparkles, 
+  AlertCircle,
+  Activity,
+  ChevronDown,
+  ChevronUp
+} from 'lucide-react';
+import { apiService } from '../services/apiService';
 
-const TodayScreenComponent = ({ 
-  telemetry, 
-  evaluation, 
+export const TodayScreen = ({
+  telemetry,
+  evaluation,
   awenState,
-  onSelectActivity, 
-  onSelectMood,
-  onOpenTalk,
-  onOpenInsights,
-  isNightMode,
+  onSelectActivity,
   currentUser,
   baselineData
 }) => {
-  const firstName = currentUser?.name?.split(' ')[0] || '';
-  const getTimeGreeting = () => {
-    const h = new Date().getHours();
-    const suffix = firstName ? `, ${firstName}` : '';
-    if (h < 12) return `Good Morning${suffix}.`;
-    if (h < 17) return `Good Afternoon${suffix}.`;
-    if (h < 22) return `Good Evening${suffix}.`;
-    return `Rest Well${suffix}.`;
-  };
+  const isConnected = Boolean(telemetry?.isHardware);
+  const restingHr = baselineData?.restingHr ? Number(baselineData.restingHr).toFixed(1) : '64.0';
 
-  const [cloudMessage, setCloudMessage] = useState('');
-  const [isCloudVisible, setIsCloudVisible] = useState(false);
-  const [mascotExpression, setMascotExpression] = useState('happy');
-  const [isExplainOpen, setIsExplainOpen] = useState(false);
-  
-  // Daily check-in tracking
-  const [selectedFeeling, setSelectedFeeling] = useState(null);
-  const [checkinStep, setCheckinStep] = useState(0);
+  // State for Check-in
+  const [selectedFeeling, setSelectedFeeling] = useState('Good');
+  const [selectedTags, setSelectedTags] = useState(['Studying']);
+  const [notes, setNotes] = useState('');
+  const [isSaved, setIsSaved] = useState(false);
+  const [expandedEventId, setExpandedEventId] = useState(null);
 
-  const cloudTimerRef = useRef(null);
-
-  // Compute unified insight from insightEngine (memoized for 60fps responsiveness)
-  const insight = useMemo(() => {
-    return insightEngine.evaluateInsight(
-      telemetry,
-      evaluation,
-      awenState,
-      baselineData
-    );
-  }, [
-    telemetry?.heartRate, 
-    telemetry?.spo2, 
-    telemetry?.temperature, 
-    telemetry?.activity, 
-    awenState?.wellnessState, 
-    baselineData?.restingHr
-  ]);
-
-  // Handle Mascot Tap / Click Interaction
-  const handleAwenTap = () => {
-    const wellnessContext = {
-      heartRate: telemetry?.heartRate || 64,
-      baselineHeartRate: baselineData?.restingHr || 64,
-      spo2: telemetry?.spo2 || 98.6,
-      temperature: telemetry?.temperature || 36.6,
-      activityState: telemetry?.activity || "Resting",
-      sleepQuality: "Good",
-      observationMode: awenState?.wellnessState === AWEN_STATES.LEARNING,
-      isNightMode: isNightMode
-    };
-
-    const speechResult = evaluateAwenSpeech(wellnessContext);
-
-    setCloudMessage(speechResult.text);
-    setMascotExpression(speechResult.expression);
-    setIsCloudVisible(true);
-
-    if (cloudTimerRef.current) {
-      clearTimeout(cloudTimerRef.current);
+  // Chronological Stream Events (G-6)
+  const TIMELINE_EVENTS = [
+    {
+      id: 'evt_1',
+      time: '08:00 AM',
+      title: 'Morning Resting Baseline',
+      hr: '62.0 BPM',
+      delta: '-2.0 vs base',
+      type: 'resting',
+      status: 'Resting Normal',
+      details: 'Waking parasympathetic reading established 2 BPM below baseline midpoint. Normal circadian rise.'
+    },
+    {
+      id: 'evt_2',
+      time: '11:45 AM',
+      title: 'Stair Climbing & Physical Lift',
+      hr: '98.0 BPM',
+      delta: '+34.0 lift',
+      type: 'exertion',
+      status: 'Settled in 88s',
+      details: 'Expected cardiovascular elevation from stair ascent. Rate settled smoothly back inside baseline within 88 seconds.'
+    },
+    {
+      id: 'evt_3',
+      time: '02:30 PM',
+      title: 'Cognitive Focus & Study Period',
+      hr: '68.5 BPM',
+      delta: '+4.5 cognitive',
+      type: 'cognitive',
+      status: 'Focused Effort',
+      details: 'Subtle sympathetic tone increase during concentrated cognitive task. Correctly categorized as mental effort, avoiding false stress alarm.'
+    },
+    {
+      id: 'evt_4',
+      time: '06:15 PM',
+      title: 'Evening Outdoor Walking',
+      hr: '84.0 BPM',
+      delta: '+20.0 motion',
+      type: 'walking',
+      status: 'Light Movement',
+      details: 'Sustained aerobic motion with optimal tissue perfusion. Recovery prompt within 120 seconds post-stroll.'
+    },
+    {
+      id: 'evt_5',
+      time: 'Live Stream',
+      title: isConnected ? 'Current Live Signal' : 'Evening Wind-Down Standby',
+      hr: isConnected && telemetry?.heartRate ? `${telemetry.heartRate} BPM` : '-- BPM',
+      delta: isConnected && telemetry?.heartRate ? `${Math.round(telemetry.heartRate - restingHr)} vs base` : 'Awaiting hardware',
+      type: 'live',
+      status: isConnected ? 'Active Telemetry' : 'Standby',
+      details: isConnected ? 'Live continuous monitoring comparing incoming beats against your learned signature.' : 'Connect your ESP32 sensor to add real-time events to your timeline.'
     }
-    cloudTimerRef.current = setTimeout(() => {
-      setIsCloudVisible(false);
-    }, 5000);
-  };
-
-  useEffect(() => {
-    return () => {
-      if (cloudTimerRef.current) {
-        clearTimeout(cloudTimerRef.current);
-      }
-    };
-  }, []);
+  ];
 
   const FEELINGS = [
-    { label: "Great", emoji: "😊" },
-    { label: "Good", emoji: "🙂" },
-    { label: "Okay", emoji: "😐" },
-    { label: "Difficult", emoji: "😔" }
+    { label: 'Great', emoji: '😊' },
+    { label: 'Good', emoji: '🙂' },
+    { label: 'Okay', emoji: '😐' },
+    { label: 'Difficult', emoji: '😔' }
   ];
 
-  const ACTIVITIES_CHECKIN = [
-    { label: "Studying", icon: "📚" },
-    { label: "Exercise", icon: "🏃" },
-    { label: "Work", icon: "💻" },
-    { label: "Poor Sleep", icon: "😴" },
-    { label: "Feeling Unwell", icon: "😷" },
-    { label: "Walking", icon: "🚶" }
+  const TAGS = [
+    { label: 'Studying', icon: '📚' },
+    { label: 'Exercise', icon: '🏃' },
+    { label: 'Work', icon: '💻' },
+    { label: 'Poor Sleep', icon: '😴' },
+    { label: 'Walking', icon: '🚶' },
+    { label: 'Meditation', icon: '🧘' }
   ];
 
-  const restingHr = insight?.baseline?.restingHr || 64.0;
-  const hrDelta = Math.round(((telemetry?.heartRate || 64.0) - restingHr) * 10) / 10;
+  const toggleTag = (t) => {
+    setSelectedTags(prev => 
+      prev.includes(t) ? prev.filter(item => item !== t) : [...prev, t]
+    );
+  };
+
+  const handleSaveCheckin = async () => {
+    try {
+      await apiService.saveCheckin({
+        mood: selectedFeeling,
+        activity: selectedTags.join(', '),
+        notes
+      });
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 3500);
+    } catch (e) {}
+  };
 
   return (
-    <>
-      <div className="relative w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-24 lg:pb-12 animate-fadeIn space-y-6">
+    <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-24 lg:pb-12 space-y-6 animate-fadeIn text-left">
       
-      {/* 1. GREETING / MOMENT */}
-      <div className="space-y-1">
-        <h1 className="font-heading text-3xl sm:text-4xl font-bold tracking-tight text-[var(--text-primary)]">
-          {getTimeGreeting()}
-        </h1>
-        <p className="text-sm text-[var(--text-secondary)] font-medium">
-          {awenState?.wellnessState === AWEN_STATES.LEARNING 
-            ? "AWEN is currently observing your daily resting pattern."
-            : awenState?.wellnessState === AWEN_STATES.WATCHFUL
-            ? "AWEN noticed a higher resting rate than your personal baseline."
-            : awenState?.wellnessState === AWEN_STATES.ACTIVE
-            ? "AWEN is tracking your active movement pattern."
-            : awenState?.wellnessState === AWEN_STATES.WIND_DOWN
-            ? "AWEN is easing into your evening quiet hours."
-            : "Your personalized body baseline is active."}
-        </p>
-      </div>
-
-      {/* 2. AWEN MOMENT (Living Mascot Stage) */}
-      <div className="relative flex flex-col items-center justify-center py-8 pt-44 neo-surface">
-        <AwenSpeechCloud 
-          message={cloudMessage}
-          isVisible={isCloudVisible}
-          onTalkMore={onOpenTalk}
-          onExplain={() => setIsExplainOpen(true)}
-          onInsights={onOpenInsights}
-        />
-
-        <div className="relative z-10 transition-transform duration-300 hover:scale-105 cursor-pointer" onClick={handleAwenTap}>
-          <AwenSpirit 
-            expression={evaluation?.emotionalState || mascotExpression || "happy"}
-            wellnessState={awenState?.wellnessState || AWEN_STATES.BALANCED}
-            size={200}
-            interactive={true}
-            onClick={handleAwenTap}
-            caption="Tap AWEN"
-          />
-        </div>
-
-        {/* State Badge */}
-        <div className="mt-3 inline-flex items-center gap-2 px-3 py-1 border border-[var(--border-strong)] bg-[var(--text-primary)] text-[var(--bg-base)] text-xs font-mono shadow-[2px_2px_0px_#111]">
-          <span className="w-1.5 h-1.5  bg-[var(--accent-green)] shrink-0" />
-          <span className="font-bold uppercase tracking-widest">
-            {awenState?.wellnessState || 'BALANCED'}
-          </span>
-        </div>
-      </div>
-
-      {/* 3. ONE PRIMARY INSIGHT HERO */}
-      <div className="neo-surface p-5 sm:p-6 space-y-4 text-left">
-        <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-4">
+      {/* ── 1. TOP HEADER BANNER ── */}
+      <div className="neo-surface p-5 sm:p-7 bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] shadow-[4px_4px_0px_#111] flex flex-wrap items-center justify-between gap-4">
+        <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-[var(--awen-aqua)]" />
-            <span className="font-heading text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-widest">
-              Today's Primary Observation
+            <Calendar className="w-4 h-4 text-[var(--text-primary)]" />
+            <span className="text-[10px] font-mono font-bold tracking-widest uppercase text-[var(--text-secondary)]">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
             </span>
           </div>
-          <span className="text-[10px] text-[var(--text-secondary)] font-mono px-2 py-1 bg-[var(--surface-level-2)] rounded-md">
-            {telemetry.isHardware ? 'ESP32 LIVE' : 'DEMO STREAM'}
+          <h1 className="font-heading text-2xl sm:text-3xl font-extrabold uppercase tracking-tight text-[var(--text-primary)]">
+            Today’s Chronology & Recovery
+          </h1>
+          <p className="text-xs sm:text-sm font-medium text-[var(--text-secondary)]">
+            Continuous hourly trajectory and daily subjective context logging.
+          </p>
+        </div>
+
+        {/* Recovery Score Pill */}
+        <div className="px-4 py-2 border-2 border-[var(--border-strong)] bg-[var(--accent-green-bg)] shadow-[2px_2px_0px_#111] text-right">
+          <span className="text-[10px] font-mono uppercase font-bold text-[var(--accent-green-dark)] block">
+            Baseline Recovery Index
+          </span>
+          <span className="font-heading text-xl font-extrabold text-[var(--accent-green-dark)]">
+            {isConnected ? '88% · OPTIMAL' : 'STANDBY · AWAITING SIGNAL'}
+          </span>
+        </div>
+      </div>
+
+      {/* ── 2. ROW OF 4 DAILY SUMMARY CARDS ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        {/* Card 1: Baseline Conformity */}
+        <div className="metric-card border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111] space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="metric-label">Baseline Conformity</span>
+            <Heart className="w-4 h-4 text-[var(--accent-danger)]" />
+          </div>
+          <span className="metric-value text-2xl block text-[var(--accent-green-dark)]">
+            94 %
+          </span>
+          <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase block">
+            Within ±4.8 BPM Corridor
           </span>
         </div>
 
-        <p className="text-lg sm:text-xl font-medium leading-relaxed">
-          "{insight.title}"
-        </p>
-
-        {/* Baseline vs Current Signal Strip */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
-          <div className="p-4  bg-[var(--surface-level-2)] space-y-1">
-            <span className="text-[11px] text-[var(--text-secondary)] font-mono font-medium uppercase tracking-wider">Current</span>
-            <span className="text-2xl font-heading font-bold block">{telemetry?.heartRate || 64.0} <span className="text-sm font-sans text-[var(--text-secondary)] font-normal">BPM</span></span>
-            <span className="text-[10px] text-[var(--text-secondary)] font-medium uppercase">{telemetry?.activity || 'Resting'}</span>
+        {/* Card 2: Recovery Velocity */}
+        <div className="metric-card border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111] space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="metric-label">Recovery Velocity</span>
+            <TrendingUp className="w-4 h-4 text-[var(--accent-green-dark)]" />
           </div>
-
-          <div className="p-4  bg-[var(--surface-level-2)] space-y-1">
-            <span className="text-[11px] text-[var(--text-secondary)] font-mono font-medium uppercase tracking-wider">Personal Baseline</span>
-            <span className="text-2xl font-heading font-bold text-[var(--awen-teal)] block">{restingHr.toFixed(1)} <span className="text-sm font-sans text-[var(--text-secondary)] font-normal">BPM</span></span>
-            <span className="text-[10px] text-[var(--text-secondary)] font-medium uppercase">Quiet Signature</span>
-          </div>
-
-          <div className="p-4  bg-[var(--surface-level-2)] space-y-1">
-            <span className="text-[11px] text-[var(--text-secondary)] font-mono font-medium uppercase tracking-wider">Baseline Delta</span>
-            <span className={`text-2xl font-heading font-bold block ${hrDelta > 8 ? 'text-[var(--accent-danger)]' : 'text-[var(--awen-teal)]'}`}>
-              {hrDelta > 0 ? `+${hrDelta}` : hrDelta} <span className="text-sm font-sans text-[var(--text-secondary)] font-normal">BPM</span>
-            </span>
-            <span className="text-[10px] text-[var(--text-secondary)] font-medium uppercase">Expected Variation</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 4. WHY AWEN NOTICED (Expandable Accordion) */}
-      <div className="neo-surface overflow-hidden text-left">
-        <button
-          onClick={() => setIsExplainOpen(!isExplainOpen)}
-          className="w-full p-4 flex items-center justify-between text-sm font-bold text-[var(--text-primary)] hover:bg-[var(--surface-secondary)] transition-colors"
-        >
-          <span className="flex items-center gap-3">
-            <HelpCircle className="w-4 h-4 text-[var(--accent-green-dark)] shrink-0" />
-            <span>Why did AWEN notice this?</span>
+          <span className="metric-value text-2xl block text-[var(--text-primary)]">
+            1.8 min
           </span>
-          <ChevronRight className={`w-4 h-4 text-[var(--text-secondary)] transition-transform ${isExplainOpen ? 'rotate-90' : ''}`} />
-        </button>
-
-        {isExplainOpen && (
-          <div className="px-4 pb-4 space-y-3 text-sm text-[var(--text-secondary)] border-t border-[var(--border-light)] pt-4 animate-fadeIn bg-[var(--surface-secondary)]">
-            <p className="font-semibold text-[var(--text-primary)]">"{insight.explanation.summary}"</p>
-            <ul className="space-y-2">
-              {insight.explanation.bullets.map((bullet, idx) => (
-                <li key={idx} className="flex items-start gap-3">
-                  <span className="w-1.5 h-1.5 bg-[var(--accent-green)] border border-[var(--accent-green-dark)] mt-2 shrink-0" />
-                  <span className="font-medium">{bullet}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-
-      {/* 5. WHAT NOW? (Focused Action) */}
-      <div className="neo-surface p-5 text-left space-y-3">
-        <span className="text-xs uppercase tracking-widest text-[var(--accent-green-dark)] font-mono font-bold block">Recommended Action</span>
-        <p className="text-sm font-semibold text-[var(--text-primary)] leading-relaxed">
-          <span className="highlight-yellow">"Take a short 2-minute quiet pause to let your heart rate settle back toward your resting baseline."</span>
-        </p>
-        <div className="flex flex-wrap gap-3 pt-2">
-          <button
-            onClick={onOpenTalk}
-            className="nb-btn-green px-5 py-2.5 text-sm flex items-center gap-2"
-          >
-            <ActivityIcon className="w-4 h-4 shrink-0" />
-            <span>Talk with AWEN</span>
-          </button>
-          <button
-            onClick={onOpenInsights}
-            className="nb-btn px-5 py-2.5 text-sm"
-          >
-            View 7-Day Pattern
-          </button>
+          <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase block">
+            Post-exertion settling
+          </span>
         </div>
-      </div>
 
-      {/* 6. TODAY'S SIGNALS (Supporting Evidence Grid) */}
-      <div className="space-y-3 text-left">
-        <span className="section-label block px-1">Supporting Signal Context</span>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="metric-card text-left space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="metric-label">Heart Rate</span>
-              <Heart className="w-3.5 h-3.5 text-[var(--accent-danger)]" />
-            </div>
-            <div>
-              <span className="metric-value text-2xl block">{telemetry?.heartRate || 64.0} <span className="text-xs text-[var(--text-secondary)] font-normal font-sans">BPM</span></span>
-              <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase block">{telemetry?.activity || 'Resting'}</span>
-            </div>
+        {/* Card 3: Exertion Episodes */}
+        <div className="metric-card border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111] space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="metric-label">Exertion Episodes</span>
+            <Footprints className="w-4 h-4 text-indigo-600" />
           </div>
-
-          <div className="metric-card text-left space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="metric-label">SpO₂</span>
-              <ActivityIcon className="w-3.5 h-3.5 text-[var(--accent-green-dark)]" />
-            </div>
-            <div>
-              <span className="metric-value text-2xl block">{telemetry?.spo2 || 98.6}<span className="text-xs text-[var(--text-secondary)] font-normal font-sans">%</span></span>
-              <span className="text-[10px] font-bold text-[var(--accent-green-dark)] uppercase block">Optimal</span>
-            </div>
-          </div>
-
-          <div className="metric-card text-left space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="metric-label">Skin Temp</span>
-              <Thermometer className="w-3.5 h-3.5 text-[var(--accent-warm)]" />
-            </div>
-            <div>
-              <span className="metric-value text-2xl block">{telemetry?.temperature || 36.6}<span className="text-xs text-[var(--text-secondary)] font-normal font-sans">°C</span></span>
-              <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase block">Nominal</span>
-            </div>
-          </div>
+          <span className="metric-value text-2xl block text-[var(--text-primary)]">
+            3 events
+          </span>
+          <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase block">
+            Motion context filtered
+          </span>
         </div>
-      </div>
 
-      {/* 7. OPTIONAL EVENING CHECK-IN */}
-      <div className="neo-surface p-5 flex flex-wrap sm:flex-nowrap items-center justify-between gap-4 text-left">
-        <div>
-          <h4 className="font-heading text-base font-bold text-[var(--text-primary)]">Daily Check-in</h4>
-          <p className="text-sm text-[var(--text-secondary)] mt-0.5">Log subjective context to refine personal observations.</p>
+        {/* Card 4: Quiet Rest Duration */}
+        <div className="metric-card border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111] space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="metric-label">Quiet Rest Duration</span>
+            <Moon className="w-4 h-4 text-purple-600" />
+          </div>
+          <span className="metric-value text-2xl block text-[var(--text-primary)]">
+            7.4 hrs
+          </span>
+          <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase block">
+            Parasympathetic rest
+          </span>
         </div>
-        <button
-          onClick={() => setCheckinStep(1)}
-          className="neo-btn px-6 py-2.5 text-sm font-bold shrink-0 w-full sm:w-auto text-center"
-        >
-          Check In
-        </button>
-      </div>
+
       </div>
 
-      {/* Check-in Modal */}
-      {checkinStep > 0 && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-[#111111]/80 animate-fadeIn">
-          <div className="relative w-full max-w-md neo-surface p-6 text-left">
-            <div className="flex items-center justify-between border-b border-[var(--border-light)] pb-4">
-              <span className="section-label">
-                Step {checkinStep} of 2 — Daily Check-in
+      {/* ── 3. TWO-COLUMN MAIN WORKSPACE (7 Cols Left, 5 Cols Right) ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        {/* ── LEFT COLUMN (7 Cols): Hourly Chronological Timeline (G-6) & Donut Chart (G-5) ── */}
+        <div className="lg:col-span-7 space-y-6">
+          
+          {/* Hourly Timeline Container */}
+          <div className="neo-surface p-5 sm:p-6 bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] shadow-[4px_4px_0px_#111] space-y-4">
+            <div className="flex items-center justify-between border-b-2 border-[var(--border-strong)] pb-3">
+              <span className="font-heading text-xs font-bold uppercase tracking-wider text-[var(--text-primary)] flex items-center gap-2">
+                <Clock className="w-4 h-4 text-[var(--accent-green-dark)]" />
+                <span>Hourly Chronological Timeline (G-6)</span>
               </span>
-              <button onClick={() => setCheckinStep(0)} className="p-1.5 border border-[var(--border-strong)] bg-[var(--surface-secondary)] hover:bg-[var(--surface-tertiary)] transition-colors">
-                <X className="w-4 h-4" />
-              </button>
+              <span className="text-[10px] font-mono font-bold text-[var(--text-muted)] uppercase">
+                Tap node to inspect
+              </span>
             </div>
 
-            {checkinStep === 1 ? (
-              <div className="space-y-4 mt-4">
-                <h3 className="font-heading text-xl font-bold">How did today feel?</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  {FEELINGS.map((f) => {
-                    const isSelected = selectedFeeling === f.label;
-                    return (
-                      <button
-                        key={f.label}
-                        onClick={() => {
-                          setSelectedFeeling(f.label);
-                          setTimeout(() => setCheckinStep(2), 300);
-                        }}
-                        className={`p-4 border-[2px] border-[var(--border-strong)] text-sm font-bold flex flex-col items-center justify-center gap-2 transition-all shadow-[2px_2px_0px_#111]
-                          ${isSelected 
-                            ? 'bg-[var(--accent-green)] translate-x-[2px] translate-y-[2px] shadow-none' 
-                            : 'bg-[var(--surface-primary)] hover:bg-[var(--surface-secondary)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none'
-                          }
-                        `}
-                      >
-                        <span className="text-2xl">{f.emoji}</span>
-                        <span>{f.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4 mt-4">
-                <h3 className="font-heading text-xl font-bold">What best describes today?</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  {ACTIVITIES_CHECKIN.map((act) => (
-                    <button
-                      key={act.label}
-                      onClick={() => {
-                        onSelectActivity(act.label);
-                        setSelectedFeeling(null); // reset for next time
-                        setCheckinStep(0);
-                      }}
-                      className="p-4 border-[2px] border-[var(--border-strong)] bg-[var(--surface-primary)] hover:bg-[var(--surface-secondary)] text-sm font-bold flex flex-col items-center justify-center gap-2 transition-all active:translate-x-[2px] active:translate-y-[2px] shadow-[2px_2px_0px_#111] active:shadow-none text-center"
+            {/* Vertical Timeline Axis */}
+            <div className="relative pl-6 space-y-6 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-[var(--border-strong)]">
+              {TIMELINE_EVENTS.map((evt) => {
+                const isExpanded = expandedEventId === evt.id;
+                const nodeColor = 
+                  evt.type === 'resting' ? 'bg-[var(--accent-green)]' :
+                  evt.type === 'exertion' ? 'bg-amber-400' :
+                  evt.type === 'cognitive' ? 'bg-blue-400' :
+                  evt.type === 'walking' ? 'bg-indigo-400' : 'bg-red-500';
+
+                return (
+                  <div key={evt.id} className="relative group">
+                    {/* Node Dot */}
+                    <div className={`absolute -left-6 top-1.5 w-4 h-4 rounded-full border-2 border-[var(--border-strong)] ${nodeColor} shadow-[1px_1px_0px_#111] shrink-0`} />
+
+                    {/* Content Card */}
+                    <div 
+                      onClick={() => setExpandedEventId(isExpanded ? null : evt.id)}
+                      className="p-3.5 border-2 border-[var(--border-strong)] bg-[var(--surface-secondary)] hover:bg-[var(--surface-primary)] shadow-[2px_2px_0px_#111] cursor-pointer transition-all space-y-1"
                     >
-                      <span className="text-xl">{act.icon}</span>
-                      <span>{act.label}</span>
-                    </button>
-                  ))}
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-mono font-bold text-[var(--text-primary)]">{evt.time}</span>
+                        <span className="font-mono font-bold px-2 py-0.5 border border-[var(--border-strong)] bg-[var(--surface-primary)] text-[10px]">
+                          {evt.hr}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs text-[var(--text-primary)]">{evt.title}</span>
+                        <span className="text-[10px] font-mono text-[var(--accent-green-dark)] font-bold">
+                          {evt.status}
+                        </span>
+                      </div>
+
+                      {/* Expandable Details */}
+                      {isExpanded && (
+                        <div className="pt-2 mt-2 border-t border-[var(--border-light)] text-[11px] text-[var(--text-secondary)] leading-relaxed animate-fadeIn">
+                          <p>{evt.details}</p>
+                          <p className="font-mono text-[9px] text-[var(--text-muted)] pt-1">
+                            Delta: <strong className="text-[var(--text-primary)]">{evt.delta}</strong>
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Activity & Energy Donut Chart (G-5) */}
+          <div className="neo-surface p-5 sm:p-6 bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] shadow-[4px_4px_0px_#111] space-y-4">
+            <div className="flex items-center justify-between border-b-2 border-[var(--border-strong)] pb-3">
+              <span className="font-heading text-xs font-bold uppercase tracking-wider text-[var(--text-primary)] flex items-center gap-2">
+                <Activity className="w-4 h-4 text-[var(--accent-green-dark)]" />
+                <span>Activity & Energy Distribution (G-5)</span>
+              </span>
+              <span className="text-[10px] font-mono px-2 py-0.5 border border-[var(--border-strong)] bg-[var(--surface-secondary)] font-bold">
+                4,328 STEPS
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-6 items-center">
+              {/* Donut SVG */}
+              <div className="sm:col-span-5 flex justify-center">
+                <div className="relative w-40 h-40">
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                    {/* Background Circle */}
+                    <circle cx="50" cy="50" r="38" stroke="#E5E7EB" strokeWidth="14" fill="none" />
+                    {/* Quiet Rest (62%) */}
+                    <circle 
+                      cx="50" cy="50" r="38" 
+                      stroke="#15803D" strokeWidth="14" fill="none"
+                      strokeDasharray="148 238" strokeDashoffset="0"
+                    />
+                    {/* Walking (26%) */}
+                    <circle 
+                      cx="50" cy="50" r="38" 
+                      stroke="#D97706" strokeWidth="14" fill="none"
+                      strokeDasharray="62 238" strokeDashoffset="-148"
+                    />
+                    {/* Stairs / Exercise (12%) */}
+                    <circle 
+                      cx="50" cy="50" r="38" 
+                      stroke="#818cf8" strokeWidth="14" fill="none"
+                      strokeDasharray="28 238" strokeDashoffset="-210"
+                    />
+                  </svg>
+                  {/* Center Steps Readout */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                    <span className="font-heading font-extrabold text-lg text-[var(--text-primary)]">4,328</span>
+                    <span className="text-[9px] font-mono uppercase font-bold text-[var(--text-muted)]">STEPS TODAY</span>
+                  </div>
                 </div>
               </div>
-            )}
-          </div>
-        </div>
-      )}
 
-      {/* Dynamic Plain-Language Explainability Reasoning Modal */}
-      {isExplainOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#111111]/80 animate-fadeIn">
-          <div className="relative w-full max-w-md neo-surface p-6 text-left max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-[var(--border-light)] pb-4">
-              <h3 className="font-heading text-base font-bold flex items-center gap-2">
-                <HelpCircle className="w-4 h-4 text-[var(--accent-green-dark)]" />
-                <span>Why AWEN Reached This Conclusion</span>
-              </h3>
-              <button onClick={() => setIsExplainOpen(false)} className="p-1.5 border border-[var(--border-strong)] bg-[var(--surface-secondary)] hover:bg-[var(--surface-tertiary)] transition-colors">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Summary */}
-            <div className="p-4 mt-4 border border-[var(--border-light)] bg-[var(--surface-secondary)] space-y-2">
-              <span className="section-label block">Summary</span>
-              <p className="text-sm font-semibold text-[var(--text-primary)]">
-                "{insight.explanation.summary}"
-              </p>
-            </div>
-
-            {/* Signal Factors */}
-            <div className="space-y-2 mt-4">
-              <span className="section-label block">Evaluated Signal Factors</span>
-              {insight.explanation.bullets.map((bullet, idx) => (
-                <div key={idx} className="bg-[var(--surface-secondary)] border border-[var(--border-light)] p-3 flex items-start gap-3 text-sm font-medium">
-                  <span className="w-1.5 h-1.5 bg-[var(--accent-green)] border border-[var(--accent-green-dark)] mt-1.5 shrink-0" />
-                  <span className="text-[var(--text-primary)]">{bullet}</span>
+              {/* Donut Breakdown Legend */}
+              <div className="sm:col-span-7 space-y-2.5 text-xs font-mono">
+                <div className="p-2 border border-[var(--border-strong)] bg-[var(--surface-secondary)] flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 bg-[#15803D] border border-black shrink-0" />
+                    <span className="font-bold">Quiet Rest (Baseline)</span>
+                  </div>
+                  <span className="font-extrabold text-sm">62 %</span>
                 </div>
-              ))}
-            </div>
 
-            {/* Non-clinical Disclaimer */}
-            <div className="p-3 mt-4 border border-[var(--accent-warm)] bg-[var(--accent-warm-bg)] text-xs text-[var(--text-secondary)] font-medium">
-              AWEN uses non-clinical statistical comparison against your personal baseline signature to provide supportive wellness observations.
-            </div>
+                <div className="p-2 border border-[var(--border-strong)] bg-[var(--surface-secondary)] flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 bg-[#D97706] border border-black shrink-0" />
+                    <span className="font-bold">Light Walking & Studying</span>
+                  </div>
+                  <span className="font-extrabold text-sm">26 %</span>
+                </div>
 
-            <div className="pt-4 mt-4 flex justify-end">
-              <button
-                onClick={() => setIsExplainOpen(false)}
-                className="neo-btn neo-btn-primary px-6 py-2.5 text-sm font-bold"
-              >
-                Understood
-              </button>
+                <div className="p-2 border border-[var(--border-strong)] bg-[var(--surface-secondary)] flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 bg-[#818cf8] border border-black shrink-0" />
+                    <span className="font-bold">Moderate Movement & Stairs</span>
+                  </div>
+                  <span className="font-extrabold text-sm">12 %</span>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
 
-    </>
+        </div>
+
+        {/* ── RIGHT COLUMN (5 Cols): Daily Subjective Check-in & Synthesis ── */}
+        <div className="lg:col-span-5 space-y-6">
+          
+          {/* Daily Subjective Check-in Card */}
+          <div className="neo-surface p-5 sm:p-6 bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] shadow-[4px_4px_0px_#111] space-y-4">
+            <div className="flex items-center justify-between border-b-2 border-[var(--border-strong)] pb-3">
+              <span className="font-heading text-xs font-bold uppercase tracking-wider text-[var(--text-primary)] flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-[var(--accent-green-dark)]" />
+                <span>Daily Subjective Context Check-in</span>
+              </span>
+              <span className="text-[10px] font-mono font-bold text-[var(--text-muted)]">
+                STEP 1 OF 1
+              </span>
+            </div>
+
+            {/* Question 1: How did you feel */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-wide text-[var(--text-secondary)] block">
+                1. How are you feeling overall today?
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {FEELINGS.map(f => (
+                  <button
+                    key={f.label}
+                    onClick={() => setSelectedFeeling(f.label)}
+                    className={`p-2.5 border-2 border-[var(--border-strong)] text-xs font-bold flex flex-col items-center gap-1 transition-all ${
+                      selectedFeeling === f.label
+                        ? 'bg-[var(--accent-green)] shadow-[2px_2px_0px_#111] -translate-y-0.5'
+                        : 'bg-[var(--surface-secondary)] hover:bg-[var(--surface-tertiary)]'
+                    }`}
+                  >
+                    <span className="text-xl">{f.emoji}</span>
+                    <span>{f.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Question 2: Tags */}
+            <div className="space-y-2 pt-1">
+              <label className="text-xs font-bold uppercase tracking-wide text-[var(--text-secondary)] block">
+                2. Activity & context tags:
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {TAGS.map(t => {
+                  const isChecked = selectedTags.includes(t.label);
+                  return (
+                    <button
+                      key={t.label}
+                      onClick={() => toggleTag(t.label)}
+                      className={`p-2 border-2 border-[var(--border-strong)] text-[11px] font-bold flex items-center gap-1.5 transition-all ${
+                        isChecked
+                          ? 'bg-[var(--text-primary)] text-white shadow-[2px_2px_0px_#111]'
+                          : 'bg-[var(--surface-secondary)] hover:bg-[var(--surface-tertiary)] text-[var(--text-primary)]'
+                      }`}
+                    >
+                      <span>{t.icon}</span>
+                      <span className="truncate">{t.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Question 3: Observations */}
+            <div className="space-y-1.5 pt-1">
+              <label className="text-xs font-bold uppercase tracking-wide text-[var(--text-secondary)] block">
+                3. Subjective notes / journaling:
+              </label>
+              <textarea
+                rows={3}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Notice any afternoon fatigue, coffee intake, or exercise..."
+                className="w-full p-2.5 border-2 border-[var(--border-strong)] bg-[var(--surface-secondary)] text-xs font-medium text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:shadow-[2px_2px_0px_#111] transition-all resize-none"
+              />
+            </div>
+
+            {/* Submit Button */}
+            <button
+              onClick={handleSaveCheckin}
+              className="w-full py-3 bg-[var(--accent-green)] hover:bg-[var(--accent-green-mid)] text-[var(--text-primary)] border-2 border-[var(--border-strong)] shadow-[3px_3px_0px_#111] text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-2 active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all"
+            >
+              {isSaved ? (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-black" />
+                  <span>Check-In Saved to Database! ✓</span>
+                </>
+              ) : (
+                <span>Save Today's Check-In</span>
+              )}
+            </button>
+          </div>
+
+          {/* AWEN Summary Synthesis Box */}
+          <div className="neo-surface p-5 bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] shadow-[4px_4px_0px_#111] space-y-3">
+            <span className="font-mono text-xs font-bold uppercase tracking-wider text-[var(--text-primary)] flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[var(--accent-green-dark)]" />
+              <span>AWEN Summary Synthesis</span>
+            </span>
+            <p className="text-xs text-[var(--text-secondary)] leading-relaxed font-medium">
+              Cardiovascular resilience remained strong throughout the daylight period. The 3 motion episodes settled back inside your ±4.8 BPM baseline corridor in an average of 1.8 minutes.
+            </p>
+            <div className="p-3 border-2 border-[var(--border-strong)] bg-[var(--surface-secondary)] text-xs font-bold text-[var(--text-primary)]">
+              💡 Tip: Maintain a calm environment 45 minutes prior to sleep for optimal heart rate deceleration.
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
   );
 };
-
-export const TodayScreen = React.memo(TodayScreenComponent);

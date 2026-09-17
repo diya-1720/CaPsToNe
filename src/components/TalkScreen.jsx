@@ -311,13 +311,13 @@ export const TalkScreen = ({
         {/* POLISHED 3-DOT ANIMATED TYPING INDICATOR */}
         {isTyping && (
           <div className="flex items-start gap-3" aria-live="polite">
-            <div className="w-8 h-8 flex items-center justify-center text-xs shrink-0  shadow-sm bg-[var(--surface-level-1)] text-[var(--awen-aqua)] border border-[var(--border-subtle)]">
-              <Bot className="w-4 h-4" />
+            <div className="w-7 h-7 flex items-center justify-center text-xs shrink-0 bg-[var(--accent-green)] border border-[var(--border-strong)] text-[var(--text-primary)]">
+              <Bot className="w-3.5 h-3.5" />
             </div>
-            <div className="px-4 py-4  rounded-tl-sm shadow-sm bg-[var(--surface-level-1)] border border-[var(--border-subtle)] flex items-center gap-2">
-              <div className="w-2 h-2  bg-[var(--text-muted)] animate-bounce" />
-              <div className="w-2 h-2  bg-[var(--text-muted)] animate-bounce [animation-delay:0.2s]" />
-              <div className="w-2 h-2  bg-[var(--text-muted)] animate-bounce [animation-delay:0.4s]" />
+            <div className="px-4 py-3.5 bg-[var(--surface-primary)] border border-[var(--border-strong)] shadow-[2px_2px_0px_#111] flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-[var(--text-primary)] animate-bounce" />
+              <div className="w-2 h-2 rounded-full bg-[var(--text-primary)] animate-bounce [animation-delay:0.2s]" />
+              <div className="w-2 h-2 rounded-full bg-[var(--text-primary)] animate-bounce [animation-delay:0.4s]" />
             </div>
           </div>
         )}
