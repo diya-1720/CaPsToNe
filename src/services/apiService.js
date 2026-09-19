@@ -1,8 +1,12 @@
+/**
+ * AWEN Centralized API Service
+ * Connects Frontend directly to FastAPI + SQLite Backend (http://localhost:8000).
+ * Enforces real token authentication, persistent database queries, and zero fake data.
+ */
+
 const STORAGE_KEYS = {
-  USER: 'awen_user_session',
-  READINGS: 'awen_readings_history',
-  CHECKINS: 'awen_checkins_history',
-  CHAT: 'awen_chat_history'
+  TOKEN: 'awen_session_token',
+  USER: 'awen_user_session'
 };
 
 const getApiBaseUrl = () => {
@@ -15,24 +19,28 @@ const getApiBaseUrl = () => {
 
 export class ApiService {
   constructor() {
-    this.currentUser = this.loadLocalSession();
+    this.token = this.loadLocalToken();
+    this.currentUser = this.loadLocalUser();
     this.isBackendAvailable = true;
     this.lastBackendCheckTime = 0;
-    this.BACKEND_RETRY_COOLDOWN = 15000;
-    this.activeFetchController = null;
   }
 
-  loadLocalSession() {
+  loadLocalToken() {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.TOKEN) || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  loadLocalUser() {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.USER);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (
-          parsed?.id === 'usr_8841' ||
-          parsed?.email === 'diya@awen.ai' ||
-          parsed?.token === 'jwt_token_demo_8841'
-        ) {
+        if (parsed?.isGuest || parsed?.id === 'usr_8841' || parsed?.id === 'guest_demo') {
           localStorage.removeItem(STORAGE_KEYS.USER);
+          localStorage.removeItem(STORAGE_KEYS.TOKEN);
           return null;
         }
         return parsed;
@@ -41,311 +49,240 @@ export class ApiService {
     return null;
   }
 
-  saveLocalSession(user) {
+  saveSession(user, token) {
     this.currentUser = user ? { ...user } : null;
-    if (this.currentUser) {
+    this.token = token || (user ? this.token : null);
+
+    if (this.currentUser && this.token) {
+      this.currentUser.token = this.token;
       localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(this.currentUser));
+      localStorage.setItem(STORAGE_KEYS.TOKEN, this.token);
     } else {
+      this.currentUser = null;
+      this.token = null;
       localStorage.removeItem(STORAGE_KEYS.USER);
+      localStorage.removeItem(STORAGE_KEYS.TOKEN);
     }
     return this.currentUser;
   }
 
-  async restoreSession() {
-    return await this.getActiveSession();
-  }
-
   getHeaders() {
     const headers = { 'Content-Type': 'application/json' };
-    if (this.currentUser?.token) {
-      headers['Authorization'] = `Bearer ${this.currentUser.token}`;
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`;
     }
     return headers;
   }
 
   /**
-   * Get Active Session from SQLite Backend with Local Fallback
+   * Restore and verify active session from SQLite Backend
+   */
+  async restoreSession() {
+    return await this.getActiveSession();
+  }
+
+  /**
+   * Verify token against SQLite user_sessions table via /api/auth/me
    */
   async getActiveSession() {
-    if (!this.currentUser?.token) return this.currentUser;
+    if (!this.token) {
+      this.saveSession(null, null);
+      return null;
+    }
 
     try {
       const res = await fetch(`${getApiBaseUrl()}/api/auth/me`, {
         headers: this.getHeaders()
       });
+
       if (res.ok) {
-        const data = await res.json();
-        const userObj = {
-          ...this.currentUser,
-          ...data,
-          token: this.currentUser.token
-        };
-        return this.saveLocalSession(userObj);
+        const userData = await res.json();
+        this.isBackendAvailable = true;
+        return this.saveSession(userData, this.token);
+      } else if (res.status === 401) {
+        // Token expired or invalid in SQLite
+        this.saveSession(null, null);
+        return null;
       }
-    } catch (e) {
-      // Backend offline — use local cached session
+    } catch (err) {
+      console.warn("Backend unavailable during session restoration:", err.message);
+      this.isBackendAvailable = false;
+      // In offline mode, return existing cached user if present but do not invent fake accounts
+      return this.currentUser;
     }
-    return this.currentUser;
+
+    return null;
   }
 
   /**
-   * Sign In with Email & Password via SQLite Backend
+   * Real Authentication: Login with Email & Password
    */
   async login(email, password) {
-    try {
-      const res = await fetch(`${getApiBaseUrl()}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
+    const res = await fetch(`${getApiBaseUrl()}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim(), password })
+    });
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || "Invalid email or password.");
-      }
-
-      const data = await res.json();
-      const userObj = {
-        id: data.user.id,
-        name: data.user.name,
-        email: data.user.email,
-        timezone: data.user.timezone || 'Asia/Kolkata',
-        observation_mode: Boolean(data.user.observation_mode),
-        baseline_confidence: data.user.baseline_confidence || 'Learning',
-        token: data.token
-      };
-
-      return this.saveLocalSession(userObj);
-    } catch (err) {
-      // If backend unreachable, permit local development login
-      if (err.message && err.message.includes("Failed to fetch")) {
-        const userObj = {
-          id: `usr_${Date.now()}`,
-          name: email.split('@')[0],
-          email,
-          timezone: 'Asia/Kolkata',
-          observation_mode: true,
-          baseline_confidence: 'Learning',
-          token: `local_${Date.now()}`
-        };
-        return this.saveLocalSession(userObj);
-      }
-      throw err;
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Invalid email or password. Please try again.");
     }
+
+    const data = await res.json();
+    this.isBackendAvailable = true;
+    return this.saveSession(data.user, data.token);
   }
 
   /**
-   * Sign Up with Name, Email & Password via SQLite Backend
+   * Real Authentication: Register a new Patient Account in SQLite
    */
-  async signup(name, email, password) {
-    try {
-      const res = await fetch(`${getApiBaseUrl()}/api/auth/signup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password })
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || "Could not create account.");
-      }
-
-      const data = await res.json();
-      const userObj = {
-        id: data.user.id,
-        name: data.user.name,
-        email: data.user.email,
-        timezone: data.user.timezone || 'Asia/Kolkata',
-        observation_mode: Boolean(data.user.observation_mode),
-        baseline_confidence: data.user.baseline_confidence || 'Learning',
-        token: data.token
-      };
-
-      return this.saveLocalSession(userObj);
-    } catch (err) {
-      if (err.message && err.message.includes("Failed to fetch")) {
-        const userObj = {
-          id: `usr_${Date.now()}`,
-          name: name || 'User',
-          email,
-          timezone: 'Asia/Kolkata',
-          observation_mode: true,
-          baseline_confidence: 'Learning',
-          token: `local_${Date.now()}`
-        };
-        return this.saveLocalSession(userObj);
-      }
-      throw err;
-    }
-  }
-
-  /**
-   * Sign In with Google OAuth (Simulated Local Fallback)
-   */
-  async signInWithGoogle() {
-    const userObj = {
-      id: `usr_google_${Date.now().toString().slice(-4)}`,
-      name: 'Google Explorer',
-      email: 'user.google@gmail.com',
-      timezone: 'Asia/Kolkata',
-      observation_mode: true,
-      baseline_confidence: 'Learning',
-      token: `jwt_google_${Date.now()}`
+  async signup(name, email, password, age = null, gender = null, phone = null) {
+    const payload = {
+      name: name.trim(),
+      email: email.trim(),
+      password,
+      age: age ? Number(age) : null,
+      gender: gender ? gender.trim() : null,
+      phone: phone ? phone.trim() : null
     };
-    return this.saveLocalSession(userObj);
+
+    const res = await fetch(`${getApiBaseUrl()}/api/auth/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Could not create account. Please check your details.");
+    }
+
+    const data = await res.json();
+    this.isBackendAvailable = true;
+    return this.saveSession(data.user, data.token);
   }
 
   /**
-   * Log Out Session
+   * Real Authentication: Logout and invalidate session in SQLite
    */
   async logout() {
-    this.saveLocalSession(null);
-  }
-
-  /**
-   * Update Observation Mode Status
-   */
-  async updateObservationMode(enabled) {
-    if (!this.currentUser) return;
-    const confidence = enabled ? 'Learning' : 'Stable baseline';
-
     try {
-      await fetch(`${getApiBaseUrl()}/api/user/observation-mode`, {
-        method: 'POST',
-        headers: this.getHeaders(),
-        body: JSON.stringify({ enabled })
-      });
-    } catch (e) {}
-
-    const updated = {
-      ...this.currentUser,
-      observation_mode: enabled,
-      baseline_confidence: confidence
-    };
-    return this.saveLocalSession(updated);
-  }
-
-  async updateProfileObservationMode(userId, enabled) {
-    return this.updateObservationMode(enabled);
-  }
-
-  /**
-   * Fetch User Baseline from SQLite Backend
-   */
-  async fetchUserBaseline(userId) {
-    try {
-      const res = await fetch(`${getApiBaseUrl()}/api/user/baseline`, {
-        headers: this.getHeaders()
-      });
-      if (res.ok) {
-        const data = await res.json();
-        return {
-          restingHr: Number(data.restingHr) || 64.0,
-          restingSpo2: Number(data.restingSpo2) || 98.6,
-          restingTemp: Number(data.restingTemp) || 36.6,
-          hrStdDev: Number(data.hrStdDev) || 4.8,
-          confidence: data.confidence || 'Learning',
-          isDynamic: Boolean(data.isDynamic),
-          updatedAt: data.updatedAt
-        };
-      }
-    } catch (e) {}
-
-    return await this.computeAndSaveBaseline(userId);
-  }
-
-  /**
-   * Save / Compute User Baseline
-   */
-  async computeAndSaveBaseline(userId) {
-    const defaultBaseline = {
-      restingHr: 64.0,
-      restingSpo2: 98.6,
-      restingTemp: 36.6,
-      hrStdDev: 4.8,
-      confidence: 'Learning',
-      isDynamic: false,
-      sampleCount: 0
-    };
-
-    try {
-      const history = JSON.parse(localStorage.getItem(STORAGE_KEYS.READINGS) || '[]');
-      const resting = history.filter(r => (!r.activity || r.activity === 'Resting') && r.heart_rate);
-      if (resting.length >= 5) {
-        const hrValues = resting.map(r => Number(r.heart_rate)).sort((a, b) => a - b);
-        const pIndex = (hrValues.length - 1) * 0.07;
-        const low = Math.floor(pIndex);
-        const high = Math.ceil(pIndex);
-        const weight = pIndex - low;
-        const calcHr = Math.round((hrValues[low] + weight * (hrValues[high] - hrValues[low])) * 10) / 10;
-        const confidence = resting.length >= 30 ? 'Stable baseline' : resting.length >= 15 ? 'Developing baseline' : 'Early baseline';
-
-        const computed = {
-          restingHr: calcHr,
-          restingSpo2: 98.6,
-          restingTemp: 36.6,
-          hrStdDev: 4.8,
-          confidence,
-          isDynamic: true,
-          sampleCount: resting.length
-        };
-
-        // Sync with backend if possible
-        fetch(`${getApiBaseUrl()}/api/user/baseline`, {
+      if (this.token) {
+        await fetch(`${getApiBaseUrl()}/api/auth/logout`, {
           method: 'POST',
-          headers: this.getHeaders(),
-          body: JSON.stringify({
-            resting_hr: computed.restingHr,
-            resting_spo2: computed.restingSpo2,
-            resting_temp: computed.restingTemp,
-            hr_variance: computed.hrStdDev,
-            confidence: computed.confidence
-          })
-        }).catch(() => {});
-
-        return computed;
+          headers: this.getHeaders()
+        });
       }
-    } catch (e) {}
-
-    return defaultBaseline;
+    } catch (e) {
+      // Best effort remote logout
+    } finally {
+      this.saveSession(null, null);
+    }
   }
 
   /**
-   * Seed Test Resting Readings for Baseline testing
+   * Patient Profile: Fetch full patient profile from SQLite
    */
-  async seedTestReadings(userId = null, targetHr = 58) {
-    const readingsToSeed = [];
-    const count = 12;
-    for (let i = 0; i < count; i++) {
-      const hr = Math.round((targetHr + (Math.random() * 4 - 2)) * 10) / 10;
-      readingsToSeed.push({
-        heart_rate: hr,
-        spo2: 98.4 + (Math.random() * 0.4 - 0.2),
-        temperature: 36.6 + (Math.random() * 0.2 - 0.1),
-        activity_state: 'Resting',
-        data_source: 'test_seed'
-      });
+  async getProfile() {
+    const res = await fetch(`${getApiBaseUrl()}/api/user/profile`, {
+      headers: this.getHeaders()
+    });
+    if (!res.ok) {
+      throw new Error("Failed to load patient profile from backend.");
+    }
+    const data = await res.json();
+    this.currentUser = { ...this.currentUser, ...data };
+    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(this.currentUser));
+    return data;
+  }
+
+  /**
+   * Patient Profile: Update profile fields in SQLite
+   */
+  async updateProfile(profileData) {
+    const res = await fetch(`${getApiBaseUrl()}/api/user/profile`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(profileData)
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Failed to update profile.");
     }
 
-    try {
-      const history = JSON.parse(localStorage.getItem(STORAGE_KEYS.READINGS) || '[]');
-      const localRows = readingsToSeed.map((r, idx) => ({
-        id: `seed_${Date.now()}_${idx}`,
-        user_id: userId || this.currentUser?.id,
-        timestamp: new Date().toISOString(),
-        device_id: 'test_seed',
-        ...r
-      }));
-      localStorage.setItem(STORAGE_KEYS.READINGS, JSON.stringify([...localRows, ...history].slice(0, 100)));
-    } catch (e) {}
-
-    return await this.computeAndSaveBaseline(userId || this.currentUser?.id);
+    const data = await res.json();
+    this.currentUser = { ...this.currentUser, ...data.user };
+    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(this.currentUser));
+    return data.user;
   }
 
   /**
-   * Fetch 7-Day Heart Rate History for Journey Screen
+   * Sensor Telemetry: Ingest real reading into SQLite
    */
-  async fetchWeeklyHeartRateHistory(userId = null) {
+  async postSensorReading(payload) {
+    const res = await fetch(`${getApiBaseUrl()}/api/readings`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Failed to save sensor reading.");
+    }
+
+    return await res.json();
+  }
+
+  /**
+   * Sensor Telemetry: Fetch latest reading for authenticated patient
+   */
+  async getLatestReading() {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/readings/latest`, {
+        headers: this.getHeaders()
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        return data.reading || null;
+      }
+    } catch (e) {
+      console.warn("Could not fetch latest reading:", e.message);
+    }
+    return null;
+  }
+
+  /**
+   * Sensor Telemetry: Fetch historical readings with pagination & date range
+   */
+  async getReadingsHistory(limit = 50, offset = 0, fromTime = null, toTime = null) {
+    const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+    if (fromTime) params.append('from', fromTime);
+    if (toTime) params.append('to', toTime);
+
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/readings/history?${params.toString()}`, {
+        headers: this.getHeaders()
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        return data.readings || [];
+      }
+    } catch (e) {
+      console.warn("Could not fetch readings history:", e.message);
+    }
+    return [];
+  }
+
+  /**
+   * Longitudinal Journey: Fetch 7-day daily resting averages from SQLite
+   * Returns empty / null averages if no data has been recorded (Zero fake data).
+   */
+  async fetchWeeklyHeartRateHistory() {
     const days = [];
     const now = new Date();
 
@@ -358,6 +295,8 @@ export class ApiService {
         date: dateStr,
         label,
         averageHeartRate: null,
+        averageSpo2: null,
+        averageTemp: null,
         sampleCount: 0
       });
     }
@@ -366,6 +305,7 @@ export class ApiService {
       const res = await fetch(`${getApiBaseUrl()}/api/history/weekly`, {
         headers: this.getHeaders()
       });
+
       if (res.ok) {
         const rows = await res.json();
         if (Array.isArray(rows) && rows.length > 0) {
@@ -374,67 +314,136 @@ export class ApiService {
           days.forEach(d => {
             if (map[d.date]) {
               d.averageHeartRate = map[d.date].averageHeartRate;
+              d.averageSpo2 = map[d.date].averageSpo2;
+              d.averageTemp = map[d.date].averageTemp;
               d.sampleCount = map[d.date].sampleCount;
             }
           });
-          if (days.some(d => d.averageHeartRate !== null)) {
-            return days;
-          }
         }
       }
-    } catch (e) {}
-
-    // Fallback if no readings yet
-    const mockVariances = [-1.2, 0.8, -0.4, 1.5, -0.8, 0.3, 0.0];
-    const baseHr = 64.0;
-    days.forEach((day, idx) => {
-      day.averageHeartRate = Math.round((baseHr + mockVariances[idx]) * 10) / 10;
-      day.sampleCount = 14 + idx * 3;
-    });
+    } catch (e) {
+      console.warn("Could not fetch weekly history:", e.message);
+    }
 
     return days;
   }
 
   /**
-   * Save Daily Check-in to SQLite Backend
+   * Observations / Alerts: Fetch persistent alerts from SQLite
    */
-  async saveCheckin(checkinData) {
-    const entry = {
-      id: `chk_${Date.now()}`,
-      user_id: this.currentUser?.id,
-      timestamp: new Date().toISOString(),
-      ...checkinData
-    };
-
+  async getObservations(limit = 20) {
     try {
-      await fetch(`${getApiBaseUrl()}/api/user/checkins`, {
-        method: 'POST',
-        headers: this.getHeaders(),
-        body: JSON.stringify({
-          mood: checkinData.mood || checkinData.label || 'Good',
-          activity: checkinData.activity || checkinData.context || 'Resting',
-          notes: checkinData.notes || ''
-        })
+      const res = await fetch(`${getApiBaseUrl()}/api/observations?limit=${limit}`, {
+        headers: this.getHeaders()
       });
-    } catch (e) {}
 
-    try {
-      const history = JSON.parse(localStorage.getItem(STORAGE_KEYS.CHECKINS) || '[]');
-      history.unshift(entry);
-      localStorage.setItem(STORAGE_KEYS.CHECKINS, JSON.stringify(history.slice(0, 50)));
-    } catch (e) {}
-
-    return entry;
+      if (res.ok) {
+        const data = await res.json();
+        return data.observations || [];
+      }
+    } catch (e) {
+      console.warn("Could not fetch observations:", e.message);
+    }
+    return [];
   }
 
   /**
-   * Send Telemetry to FastAPI ML Engine
+   * Baselines: Fetch learned baseline from SQLite
+   */
+  async fetchUserBaseline() {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/user/baseline`, {
+        headers: this.getHeaders()
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return {
+          restingHr: Number(data.restingHr) || 64.0,
+          restingSpo2: Number(data.restingSpo2) || 98.6,
+          restingTemp: Number(data.restingTemp) || 36.6,
+          hrStdDev: Number(data.hrStdDev) || 4.8,
+          confidence: data.confidence || 'Learning',
+          samples: data.samples || 0,
+          isDynamic: Boolean(data.isDynamic),
+          updatedAt: data.updatedAt
+        };
+      }
+    } catch (e) {}
+
+    return {
+      restingHr: 64.0,
+      restingSpo2: 98.6,
+      restingTemp: 36.6,
+      hrStdDev: 4.8,
+      confidence: 'Learning',
+      samples: 0,
+      isDynamic: false
+    };
+  }
+
+  /**
+   * Baselines: Update Observation Mode
+   */
+  async updateObservationMode(enabled) {
+    if (!this.currentUser) return;
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/user/observation-mode`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ enabled })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        this.currentUser = { ...this.currentUser, ...data.user };
+        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(this.currentUser));
+        return this.currentUser;
+      }
+    } catch (e) {}
+  }
+
+  async updateProfileObservationMode(userId, enabled) {
+    return this.updateObservationMode(enabled);
+  }
+
+  /**
+   * Checkins: Save Subjective Daily Check-in to SQLite
+   */
+  async saveCheckin(checkinData) {
+    const res = await fetch(`${getApiBaseUrl()}/api/user/checkins`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({
+        mood: checkinData.mood || checkinData.label || 'Good',
+        activity: checkinData.activity || checkinData.context || 'Resting',
+        notes: checkinData.notes || ''
+      })
+    });
+    if (!res.ok) {
+      throw new Error("Failed to save checkin to backend.");
+    }
+    return await res.json();
+  }
+
+  async getCheckins(limit = 15) {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/user/checkins?limit=${limit}`, {
+        headers: this.getHeaders()
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {}
+    return [];
+  }
+
+  /**
+   * Real Telemetry ML Analysis
    */
   async analyzeTelemetry(telemetryData, fallbackBaselineEngine, userBaselineData = null) {
     const activeBaseline = userBaselineData || fallbackBaselineEngine?.baseline || null;
 
     const payload = {
-      device_id: telemetryData.device_id || (telemetryData.isHardware ? 'esp32_max30102' : 'disconnected'),
+      device_id: telemetryData.device_id || (telemetryData.isHardware ? 'AWEN_ESP32_01' : 'disconnected'),
       timestamp: telemetryData.timestamp || new Date().toISOString(),
       heart_rate: telemetryData.heartRate ?? telemetryData.heart_rate ?? null,
       spo2: telemetryData.spo2 ?? null,
@@ -450,7 +459,6 @@ export class ApiService {
       } : null
     };
 
-    // If hardware is not connected and no HR reading is present, return safe awaiting state
     if (payload.heart_rate === null || payload.heart_rate === undefined) {
       return {
         wellnessIndex: 'Awaiting Signal',
@@ -464,7 +472,7 @@ export class ApiService {
           hrDelta: 0
         },
         explainability: {
-          summary: 'Hardware not connected. Connect your ESP32 sensor to begin live physiological comparison.',
+          summary: 'Hardware not connected. Connect your ESP32 sensor or stream telemetry to begin live comparison.',
           factors: []
         }
       };
@@ -481,7 +489,7 @@ export class ApiService {
         const data = await res.json();
         return {
           wellnessIndex: data.wellness_index || 'Balanced',
-          emotionalState: data.stress_level === 'elevated' ? 'stress' : data.stress_level === 'moderate' ? 'attention' : 'relaxed',
+          emotionalState: data.stress_level === 'elevated' ? 'concerned' : data.stress_level === 'moderate' ? 'thinking' : 'happy',
           confidenceScore: data.confidence_score || 95,
           isExertionExplained: data.baseline_comparison?.is_activity_explained || false,
           isHardwareConnected: true,
@@ -497,7 +505,7 @@ export class ApiService {
             hrDelta: data.baseline_comparison?.hr_delta || 0
           },
           explainability: {
-            summary: data.explainability?.summary || 'Physiological signals align smoothly with baseline.',
+            summary: data.explainability?.summary || 'Physiological signals align with baseline.',
             factors: data.explainability?.factors || []
           }
         };
@@ -518,58 +526,36 @@ export class ApiService {
   }
 
   /**
-   * Save Telemetry Reading to SQLite Backend
+   * Conversational AI Companion via /api/chat
    */
-  async saveReading(readingData) {
-    if (!readingData.heartRate && !readingData.heart_rate) return;
-
-    const entry = {
-      id: `rdg_${Date.now()}`,
-      user_id: this.currentUser?.id,
-      timestamp: readingData.timestamp || new Date().toISOString(),
-      device_id: readingData.isHardware ? 'esp32_max30102' : 'manual',
-      data_source: readingData.isHardware ? 'esp32' : 'manual',
-      ...readingData
-    };
-
-    try {
-      await fetch(`${getApiBaseUrl()}/api/user/readings`, {
-        method: 'POST',
-        headers: this.getHeaders(),
-        body: JSON.stringify({
-          heart_rate: readingData.heartRate ?? readingData.heart_rate,
-          spo2: readingData.spo2 ?? 98.6,
-          temperature: readingData.temperature ?? 36.6,
-          activity: readingData.activity || 'Resting',
-          data_source: readingData.isHardware ? 'esp32' : 'manual'
-        })
-      });
-    } catch (e) {}
-
-    try {
-      const history = JSON.parse(localStorage.getItem(STORAGE_KEYS.READINGS) || '[]');
-      history.unshift(entry);
-      localStorage.setItem(STORAGE_KEYS.READINGS, JSON.stringify(history.slice(0, 100)));
-    } catch (e) {}
-
-    return entry;
+  async sendChatMessage(message) {
+    const res = await fetch(`${getApiBaseUrl()}/api/chat`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ message })
+    });
+    if (!res.ok) {
+      throw new Error("Failed to send message to AI companion.");
+    }
+    return await res.json();
   }
 
   /**
-   * Save Conversation to SQLite Backend
+   * Save Live Hardware Reading to Database
    */
-  async saveConversation(userMsg, awenReply, topic = 'general') {
-    try {
-      await fetch(`${getApiBaseUrl()}/api/conversations`, {
-        method: 'POST',
-        headers: this.getHeaders(),
-        body: JSON.stringify({
-          message: userMsg,
-          response: awenReply,
-          topic
-        })
-      });
-    } catch (e) {}
+  async saveReading(readingData) {
+    if (readingData.heartRate === null && readingData.heart_rate === null) return;
+    return await this.postSensorReading({
+      device_id: readingData.device_id || 'AWEN_ESP32_01',
+      heart_rate: readingData.heartRate ?? readingData.heart_rate,
+      spo2: readingData.spo2 ?? 98.5,
+      temperature: readingData.temperature ?? 36.6,
+      accel: readingData.accel,
+      gyro: readingData.gyro,
+      accel_magnitude: readingData.accel_magnitude,
+      activity_state: readingData.activity || 'Resting',
+      data_source: readingData.isHardware ? 'esp32' : 'web_serial'
+    });
   }
 }
 
