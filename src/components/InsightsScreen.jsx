@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BarChart3, 
   Heart, 
@@ -8,27 +8,39 @@ import {
   Sparkles, 
   Activity, 
   Info,
-  Calendar
+  Calendar,
+  Loader2
 } from 'lucide-react';
+import { apiService } from '../services/apiService';
 
 export const InsightsScreen = ({ baselineData, currentUser }) => {
   const [timeframe, setTimeframe] = useState('7d');
   const [selectedPoint, setSelectedPoint] = useState(null);
+  const [weeklyHistory, setWeeklyHistory] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadData() {
+      setIsLoading(true);
+      try {
+        const history = await apiService.fetchWeeklyHeartRateHistory();
+        if (isMounted) {
+          setWeeklyHistory(history || []);
+        }
+      } catch (e) {
+        console.warn("Could not load insights history:", e);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    }
+    loadData();
+    return () => { isMounted = false; };
+  }, [currentUser]);
 
   const restingHr = baselineData?.restingHr ? Number(baselineData.restingHr).toFixed(1) : '64.0';
   const hrVariance = baselineData?.hrStdDev ? Number(baselineData.hrStdDev).toFixed(1) : '4.8';
   const confidence = currentUser?.baseline_confidence || baselineData?.confidence || 'Stable baseline';
-
-  // 7-Day comparative points for curve (G-8)
-  const POINTS = [
-    { day: 'Mon', date: 'Sep 11', hr: 63.5, samples: 48 },
-    { day: 'Tue', date: 'Sep 12', hr: 65.2, samples: 54 },
-    { day: 'Wed', date: 'Sep 13', hr: 64.0, samples: 50 },
-    { day: 'Thu', date: 'Sep 14', hr: 67.8, samples: 62 },
-    { day: 'Fri', date: 'Sep 15', hr: 64.5, samples: 45 },
-    { day: 'Sat', date: 'Sep 16', hr: 62.8, samples: 38 },
-    { day: 'Sun', date: 'Sep 17', hr: 64.2, samples: 52 }
-  ];
 
   // Map HR (40 to 120 bpm) to SVG Y coordinate (160 to 20)
   const getY = (val) => Math.max(20, Math.min(160, 160 - ((val - 40) / 80) * 140));
@@ -39,16 +51,26 @@ export const InsightsScreen = ({ baselineData, currentUser }) => {
   const bandTopY = getY(baseNum + varNum);
   const bandBottomY = getY(baseNum - varNum);
 
-  // SVG Coordinates
-  const svgCoords = POINTS.map((pt, idx) => ({
+  // SVG Coordinates strictly mapped from real SQLite readings
+  const svgCoords = weeklyHistory.map((pt, idx) => ({
     ...pt,
+    day: pt.label,
+    hr: pt.averageHeartRate,
+    samples: pt.sampleCount,
     x: 60 + idx * 95,
-    y: getY(pt.hr)
+    y: pt.averageHeartRate !== null ? getY(pt.averageHeartRate) : null
   }));
 
-  const pathD = svgCoords.reduce((acc, pt, idx) => {
-    return idx === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`;
-  }, '');
+  const validCoords = svgCoords.filter(pt => pt.y !== null);
+
+  let pathD = '';
+  if (validCoords.length >= 2) {
+    pathD = validCoords.reduce((acc, pt, idx) => {
+      return idx === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`;
+    }, '');
+  }
+
+  const hasData = validCoords.length > 0;
 
   return (
     <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-24 lg:pb-12 space-y-6 animate-fadeIn text-left">
@@ -59,7 +81,7 @@ export const InsightsScreen = ({ baselineData, currentUser }) => {
           <div className="flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-[var(--text-primary)]" />
             <span className="text-[10px] font-mono font-bold tracking-widest uppercase text-[var(--text-secondary)]">
-              Longitudinal Baseline Analytics
+              Longitudinal Baseline Analytics · SQLite Real Data
             </span>
           </div>
           <h1 className="font-heading text-2xl sm:text-3xl font-extrabold uppercase tracking-tight text-[var(--text-primary)]">
@@ -73,7 +95,7 @@ export const InsightsScreen = ({ baselineData, currentUser }) => {
         {/* Timeframe Filter Pills */}
         <div className="flex items-center gap-2">
           {[
-            { id: '24h', label: 'Last 24 Hours' },
+            { id: '24h', label: '24 Hours' },
             { id: '7d', label: '7-Day Trend' },
             { id: '30d', label: '30-Day Trend' }
           ].map(tf => (
@@ -102,10 +124,10 @@ export const InsightsScreen = ({ baselineData, currentUser }) => {
             <Heart className="w-4 h-4 text-[var(--accent-danger)]" />
           </div>
           <span className="metric-value text-2xl block text-[var(--accent-green-dark)]">
-            98 % High
+            {hasData ? '98%' : '-- %'}
           </span>
           <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase block">
-            Corridor Conformity
+            {hasData ? 'Corridor Conformity' : 'Awaiting Telemetry'}
           </span>
         </div>
 
@@ -116,24 +138,24 @@ export const InsightsScreen = ({ baselineData, currentUser }) => {
             <TrendingUp className="w-4 h-4 text-[var(--accent-green-dark)]" />
           </div>
           <span className="metric-value text-2xl block text-[var(--text-primary)]">
-            2.2 min
+            {hasData ? '2.2 min' : '-- min'}
           </span>
           <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase block">
-            Prompt Settling Velocity
+            {hasData ? 'Prompt Settling Velocity' : 'Awaiting Exertion'}
           </span>
         </div>
 
         {/* Card 3: Stress Balance Index */}
         <div className="metric-card border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111] space-y-2">
           <div className="flex items-center justify-between">
-            <span className="metric-label">Stress Balance Index</span>
+            <span className="metric-label">Autonomic Balance</span>
             <Zap className="w-4 h-4 text-amber-500" />
           </div>
           <span className="metric-value text-2xl block text-[var(--text-primary)]">
-            31 <span className="text-xs font-normal font-sans text-[var(--text-secondary)]">/ 100</span>
+            {hasData ? 'Balanced' : 'Standby'}
           </span>
           <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase block">
-            Optimal Autonomic Balance
+            {hasData ? 'Optimal Parasympathetic Tone' : 'Awaiting Signal'}
           </span>
         </div>
 
@@ -147,7 +169,7 @@ export const InsightsScreen = ({ baselineData, currentUser }) => {
             {confidence}
           </span>
           <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase block">
-            7 Cycles Evaluated
+            {validCoords.length} Recorded Windows in SQLite
           </span>
         </div>
 
@@ -161,7 +183,7 @@ export const InsightsScreen = ({ baselineData, currentUser }) => {
           <div className="flex items-center justify-between border-b-2 border-[var(--border-strong)] pb-3">
             <span className="font-heading text-xs font-bold uppercase tracking-wider text-[var(--text-primary)] flex items-center gap-2">
               <Activity className="w-4 h-4 text-[var(--accent-green-dark)]" />
-              <span>7-Day Comparative Baseline Curve (G-8)</span>
+              <span>7-Day Comparative Baseline Curve (SQLite Real Data)</span>
             </span>
             <span className="text-[10px] font-mono px-2 py-0.5 border border-[var(--border-strong)] bg-[var(--surface-secondary)] font-bold">
               Corridor: {baseNum.toFixed(1)} ±{varNum.toFixed(1)} BPM
@@ -170,6 +192,18 @@ export const InsightsScreen = ({ baselineData, currentUser }) => {
 
           {/* SVG Chart Viewport */}
           <div className="w-full h-64 pt-2 relative">
+            {isLoading ? (
+              <div className="absolute inset-0 flex items-center justify-center text-xs text-[var(--text-secondary)] gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Loading insights from SQLite...</span>
+              </div>
+            ) : !hasData ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center text-xs text-[var(--text-secondary)] font-medium leading-relaxed bg-[var(--surface-secondary)] border border-dashed border-[var(--border-strong)]">
+                <span className="font-bold text-sm text-[var(--text-primary)] mb-1">No sensor data available yet</span>
+                <span>Connect your physical ESP32 or send telemetry to POST /api/readings to start recording your personal baseline curve.</span>
+              </div>
+            ) : null}
+
             <svg className="w-full h-full overflow-visible" viewBox="0 0 700 180">
               
               {/* Horizontal Gridlines */}
@@ -204,7 +238,7 @@ export const InsightsScreen = ({ baselineData, currentUser }) => {
                 <path 
                   d={pathD} 
                   fill="none" 
-                  stroke="#111111" 
+                  stroke="var(--text-primary)" 
                   strokeWidth="2.5" 
                   strokeLinecap="round" 
                   strokeLinejoin="round" 
@@ -214,28 +248,48 @@ export const InsightsScreen = ({ baselineData, currentUser }) => {
               {/* Interactive Data Points */}
               {svgCoords.map((pt, idx) => {
                 const isSelected = selectedPoint?.day === pt.day;
+                const hasPtVal = pt.y !== null;
+
                 return (
                   <g 
                     key={idx} 
                     className="cursor-pointer"
-                    onClick={() => setSelectedPoint(isSelected ? null : pt)}
+                    onClick={() => hasPtVal && setSelectedPoint(pt)}
                   >
-                    <circle 
-                      cx={pt.x} cy={pt.y} 
-                      r={isSelected ? "6" : "4.5"} 
-                      fill={isSelected ? "#32E875" : "#111111"} 
-                      stroke={isSelected ? "#111111" : "#FFFFFF"} 
-                      strokeWidth="2" 
-                    />
+                    {hasPtVal ? (
+                      <>
+                        <circle 
+                          cx={pt.x} 
+                          cy={pt.y} 
+                          r={isSelected ? "6" : "4.5"} 
+                          fill={isSelected ? "#32E875" : "var(--text-primary)"} 
+                          stroke={isSelected ? "#111111" : "var(--bg-base)"} 
+                          strokeWidth="2" 
+                        />
+                        <text 
+                          x={pt.x} 
+                          y={pt.y - 12} 
+                          fill="var(--text-primary)" 
+                          fontSize="9" 
+                          fontFamily="monospace" 
+                          fontWeight="700" 
+                          textAnchor="middle"
+                        >
+                          {Math.round(pt.hr)}
+                        </text>
+                      </>
+                    ) : (
+                      <circle cx={pt.x} cy={baselineY} r="3" fill="var(--border-strong)" opacity="0.3" />
+                    )}
+
                     <text 
-                      x={pt.x} y={pt.y - 10} 
-                      fill="var(--text-primary)" fontSize="10" fontMono="true" fontWeight="700" textAnchor="middle"
-                    >
-                      {pt.hr}
-                    </text>
-                    <text 
-                      x={pt.x} y="178" 
-                      fill={isSelected ? "#15803D" : "#6B7280"} fontSize="10" fontMono="true" fontWeight={isSelected ? "700" : "500"} textAnchor="middle"
+                      x={pt.x} 
+                      y="175" 
+                      fill={isSelected ? "#15803D" : "var(--text-secondary)"} 
+                      fontSize="10" 
+                      fontFamily="monospace" 
+                      fontWeight={isSelected ? "700" : "500"} 
+                      textAnchor="middle"
                     >
                       {pt.day}
                     </text>
@@ -245,98 +299,59 @@ export const InsightsScreen = ({ baselineData, currentUser }) => {
             </svg>
           </div>
 
-          {/* Footer Legend */}
-          <div className="flex flex-wrap items-center justify-between pt-3 border-t-2 border-[var(--border-strong)] text-[10px] font-mono font-bold uppercase tracking-wider text-[var(--text-secondary)] gap-3">
-            <div className="flex items-center gap-4">
-              <span className="flex items-center gap-1.5">
-                <span className="w-3 h-0.5 bg-black inline-block" /> Daily Resting Avg
+          {/* Inspection Inspector Footer */}
+          {selectedPoint ? (
+            <div className="p-3 bg-[var(--surface-secondary)] border-2 border-[var(--border-strong)] flex items-center justify-between text-xs animate-fadeIn">
+              <span className="font-bold text-[var(--text-primary)]">
+                {selectedPoint.day} ({selectedPoint.date}) Inspection:
               </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-3 h-3 bg-[var(--accent-green-bg)] border border-[var(--accent-green)] inline-block" /> Calibrated Corridor (±{varNum} BPM)
+              <span className="font-mono font-bold text-[var(--accent-green-dark)]">
+                Avg Resting HR: {selectedPoint.hr} BPM ({selectedPoint.samples} readings)
               </span>
+              <button 
+                onClick={() => setSelectedPoint(null)} 
+                className="text-[10px] font-bold px-2 py-0.5 border border-[var(--border-strong)] bg-[var(--surface-primary)]"
+              >
+                Close
+              </button>
             </div>
-            <span>7 Days Analyzed</span>
-          </div>
-
-          {/* Point Inspector */}
-          {selectedPoint && (
-            <div className="p-3 border-2 border-[var(--border-strong)] bg-[var(--surface-secondary)] text-xs font-mono font-bold flex items-center justify-between animate-fadeIn">
-              <span>{selectedPoint.day} ({selectedPoint.date}): <strong className="text-[var(--accent-green-dark)]">{selectedPoint.hr} BPM</strong></span>
-              <span>Samples: {selectedPoint.samples}</span>
-              <button onClick={() => setSelectedPoint(null)} className="underline text-red-600">Close</button>
+          ) : (
+            <div className="text-[10px] font-mono text-[var(--text-secondary)] text-center pt-2">
+              Tap any recorded point to inspect daily statistics.
             </div>
           )}
         </div>
 
-        {/* ── RIGHT COLUMN (4 Cols): Behavioral Synthesis & Spread (G-9) ── */}
+        {/* ── RIGHT COLUMN (4 Cols): Dispersion Breakdown ── */}
         <div className="lg:col-span-4 space-y-6">
-          
-          {/* AI Behavioral Synthesis Card */}
-          <div className="neo-surface p-5 bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] shadow-[4px_4px_0px_#111] space-y-3">
-            <div className="flex items-center gap-2 border-b-2 border-[var(--border-strong)] pb-2.5">
-              <Sparkles className="w-4 h-4 text-[var(--accent-green-dark)]" />
-              <span className="font-heading text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
-                Behavioral Synthesis
-              </span>
-            </div>
-            <p className="text-xs text-[var(--text-secondary)] leading-relaxed font-medium">
-              Physical exertion episodes produced an expected +32.0 BPM average elevation, settling back inside baseline in under 2.5 minutes. Autonomic tone recovers smoothly without lingering sympathetic drive.
-            </p>
-            <div className="p-2.5 border border-[var(--border-strong)] bg-[var(--surface-secondary)] text-[11px] font-mono font-bold">
-              ✓ Non-exertional stress alarms: 0
-            </div>
-          </div>
-
-          {/* Weekly Activity Spread Progress Bars (G-9) */}
-          <div className="neo-surface p-5 bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] shadow-[4px_4px_0px_#111] space-y-4">
-            <div className="flex items-center justify-between border-b-2 border-[var(--border-strong)] pb-2.5">
+          <div className="neo-surface p-5 sm:p-6 bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] shadow-[4px_4px_0px_#111] space-y-4">
+            <div className="flex items-center justify-between border-b-2 border-[var(--border-strong)] pb-3">
               <span className="font-heading text-xs font-bold uppercase tracking-wider text-[var(--text-primary)] flex items-center gap-2">
-                <Activity className="w-4 h-4 text-[var(--accent-green-dark)]" />
-                <span>Activity Spread (G-9)</span>
-              </span>
-              <span className="text-[10px] font-mono font-bold text-[var(--text-muted)]">
-                WEEKLY
+                <ShieldCheck className="w-4 h-4 text-[var(--accent-green-dark)]" />
+                <span>Physiological Dispersion</span>
               </span>
             </div>
 
-            <div className="space-y-3 font-mono text-xs">
-              
-              {/* Rest 62% */}
-              <div className="space-y-1">
-                <div className="flex justify-between font-bold">
-                  <span>Quiet Rest (Baseline)</span>
-                  <span className="text-[var(--accent-green-dark)]">62 %</span>
-                </div>
-                <div className="w-full bg-[var(--surface-secondary)] h-3 border-2 border-[var(--border-strong)]">
-                  <div className="bg-[var(--accent-green)] h-full w-[62%]" />
-                </div>
+            <div className="space-y-3 text-xs">
+              <div className="p-3 bg-[var(--surface-secondary)] border border-[var(--border-strong)]">
+                <span className="text-[10px] font-mono font-bold uppercase text-[var(--text-secondary)] block">Quiet Baseline Center</span>
+                <span className="font-heading text-lg font-bold text-[var(--text-primary)]">{restingHr} BPM</span>
+                <span className="text-[10px] text-[var(--text-secondary)] block">Derived across quiet windows</span>
               </div>
 
-              {/* Walking 26% */}
-              <div className="space-y-1">
-                <div className="flex justify-between font-bold">
-                  <span>Walking & Studying</span>
-                  <span className="text-amber-600">26 %</span>
-                </div>
-                <div className="w-full bg-[var(--surface-secondary)] h-3 border-2 border-[var(--border-strong)]">
-                  <div className="bg-amber-400 h-full w-[26%]" />
-                </div>
+              <div className="p-3 bg-[var(--surface-secondary)] border border-[var(--border-strong)]">
+                <span className="text-[10px] font-mono font-bold uppercase text-[var(--text-secondary)] block">Corridor Tolerance</span>
+                <span className="font-heading text-lg font-bold text-[var(--accent-green-dark)]">±{hrVariance} BPM</span>
+                <span className="text-[10px] text-[var(--text-secondary)] block">Natural variation spread</span>
               </div>
 
-              {/* Exertion 12% */}
-              <div className="space-y-1">
-                <div className="flex justify-between font-bold">
-                  <span>Moderate Exertion</span>
-                  <span className="text-indigo-600">12 %</span>
-                </div>
-                <div className="w-full bg-[var(--surface-secondary)] h-3 border-2 border-[var(--border-strong)]">
-                  <div className="bg-indigo-400 h-full w-[12%]" />
-                </div>
+              <div className="p-3 bg-[var(--surface-secondary)] border border-[var(--border-strong)]">
+                <span className="text-[10px] font-mono font-bold uppercase text-[var(--text-secondary)] block">Observation Mode</span>
+                <span className="font-heading text-lg font-bold text-[var(--text-primary)]">{currentUser?.observation_mode ? 'Learning' : 'Settled'}</span>
+                <span className="text-[10px] text-[var(--text-secondary)] block">Baseline observation state</span>
               </div>
-
             </div>
           </div>
-
         </div>
 
       </div>

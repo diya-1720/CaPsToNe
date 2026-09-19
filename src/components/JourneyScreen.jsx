@@ -1,28 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import { Compass, Sparkles, Calendar, TrendingUp, ShieldCheck, Loader2, Info } from 'lucide-react';
+import { Compass, Sparkles, Calendar, TrendingUp, ShieldCheck, Loader2, Info, Database, Clock, RefreshCw } from 'lucide-react';
 import { apiService } from '../services/apiService';
 import { insightEngine } from '../services/insightEngine';
 
 export const JourneyScreen = ({ baselineData, evaluation, currentUser }) => {
   const [weeklyHistory, setWeeklyHistory] = useState([]);
+  const [recentReadings, setRecentReadings] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState(null);
 
-  useEffect(() => {
-    let isMounted = true;
-    async function loadHistory() {
-      setIsLoading(true);
-      if (currentUser?.id && !currentUser.isGuest) {
-        const history = await apiService.fetchWeeklyHeartRateHistory(currentUser.id);
-        if (isMounted) setWeeklyHistory(history);
-      } else {
-        const skeleton = await apiService.fetchWeeklyHeartRateHistory(null);
-        if (isMounted) setWeeklyHistory(skeleton);
-      }
-      if (isMounted) setIsLoading(false);
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      const [history, readings] = await Promise.all([
+        apiService.fetchWeeklyHeartRateHistory(),
+        apiService.getReadingsHistory(25)
+      ]);
+      setWeeklyHistory(history || []);
+      setRecentReadings(readings || []);
+    } catch (e) {
+      console.warn("Could not load journey data:", e);
+    } finally {
+      setIsLoading(false);
     }
-    loadHistory();
-    return () => { isMounted = false; };
+  };
+
+  useEffect(() => {
+    loadData();
   }, [currentUser]);
 
   const restingHr = baselineData?.restingHr ? Number(baselineData.restingHr) : 64.0;
@@ -99,23 +103,34 @@ export const JourneyScreen = ({ baselineData, evaluation, currentUser }) => {
 
   const weeklyRef = getWeeklyReflection();
   const monthlyRef = getMonthlyReflection();
-  const todayStr = new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
 
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-24 lg:pb-12 space-y-6 animate-fadeIn">
+    <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-24 lg:pb-12 space-y-6 animate-fadeIn text-left">
       
       {/* 1. TITLE & SUBTITLE */}
-      <div className="space-y-3 text-left">
+      <div className="space-y-3">
         <div className="inline-flex items-center gap-2 px-3 py-1 bg-[var(--surface-secondary)] border-2 border-[var(--border-strong)] text-[var(--accent-green-dark)] text-xs font-mono font-bold tracking-wider uppercase shadow-[2px_2px_0px_#111]">
           <Compass className="w-4 h-4 text-[var(--accent-green-dark)]" />
-          <span>Longitudinal Pattern Learning · Baseline Evolution</span>
+          <span>Longitudinal Pattern Learning · SQLite Single Source of Truth</span>
         </div>
-        <h1 className="font-heading text-3xl sm:text-4xl font-extrabold text-[var(--text-primary)] tracking-tight uppercase">
-          Your Journey
-        </h1>
-        <p className="text-xs sm:text-sm text-[var(--text-secondary)] font-medium max-w-xl">
-          See how your personal physiological patterns evolve over time compared against your own learned baseline.
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="font-heading text-3xl sm:text-4xl font-extrabold text-[var(--text-primary)] tracking-tight uppercase">
+              Your Journey
+            </h1>
+            <p className="text-xs sm:text-sm text-[var(--text-secondary)] font-medium max-w-xl">
+              See how your personal physiological patterns evolve over time compared against your own learned baseline.
+            </p>
+          </div>
+          <button
+            onClick={loadData}
+            className="px-3 py-1.5 neo-surface border-2 border-[var(--border-strong)] text-xs font-mono font-bold flex items-center gap-1.5 hover:bg-[var(--surface-secondary)] shadow-[2px_2px_0px_#111]"
+            title="Refresh database records"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Refresh SQLite</span>
+          </button>
+        </div>
 
         {/* 4-Stage Progression Strip */}
         <div className="pt-2">
@@ -124,7 +139,7 @@ export const JourneyScreen = ({ baselineData, evaluation, currentUser }) => {
               { num: '01', title: 'TODAY', desc: 'Hourly Chronology' },
               { num: '02', title: 'DAYS', desc: '7-Day History' },
               { num: '03', title: 'WEEKS', desc: 'Baseline Stability' },
-              { num: '04', title: 'PERSONAL PATTERN', desc: 'Body Signature' }
+              { num: '04', title: 'BODY PATTERN', desc: 'Personal Signature' }
             ].map((stg, idx) => (
               <div 
                 key={stg.num}
@@ -151,11 +166,11 @@ export const JourneyScreen = ({ baselineData, evaluation, currentUser }) => {
       </div>
 
       {/* 2. PRIMARY VISUAL HERO: 7-DAY GRAPH */}
-      <div className="neo-surface p-5 sm:p-7 space-y-4 text-left relative overflow-hidden">
-        <div className="flex flex-wrap sm:flex-nowrap items-center justify-between border-b border-[var(--border-light)] pb-3 gap-3">
+      <div className="neo-surface p-5 sm:p-7 space-y-4 border-2 border-[var(--border-strong)] bg-[var(--surface-primary)] shadow-[4px_4px_0px_#111] relative overflow-hidden">
+        <div className="flex flex-wrap sm:flex-nowrap items-center justify-between border-b-2 border-[var(--border-strong)] pb-3 gap-3">
           <div className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-[var(--accent-green-dark)]" />
-            <span className="font-heading text-sm font-bold text-[var(--text-primary)]">
+            <span className="font-heading text-sm font-bold text-[var(--text-primary)] uppercase">
               7-Day Resting Pattern &amp; Baseline Range
             </span>
           </div>
@@ -169,11 +184,12 @@ export const JourneyScreen = ({ baselineData, evaluation, currentUser }) => {
           {isLoading ? (
             <div className="absolute inset-0 flex items-center justify-center text-xs text-[var(--text-secondary)] gap-2">
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span className="font-medium">Loading history...</span>
+              <span className="font-medium">Loading history from SQLite...</span>
             </div>
           ) : validDays.length === 0 ? (
-            <div className="absolute inset-0 flex items-center justify-center p-4 text-center text-xs text-[var(--text-secondary)] font-medium leading-relaxed">
-              AWEN is observing your daily resting pattern. Recorded daily averages will appear here as telemetry accumulates.
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center text-xs text-[var(--text-secondary)] font-medium leading-relaxed bg-[var(--surface-secondary)] border border-dashed border-[var(--border-strong)]">
+              <span className="font-bold text-sm text-[var(--text-primary)] mb-1">No sensor data available yet</span>
+              <span>AWEN is observing your daily pattern. Daily averages will appear here automatically as telemetry readings are received from your device.</span>
             </div>
           ) : null}
 
@@ -184,7 +200,7 @@ export const JourneyScreen = ({ baselineData, evaluation, currentUser }) => {
               y={maxRangeY} 
               width="300" 
               height={Math.max(4, minRangeY - maxRangeY)} 
-              fill="#32E875"
+              fill="#32E875" 
               fillOpacity="0.12" 
             />
 
@@ -196,8 +212,8 @@ export const JourneyScreen = ({ baselineData, evaluation, currentUser }) => {
               <path
                 d={svgPathD}
                 fill="none"
-                stroke="#111111"
-                strokeWidth="2"
+                stroke="var(--text-primary)"
+                strokeWidth="2.5"
                 strokeLinecap="round"
               />
             )}
@@ -213,15 +229,15 @@ export const JourneyScreen = ({ baselineData, evaluation, currentUser }) => {
                 <g key={pt.date || i} className="cursor-pointer" onClick={() => hasValue && setSelectedDay(pt)}>
                   {hasValue ? (
                     <>
-                      <circle cx={x} cy={y} r={isSelected ? "6" : "4"} fill={isSelected ? "#32E875" : "#111111"} stroke={isSelected ? "#111111" : "var(--bg-base)"} strokeWidth="2" className="transition-all duration-300" />
+                      <circle cx={x} cy={y} r={isSelected ? "6" : "4"} fill={isSelected ? "#32E875" : "var(--text-primary)"} stroke={isSelected ? "#111111" : "var(--bg-base)"} strokeWidth="2" />
                       <text x={x} y={y - 10} fill="var(--text-primary)" fontSize="8" textAnchor="middle" fontWeight="700">
                         {Math.round(pt.averageHeartRate)}
                       </text>
                     </>
                   ) : (
-                    <circle cx={x} cy={baselineY} r="3" fill="var(--border-light)" opacity="0.6" />
+                    <circle cx={x} cy={baselineY} r="3" fill="var(--border-strong)" opacity="0.4" />
                   )}
-                  <text x={x} y="96" fill={isSelected ? "#15803D" : "var(--text-muted)"} fontSize="9" textAnchor="middle" fontWeight={isSelected ? "700" : "500"} className="transition-colors">
+                  <text x={x} y="96" fill={isSelected ? "#15803D" : "var(--text-secondary)"} fontSize="9" textAnchor="middle" fontWeight={isSelected ? "700" : "500"}>
                     {pt.label}
                   </text>
                 </g>
@@ -231,7 +247,7 @@ export const JourneyScreen = ({ baselineData, evaluation, currentUser }) => {
         </div>
 
         {/* Legend */}
-        <div className="flex flex-wrap sm:flex-nowrap items-center justify-between pt-3 border-t border-[var(--border-light)] text-[11px] text-[var(--text-secondary)] font-bold gap-3 uppercase tracking-wider">
+        <div className="flex flex-wrap sm:flex-nowrap items-center justify-between pt-3 border-t-2 border-[var(--border-strong)] text-[11px] text-[var(--text-secondary)] font-bold gap-3 uppercase tracking-wider">
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1.5">
               <span className="w-3 h-0.5 bg-[var(--text-primary)] inline-block" /> Daily Resting Avg
@@ -240,77 +256,137 @@ export const JourneyScreen = ({ baselineData, evaluation, currentUser }) => {
               <span className="w-3 h-3 bg-[var(--accent-green-bg)] border border-[var(--accent-green)] inline-block" /> Normal Range
             </span>
           </div>
-          <span className="text-[10px] bg-[var(--surface-secondary)] px-2 py-1 border border-[var(--border-light)]">Tap day dot for detail</span>
+          <span className="text-[10px] bg-[var(--surface-secondary)] px-2 py-1 border border-[var(--border-strong)]">
+            Tap node for detail
+          </span>
         </div>
       </div>
 
       {/* 3. SELECTED DAY PANEL */}
-      {selectedDay ? (
-        <div className="p-4 neo-surface text-left space-y-2 animate-fadeIn">
-          <div className="flex items-center justify-between border-b border-[var(--border-light)] pb-3 mb-3">
-            <span className="font-heading text-sm font-bold text-[var(--accent-green-dark)]">
+      {selectedDay && (
+        <div className="p-4 neo-surface border-2 border-[var(--border-strong)] bg-[var(--surface-secondary)] shadow-[2px_2px_0px_#111] space-y-2 animate-fadeIn">
+          <div className="flex items-center justify-between border-b border-[var(--border-strong)] pb-2">
+            <span className="font-heading text-sm font-bold text-[var(--accent-green-dark)] uppercase">
               {selectedDay.label} Inspection ({selectedDay.date})
             </span>
-            <button onClick={() => setSelectedDay(null)} className="text-xs font-bold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors px-2 py-1 border border-[var(--border-light)] hover:border-[var(--border-strong)] bg-[var(--surface-secondary)]">
+            <button 
+              onClick={() => setSelectedDay(null)} 
+              className="text-xs font-bold px-2 py-1 border border-[var(--border-strong)] bg-[var(--surface-primary)] hover:bg-[var(--surface-tertiary)]"
+            >
               Close
             </button>
           </div>
-          <div className="text-sm text-[var(--text-primary)] font-medium flex flex-wrap gap-3 pt-1">
-            <span className="bg-[var(--surface-secondary)] border border-[var(--border-strong)] px-3 py-1.5">Avg Resting: <strong className="text-[var(--accent-green-dark)] font-bold">{selectedDay.averageHeartRate} bpm</strong></span>
-            <span className="bg-[var(--surface-secondary)] border border-[var(--border-strong)] px-3 py-1.5">Samples: <strong className="text-[var(--accent-green-dark)] font-bold">{selectedDay.sampleCount}</strong></span>
-            <span className="bg-[var(--surface-secondary)] border border-[var(--border-strong)] px-3 py-1.5">Deviation: <strong className="font-bold">Within usual range</strong></span>
+          <div className="text-xs font-mono font-bold flex flex-wrap gap-2 pt-1">
+            <span className="p-2 border border-[var(--border-strong)] bg-[var(--surface-primary)]">Avg Resting: <strong className="text-[var(--accent-green-dark)]">{selectedDay.averageHeartRate} bpm</strong></span>
+            <span className="p-2 border border-[var(--border-strong)] bg-[var(--surface-primary)]">Samples: <strong>{selectedDay.sampleCount}</strong></span>
+            {selectedDay.averageSpo2 && <span className="p-2 border border-[var(--border-strong)] bg-[var(--surface-primary)]">Avg SpO2: <strong>{selectedDay.averageSpo2}%</strong></span>}
+            {selectedDay.averageTemp && <span className="p-2 border border-[var(--border-strong)] bg-[var(--surface-primary)]">Avg Temp: <strong>{selectedDay.averageTemp}°C</strong></span>}
           </div>
-        </div>
-      ) : (
-        <div className="text-xs text-[var(--text-secondary)] font-bold text-center p-4 border border-dashed border-[var(--border-light)] bg-[var(--surface-secondary)] uppercase tracking-wider">
-          Tap any recorded day node on the graph to inspect daily readings breakdown.
         </div>
       )}
 
-      {/* 4. WHAT AWEN IS LEARNING (PATTERN STORY) */}
-      <div className="neo-surface p-6 sm:p-8 space-y-4 text-left shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="text-sm font-semibold uppercase tracking-wider text-[var(--awen-aqua)] flex items-center gap-2 font-mono">
-            <Sparkles className="w-5 h-5 text-[var(--awen-aqua)]" />
-            <span>What AWEN Is Learning</span>
-          </span>
-          <span className="text-[11px] text-[var(--text-secondary)] font-mono font-medium tracking-wide bg-[var(--surface-level-2)] border border-[var(--border-subtle)] rounded-md px-2.5 py-1">
-            {validDays.length >= 3 ? `${validDays.length} DAYS ANALYZED` : 'CALIBRATION'}
+      {/* 4. REAL SQLITE READINGS HISTORY TABLE */}
+      <div className="neo-surface p-5 sm:p-6 border-2 border-[var(--border-strong)] bg-[var(--surface-primary)] shadow-[4px_4px_0px_#111] space-y-3">
+        <div className="flex items-center justify-between border-b-2 border-[var(--border-strong)] pb-2.5">
+          <div className="flex items-center gap-2">
+            <Database className="w-4 h-4 text-[var(--accent-green-dark)]" />
+            <h3 className="font-heading text-sm font-bold uppercase tracking-wider text-[var(--text-primary)]">
+              Persisted Sensor Readings in SQLite ({recentReadings.length} Records)
+            </h3>
+          </div>
+          <span className="text-[10px] font-mono font-bold text-[var(--text-secondary)]">
+            Single Source of Truth
           </span>
         </div>
 
-        <h3 className="font-heading text-lg sm:text-xl font-bold text-[var(--text-primary)] mt-2">
-          {weeklyRef.title}
-        </h3>
-
-        <p className="text-sm sm:text-base text-[var(--text-secondary)] leading-relaxed font-medium">
-          {weeklyRef.body}
-        </p>
-
-        {validDays.length >= 3 && (
-          <div className="mt-4 p-4  bg-[var(--surface-level-2)] border border-[var(--border-subtle)]">
-            <p className="text-sm text-[var(--text-primary)] font-medium leading-relaxed">
-              AWEN detected that your recorded resting averages remained within a stable ±{hrStdDev} bpm range of your {restingHr.toFixed(1)} bpm baseline signature.
-            </p>
+        {recentReadings.length === 0 ? (
+          <div className="p-6 text-center text-xs text-[var(--text-secondary)] border border-dashed border-[var(--border-strong)] bg-[var(--surface-secondary)]">
+            No sensor readings saved in the database yet. Connect hardware or transmit telemetry to POST /api/readings.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[var(--surface-secondary)] border-b-2 border-[var(--border-strong)] text-[10px] font-mono font-bold uppercase text-[var(--text-secondary)]">
+                <tr>
+                  <th className="p-2">Timestamp</th>
+                  <th className="p-2">Heart Rate</th>
+                  <th className="p-2">SpO₂</th>
+                  <th className="p-2">Temp</th>
+                  <th className="p-2">Activity</th>
+                  <th className="p-2">Device ID</th>
+                  <th className="p-2">Source</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--border-light)] font-mono">
+                {recentReadings.map((r) => (
+                  <tr key={r.id} className="hover:bg-[var(--surface-secondary)] transition-colors">
+                    <td className="p-2 whitespace-nowrap text-[11px]">
+                      {new Date(r.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    </td>
+                    <td className="p-2 font-bold text-[var(--text-primary)]">
+                      {(r.heart_rate ?? r.bpm) ? `${Number(r.heart_rate ?? r.bpm).toFixed(1)} BPM` : '--'}
+                    </td>
+                    <td className="p-2 text-[var(--accent-green-dark)]">
+                      {r.spo2 ? `${r.spo2.toFixed(1)}%` : '--'}
+                    </td>
+                    <td className="p-2 text-amber-600">
+                      {r.temperature ? `${r.temperature.toFixed(1)}°C` : '--'}
+                    </td>
+                    <td className="p-2 font-sans font-medium text-[var(--text-secondary)]">
+                      {r.activity_state || 'Resting'}
+                    </td>
+                    <td className="p-2 text-[10px] text-[var(--text-muted)]">
+                      {r.device_id}
+                    </td>
+                    <td className="p-2">
+                      <span className="px-1.5 py-0.5 border border-[var(--border-strong)] bg-[var(--surface-secondary)] text-[9px] font-bold uppercase">
+                        {r.data_source}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
 
-      {/* 5. PERSONAL BASELINE FOOTER STRIP */}
-      <div className="neo-surface p-6 sm:p-7 bg-[var(--surface-level-1)] flex flex-wrap sm:flex-nowrap items-center justify-between gap-6 text-left shadow-sm">
-        <div className="space-y-1">
-          <span className="text-[11px] uppercase font-mono font-medium text-[var(--text-secondary)] tracking-wider block">Personal Resting Signature</span>
-          <div className="flex items-baseline gap-2">
-            <span className="font-heading text-3xl font-bold text-[var(--text-primary)]">{restingHr.toFixed(1)}</span>
-            <span className="text-sm font-medium text-[var(--text-secondary)]">BPM</span>
-          </div>
-          <span className="text-xs text-[var(--text-secondary)] font-medium block">±{hrStdDev.toFixed(1)} bpm usual range</span>
+      {/* 5. WHAT AWEN IS LEARNING (PATTERN STORY) */}
+      <div className="neo-surface p-5 sm:p-7 space-y-3 border-2 border-[var(--border-strong)] bg-[var(--surface-primary)] shadow-[4px_4px_0px_#111]">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-[var(--border-strong)] pb-2.5">
+          <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)] flex items-center gap-2 font-mono">
+            <Sparkles className="w-4 h-4 text-[var(--accent-green-dark)]" />
+            <span>Baseline Learning Progress</span>
+          </span>
+          <span className="text-[10px] text-[var(--text-secondary)] font-mono font-bold px-2 py-0.5 border border-[var(--border-strong)] bg-[var(--surface-secondary)]">
+            {validDays.length >= 3 ? `${validDays.length} DAYS RECORDED` : 'OBSERVATION STAGE'}
+          </span>
         </div>
 
-        <div className="space-y-1 text-left sm:text-right w-full sm:w-auto mt-2 sm:mt-0 pt-4 sm:pt-0 border-t sm:border-t-0 border-[var(--border-subtle)]">
-          <span className="text-[11px] uppercase font-mono font-medium text-[var(--text-secondary)] tracking-wider block">Baseline Confidence</span>
-          <span className="font-heading text-sm font-semibold text-[var(--awen-teal)] block">{confidenceState}</span>
-          <span className="text-xs text-[var(--text-secondary)] font-medium block">{validDays.length} days observed</span>
+        <h3 className="font-heading text-base sm:text-lg font-bold text-[var(--text-primary)]">
+          {weeklyRef.title}
+        </h3>
+
+        <p className="text-xs sm:text-sm text-[var(--text-secondary)] leading-relaxed font-medium">
+          {weeklyRef.body}
+        </p>
+      </div>
+
+      {/* 6. PERSONAL BASELINE FOOTER STRIP */}
+      <div className="neo-surface p-5 sm:p-6 border-2 border-[var(--border-strong)] bg-[var(--surface-secondary)] shadow-[4px_4px_0px_#111] flex flex-wrap sm:flex-nowrap items-center justify-between gap-6">
+        <div className="space-y-0.5">
+          <span className="text-[10px] uppercase font-mono font-bold text-[var(--text-secondary)] tracking-wider block">Personal Resting Signature</span>
+          <div className="flex items-baseline gap-2">
+            <span className="font-heading text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)]">{restingHr.toFixed(1)}</span>
+            <span className="text-xs font-bold text-[var(--text-secondary)]">BPM</span>
+          </div>
+          <span className="text-[10px] text-[var(--text-secondary)] font-mono font-bold block">±{hrStdDev.toFixed(1)} bpm natural corridor</span>
+        </div>
+
+        <div className="space-y-0.5 text-left sm:text-right w-full sm:w-auto pt-3 sm:pt-0 border-t-2 sm:border-t-0 border-[var(--border-strong)]">
+          <span className="text-[10px] uppercase font-mono font-bold text-[var(--text-secondary)] tracking-wider block">Confidence Tier</span>
+          <span className="font-heading text-sm font-extrabold text-[var(--accent-green-dark)] block">{confidenceState}</span>
+          <span className="text-[10px] text-[var(--text-secondary)] font-mono block">{validDays.length} days observed in SQLite</span>
         </div>
       </div>
 
