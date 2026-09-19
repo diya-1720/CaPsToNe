@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
-import { ShieldCheck, Mail, Sparkles, Cpu, ChevronRight, X, User, Lock, LogOut, Globe, Radio, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { TelemetryStream } from '../services/telemetryStream';
+import { 
+  ShieldCheck, Mail, Sparkles, Cpu, ChevronRight, X, User, Lock, 
+  LogOut, Globe, Radio, AlertCircle, CheckCircle2, Edit3, Phone, 
+  Hash, Save, Loader2 
+} from 'lucide-react';
 import { apiService } from '../services/apiService';
 
 export const YouScreen = ({ 
@@ -11,42 +14,69 @@ export const YouScreen = ({
   baselineData, 
   telemetryStream, 
   telemetry,
-  onUpdateUserBaseline
+  onUpdateUserBaseline,
+  onProfileUpdated
 }) => {
   const [isIoTModalOpen, setIsIoTModalOpen] = useState(false);
   const [isConfirmStopOpen, setIsConfirmStopOpen] = useState(false);
-  const [testResults, setTestResults] = useState(null);
-  const [hwStatus, setHwStatus] = useState(telemetryStream?.hardwareState || 'DISCONNECTED');
-  const [hwError, setHwError] = useState(telemetryStream?.lastHardwareError || null);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
 
-  const handleConnectSerial = async () => {
-    try {
-      setHwError(null);
-      setHwStatus('CONNECTING');
-      await telemetryStream?.connectWebSerial();
-      setHwStatus('CONNECTED');
-    } catch (e) {
-      setHwStatus('ERROR');
-      setHwError(e.message || 'Web Serial connection failed.');
-    }
-  };
-
-  const handleDisconnectSerial = () => {
-    telemetryStream?.disconnectHardware();
-    setHwStatus('DISCONNECTED');
-    setHwError(null);
-  };
-
-  const handleRunSelfTest = () => {
-    const results = TelemetryStream.runParserSelfTest();
-    setTestResults(results);
-  };
+  // Edit Profile Form State
+  const [editName, setEditName] = useState(currentUser?.name || '');
+  const [editAge, setEditAge] = useState(currentUser?.age || '');
+  const [editGender, setEditGender] = useState(currentUser?.gender || 'Prefer not to say');
+  const [editPhone, setEditPhone] = useState(currentUser?.phone || '');
+  const [editDeviceId, setEditDeviceId] = useState(currentUser?.device_id || 'AWEN_ESP32_01');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState(null);
+  const [saveErrorMsg, setSaveErrorMsg] = useState(null);
 
   const isLearning = currentUser?.observation_mode || false;
   const confidenceState = currentUser?.baseline_confidence || baselineData?.confidence || (isLearning ? 'Learning' : 'Stable baseline');
   const obsDay = currentUser?.observation_day || (confidenceState === 'Stable baseline' ? 5 : confidenceState === 'Developing baseline' ? 3 : confidenceState === 'Early baseline' ? 2 : 1);
   const restingHrVal = baselineData?.restingHr ? Number(baselineData.restingHr).toFixed(1) : '64.0';
   const hrStdDevVal = baselineData?.hrStdDev ? Number(baselineData.hrStdDev).toFixed(1) : '4.8';
+
+  const handleOpenEdit = () => {
+    setEditName(currentUser?.name || '');
+    setEditAge(currentUser?.age || '');
+    setEditGender(currentUser?.gender || 'Prefer not to say');
+    setEditPhone(currentUser?.phone || '');
+    setEditDeviceId(currentUser?.device_id || 'AWEN_ESP32_01');
+    setSaveSuccessMsg(null);
+    setSaveErrorMsg(null);
+    setIsEditProfileOpen(true);
+  };
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    setIsSavingProfile(true);
+    setSaveErrorMsg(null);
+    setSaveSuccessMsg(null);
+
+    try {
+      const updated = await apiService.updateProfile({
+        name: editName.trim(),
+        age: editAge ? Number(editAge) : null,
+        gender: editGender,
+        phone: editPhone.trim(),
+        device_id: editDeviceId.trim()
+      });
+
+      setSaveSuccessMsg("Profile saved to SQLite database successfully!");
+      if (onProfileUpdated) {
+        onProfileUpdated(updated);
+      }
+      setTimeout(() => {
+        setIsEditProfileOpen(false);
+        setSaveSuccessMsg(null);
+      }, 1200);
+    } catch (err) {
+      setSaveErrorMsg(err.message || "Failed to update profile.");
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
 
   // 4 Confidence Tiers
   const CONFIDENCE_TIERS = [
@@ -58,157 +88,167 @@ export const YouScreen = ({
 
   const currentTierIdx = CONFIDENCE_TIERS.findIndex(t => t.name.toLowerCase() === confidenceState.toLowerCase());
 
-  const DISCOVERIES = [
-    {
-      minDay: 1,
-      day: "Day 1",
-      title: "Resting Heart Rate",
-      quote: baselineData?.restingHr 
-        ? `I've discovered your average resting heart rate is ${restingHrVal} bpm.`
-        : "AWEN is observing your quiet periods to learn your true resting heart rate.",
-      detail: "Observed during quiet resting states throughout your daily routine."
-    },
-    {
-      minDay: 2,
-      day: "Day 2",
-      title: "Cognitive Effort Offset",
-      quote: "Recognizing your natural heart rate variance during focused cognitive work.",
-      detail: "Recognized as focus effort, preventing non-exertional false stress warnings."
-    },
-    {
-      minDay: 3,
-      day: "Day 3",
-      title: "Movement Recovery Curve",
-      quote: `Cardiovascular recovery speed tracked relative to your ${restingHrVal} bpm baseline.`,
-      detail: "Your body settles smoothly back to your normal resting level."
-    },
-    {
-      minDay: 4,
-      day: "Day 4",
-      title: "Staircase Exertion Filter",
-      quote: "Stair climbing causes expected physical lift, returning to baseline in 90 seconds.",
-      detail: "Activity context filter applied so stairs never trigger false stress alerts."
-    }
-  ];
-
   return (
-    <>
-      <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-24 lg:pb-12 space-y-6 animate-fadeIn">
+    <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-24 lg:pb-12 space-y-6 animate-fadeIn">
       
-      {/* 1. WHO YOU ARE (Profile Header) */}
-      <div className="flex flex-wrap items-center justify-between neo-surface p-5 sm:p-6  border border-2 border-[var(--border-strong)] text-left gap-4">
-        <div className="flex items-center gap-4 min-w-0">
-          <div className="w-14 h-14 sm:w-16 sm:h-16  bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] shadow-[4px_4px_0px_#111] p-[1.5px] shadow-[2px_2px_0px_#111] shadow-[2px_2px_0px_#111] shrink-0">
-            <div className="w-full h-full bg-[#080d18] rounded-[14px] flex items-center justify-center text-[var(--text-primary)] font-heading font-bold text-xl sm:text-2xl">
-              {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'D'}
+      {/* ── 1. WHO YOU ARE (Profile Header with SQLite Data) ── */}
+      <div className="neo-surface p-5 sm:p-7 border-2 border-[var(--border-strong)] bg-[var(--surface-primary)] shadow-[4px_4px_0px_#111] text-left">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 bg-[var(--text-primary)] text-[var(--bg-base)] border-2 border-[var(--border-strong)] shadow-[3px_3px_0px_#111] flex items-center justify-center font-heading font-bold text-2xl shrink-0">
+              {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'P'}
+            </div>
+
+            <div className="space-y-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h1 className="font-heading text-xl sm:text-2xl font-bold text-[var(--text-primary)] truncate">
+                  {currentUser?.name || 'Local Patient'}
+                </h1>
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 border border-[var(--border-strong)] bg-[var(--surface-secondary)] text-[var(--text-primary)]">
+                  {currentUser?.patient_id || 'PAT-LOCAL'}
+                </span>
+              </div>
+              <p className="text-xs text-[var(--text-secondary)] font-medium truncate">
+                {currentUser?.email || 'patient@awen.local'}
+              </p>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-[var(--accent-green-bg)] text-[var(--accent-green-dark)] text-xs font-mono font-bold border border-[var(--border-strong)]">
+                <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                <span>Tier: {confidenceState}</span>
+              </div>
             </div>
           </div>
 
-          <div className="space-y-0.5 min-w-0">
-            <h1 className="font-heading text-xl sm:text-2xl font-bold text-[var(--text-primary)] truncate">
-              {currentUser?.name || 'Guest User'}
-            </h1>
-            <p className="text-xs sm:text-sm text-[var(--text-secondary)] font-bold font-light truncate">
-              {currentUser?.email || 'guest@awen.app'}
-            </p>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5  bg-emerald-500/10 text-[var(--accent-green-dark)] text-xs font-medium border border-2 border-[var(--border-strong)]">
-              <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-              <span>Tier: {confidenceState}</span>
-            </div>
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={handleOpenEdit}
+              className="px-3 py-2 neo-surface hover:bg-[var(--surface-secondary)] border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111] flex items-center gap-1.5 text-xs font-bold transition-all"
+              title="Edit Patient Profile"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>Edit Profile</span>
+            </button>
+
+            {currentUser ? (
+              <button
+                onClick={onLogout}
+                className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-700 border-2 border-red-600 shadow-[2px_2px_0px_#dc2626] transition-all flex items-center gap-1.5 text-xs font-bold"
+                title="Log Out"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Sign Out</span>
+              </button>
+            ) : (
+              <button
+                onClick={onOpenAuth}
+                className="neo-btn neo-btn-primary px-4 py-2 text-xs font-bold"
+              >
+                Sign In
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Auth Action Button */}
-        <div className="flex items-center gap-2 shrink-0">
-          {currentUser ? (
-            <button
-              onClick={onLogout}
-              className="p-2.5 sm:px-4 sm:py-2.5  neo-surface hover:bg-rose-500/20 text-[var(--text-secondary)] font-bold hover:text-rose-300 border border-2 border-[var(--border-strong)] transition-colors flex items-center gap-2 text-xs font-semibold active:scale-95"
-              title="Log Out"
-            >
-              <LogOut className="w-4 h-4" />
-              <span className="hidden sm:inline">Sign Out</span>
-            </button>
-          ) : (
-            <button
-              onClick={onOpenAuth}
-              className="px-4 py-2.5  bg-cyan-600 hover:bg-cyan-500 text-[var(--text-primary)] text-xs font-semibold shadow-[2px_2px_0px_#111] shadow-[2px_2px_0px_#111]"
-            >
-              Sign In / Up
-            </button>
-          )}
+        {/* Patient Vitals Record Bar */}
+        <div className="mt-5 pt-4 border-t-2 border-[var(--border-strong)] grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div className="p-2.5 bg-[var(--surface-secondary)] border border-[var(--border-strong)]">
+            <span className="text-[10px] font-mono uppercase font-bold text-[var(--text-secondary)] block">Age</span>
+            <span className="font-bold text-sm text-[var(--text-primary)]">
+              {currentUser?.age ? `${currentUser.age} yrs` : 'Not specified'}
+            </span>
+          </div>
+          <div className="p-2.5 bg-[var(--surface-secondary)] border border-[var(--border-strong)]">
+            <span className="text-[10px] font-mono uppercase font-bold text-[var(--text-secondary)] block">Gender</span>
+            <span className="font-bold text-sm text-[var(--text-primary)]">
+              {currentUser?.gender || 'Not specified'}
+            </span>
+          </div>
+          <div className="p-2.5 bg-[var(--surface-secondary)] border border-[var(--border-strong)]">
+            <span className="text-[10px] font-mono uppercase font-bold text-[var(--text-secondary)] block">Phone</span>
+            <span className="font-bold text-sm text-[var(--text-primary)] truncate block">
+              {currentUser?.phone || 'Not specified'}
+            </span>
+          </div>
+          <div className="p-2.5 bg-[var(--surface-secondary)] border border-[var(--border-strong)]">
+            <span className="text-[10px] font-mono uppercase font-bold text-[var(--text-secondary)] block">Device ID</span>
+            <span className="font-mono font-bold text-xs text-[var(--accent-green-dark)] truncate block">
+              {currentUser?.device_id || 'AWEN_ESP32_01'}
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* 2. WHAT AWEN KNOWS (Personal Baseline Summary) */}
-      <div className="neo-surface p-6 sm:p-7  border border-2 border-[var(--border-strong)] space-y-4 text-left shadow-[4px_4px_0px_#111]">
-        <div className="flex items-center justify-between border-b border-2 border-[var(--border-strong)] pb-3">
-          <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-primary)] font-mono flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-[var(--text-primary)]" />
-            <span>What AWEN Knows About You</span>
+      {/* ── 2. WHAT AWEN KNOWS (Personal Baseline Summary) ── */}
+      <div className="neo-surface p-6 sm:p-7 border-2 border-[var(--border-strong)] bg-[var(--surface-primary)] shadow-[4px_4px_0px_#111] space-y-4 text-left">
+        <div className="flex items-center justify-between border-b-2 border-[var(--border-strong)] pb-3">
+          <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)] font-mono flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-[var(--accent-green-dark)]" />
+            <span>Learned Body Baseline (SQLite Single Source of Truth)</span>
           </span>
           <span className="text-[10px] text-[var(--text-secondary)] font-bold font-mono">
-            {baselineData?.signatureId || "AWEN-SIG-8841"}
+            {currentUser?.patient_id ? `PATIENT REF: ${currentUser.patient_id}` : "CALIBRATING"}
           </span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="p-3.5  bg-[var(--surface-secondary)] space-y-0.5">
-            <span className="text-[10px] text-[var(--text-secondary)] font-bold font-mono block">Resting HR</span>
-            <span className="text-lg font-heading font-bold text-[var(--text-primary)] block">{restingHrVal} bpm</span>
-            <span className="text-[9px] text-[var(--text-secondary)] font-bold">Quiet Signature</span>
+          <div className="p-3.5 bg-[var(--surface-secondary)] border border-[var(--border-strong)] space-y-0.5">
+            <span className="text-[10px] text-[var(--text-secondary)] font-bold font-mono block uppercase">Resting HR</span>
+            <span className="text-xl font-heading font-bold text-[var(--text-primary)] block">{restingHrVal} bpm</span>
+            <span className="text-[9px] text-[var(--text-secondary)] font-bold">Personal Signature</span>
           </div>
 
-          <div className="p-3.5  bg-[var(--surface-secondary)] space-y-0.5">
-            <span className="text-[10px] text-[var(--text-secondary)] font-bold font-mono block">Usual Variance</span>
-            <span className="text-lg font-heading font-bold text-[var(--accent-green-dark)] block">±{hrStdDevVal} bpm</span>
-            <span className="text-[9px] text-[var(--text-secondary)] font-bold">Expected Spread</span>
+          <div className="p-3.5 bg-[var(--surface-secondary)] border border-[var(--border-strong)] space-y-0.5">
+            <span className="text-[10px] text-[var(--text-secondary)] font-bold font-mono block uppercase">Usual Variance</span>
+            <span className="text-xl font-heading font-bold text-[var(--accent-green-dark)] block">±{hrStdDevVal} bpm</span>
+            <span className="text-[9px] text-[var(--text-secondary)] font-bold">Expected Corridor</span>
           </div>
 
-          <div className="p-3.5  bg-[var(--surface-secondary)] space-y-0.5">
-            <span className="text-[10px] text-[var(--text-secondary)] font-bold font-mono block">Observation Days</span>
-            <span className="text-lg font-heading font-bold text-[var(--text-primary)] block">{obsDay} / 7 Days</span>
-            <span className="text-[9px] text-[var(--text-secondary)] font-bold">Baseline History</span>
+          <div className="p-3.5 bg-[var(--surface-secondary)] border border-[var(--border-strong)] space-y-0.5">
+            <span className="text-[10px] text-[var(--text-secondary)] font-bold font-mono block uppercase">Observation Day</span>
+            <span className="text-xl font-heading font-bold text-[var(--text-primary)] block">{obsDay} / 7</span>
+            <span className="text-[9px] text-[var(--text-secondary)] font-bold">Observation Cycle</span>
           </div>
 
-          <div className="p-3.5  bg-[var(--surface-secondary)] space-y-0.5">
-            <span className="text-[10px] text-[var(--text-secondary)] font-bold font-mono block">Stair Filter</span>
-            <span className="text-lg font-heading font-bold text-amber-300 block">+34.0 bpm</span>
-            <span className="text-[9px] text-[var(--text-secondary)] font-bold">Exertion Offset</span>
+          <div className="p-3.5 bg-[var(--surface-secondary)] border border-[var(--border-strong)] space-y-0.5">
+            <span className="text-[10px] text-[var(--text-secondary)] font-bold font-mono block uppercase">Status</span>
+            <span className="text-xl font-heading font-bold text-[var(--text-primary)] block">
+              {isLearning ? 'Learning' : 'Settled'}
+            </span>
+            <span className="text-[9px] text-[var(--text-secondary)] font-bold">Baseline State</span>
           </div>
         </div>
       </div>
 
-      {/* 3. HOW AWEN IS LEARNING (Confidence Progress Card) */}
-      <div className="neo-surface p-6 sm:p-7  border border-purple-500/30 space-y-4 text-left">
-        <div className="flex items-center justify-between border-b border-2 border-[var(--border-strong)] pb-3">
-          <span className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-purple-300 flex items-center gap-2 font-mono">
-            <Sparkles className="w-4 h-4 text-purple-400" />
-            <span>Baseline Learning Status</span>
+      {/* ── 3. BASELINE CONFIDENCE PROGRESS CARD ── */}
+      <div className="neo-surface p-6 sm:p-7 border-2 border-[var(--border-strong)] bg-[var(--surface-primary)] shadow-[4px_4px_0px_#111] space-y-4 text-left">
+        <div className="flex items-center justify-between border-b-2 border-[var(--border-strong)] pb-3">
+          <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-[var(--text-primary)] flex items-center gap-2 font-mono">
+            <Sparkles className="w-4 h-4 text-[var(--accent-green-dark)]" />
+            <span>Baseline Confidence Tier</span>
           </span>
-          <span className={`text-[10px] sm:text-xs font-semibold px-2.5 py-0.5  border ${isLearning ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' : 'bg-emerald-500/20 text-[var(--accent-green-dark)] border-2 border-[var(--border-strong)]'}`}>
+          <span className="text-xs font-mono font-bold px-2.5 py-0.5 border border-[var(--border-strong)] bg-[var(--accent-green-bg)] text-[var(--accent-green-dark)]">
             {confidenceState}
           </span>
         </div>
 
-        <p className="text-xs sm:text-sm text-[var(--text-secondary)] font-bold font-light leading-relaxed">
+        <p className="text-xs sm:text-sm text-[var(--text-secondary)] font-medium leading-relaxed">
           {isLearning 
-            ? "AWEN is currently observing your daily resting pattern. As more quiet resting readings accumulate, your baseline confidence tier will automatically improve." 
-            : "AWEN is actively comparing your live telemetry against your learned 5-day baseline signature."}
+            ? "AWEN is observing your quiet resting windows to calibrate your true personal baseline without false alarms." 
+            : "AWEN is evaluating incoming physiological telemetry against your calibrated personal baseline signature."}
         </p>
 
         {/* 4 Confidence Tiers Stepper */}
         <div className="space-y-2 pt-1">
           <div className="grid grid-cols-4 gap-2 text-center">
             {CONFIDENCE_TIERS.map((tier, idx) => {
-              const isCurrent = idx === (currentTierIdx >= 0 ? currentTierIdx : 3);
-              const isPassed = idx <= (currentTierIdx >= 0 ? currentTierIdx : 3);
+              const isCurrent = idx === (currentTierIdx >= 0 ? currentTierIdx : 0);
+              const isPassed = idx <= (currentTierIdx >= 0 ? currentTierIdx : 0);
 
               return (
                 <div key={tier.name} className="space-y-1">
-                  <div className={`h-2  transition-all ${isCurrent ? 'bg-cyan-400 shadow-[2px_2px_0px_#111] shadow-[2px_2px_0px_#111]' : isPassed ? 'bg-emerald-400' : 'bg-[var(--surface-primary)]'}`} />
-                  <span className={`text-[10px] font-mono block truncate ${isCurrent ? 'text-[var(--text-primary)] font-bold' : isPassed ? 'text-[var(--text-secondary)] font-bold' : 'text-[var(--text-secondary)]'}`}>
-                    {tier.name.split(' ')[0]}
+                  <div className={`h-2 border border-[var(--border-strong)] transition-all ${isCurrent ? 'bg-[var(--accent-green)] shadow-[1px_1px_0px_#111]' : isPassed ? 'bg-[var(--accent-green-bg)]' : 'bg-[var(--surface-secondary)]'}`} />
+                  <span className={`text-[10px] font-mono font-bold block truncate ${isCurrent ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>
+                    {tier.name}
                   </span>
                 </div>
               );
@@ -217,304 +257,154 @@ export const YouScreen = ({
         </div>
 
         <div className="pt-2">
-          {isLearning ? (
-            <button
-              onClick={() => setIsConfirmStopOpen(true)}
-              className="w-full py-2.5  bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 border border-purple-500/30 text-xs font-semibold transition-colors"
-            >
-              Exit Observation Mode
-            </button>
-          ) : (
-            <button
-              onClick={() => onToggleObservation(true)}
-              className="w-full py-2.5  bg-purple-600 hover:bg-purple-500 text-[var(--text-primary)] text-xs font-semibold shadow-[2px_2px_0px_#111] shadow-[2px_2px_0px_#111] transition-all"
-            >
-              Restart Observation Mode
-            </button>
-          )}
+          <button
+            onClick={() => onToggleObservation(!isLearning)}
+            className="w-full py-2.5 neo-btn text-xs font-bold"
+          >
+            {isLearning ? 'Conclude Observation Mode' : 'Restart Observation Mode'}
+          </button>
         </div>
       </div>
 
-      {/* 4. YOUR HARDWARE (Connection State Card) */}
-      <div className="neo-surface p-6 sm:p-7  border border-2 border-[var(--border-strong)] space-y-3 text-left">
-        <div className="flex items-center justify-between border-b border-2 border-[var(--border-strong)] pb-3">
-          <span className="text-xs sm:text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
-            <Globe className="w-4 h-4 text-[var(--text-primary)]" />
-            <span>Telemetry Hardware & Controls</span>
+      {/* ── 4. HARDWARE ASSOCIATION DETAILS ── */}
+      <div className="neo-surface p-6 sm:p-7 border-2 border-[var(--border-strong)] bg-[var(--surface-primary)] shadow-[4px_4px_0px_#111] space-y-3 text-left">
+        <div className="flex items-center justify-between border-b-2 border-[var(--border-strong)] pb-3">
+          <span className="text-xs sm:text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
+            <Cpu className="w-4 h-4 text-[var(--accent-green-dark)]" />
+            <span>Associated ESP32 Device & Data Stream</span>
           </span>
-          <span className={`text-[10px] sm:text-xs font-semibold px-2.5 py-0.5  border ${telemetry?.isHardware ? 'bg-emerald-500/20 border-2 border-[var(--border-strong)] text-[var(--accent-green-dark)]' : 'bg-cyan-500/20 border-2 border-[var(--border-strong)] text-[var(--text-primary)]'}`}>
-            {telemetry?.isHardware ? 'ESP32 Hardware' : 'Demo Stream'}
-          </span>
-        </div>
-
-        <p className="text-xs text-[var(--text-secondary)] font-bold font-light">
-          Saved Timezone: <strong className="text-[var(--text-primary)] font-bold">{currentUser?.timezone || 'Asia/Kolkata'}</strong>
-        </p>
-
-        <button
-          onClick={() => setIsIoTModalOpen(true)}
-          className="w-full py-2.5  bg-[var(--surface-secondary)] hover:bg-[var(--surface-secondary)] border border-2 border-[var(--border-strong)] text-xs sm:text-sm font-medium text-[var(--text-primary)] font-bold flex items-center justify-between transition-colors px-4"
-        >
-          <span className="flex items-center gap-2">
-            <Cpu className="w-4 h-4 text-[var(--text-primary)]" />
-            <span>ESP32 Pairing & Telemetry Controls</span>
-          </span>
-          <ChevronRight className="w-4 h-4 text-[var(--text-secondary)] font-bold" />
-        </button>
-      </div>
-
-      {/* 5. ACCOUNT / PRIVACY STORY */}
-      <div className="neo-surface p-6 sm:p-7  border border-2 border-[var(--border-strong)] space-y-3 text-left">
-        <div className="flex items-center justify-between border-b border-2 border-[var(--border-strong)] pb-3">
-          <span className="text-xs sm:text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
-            <Mail className="w-4 h-4 text-pink-400" />
-            <span>Monthly Letter from AWEN</span>
-          </span>
-          <span className="text-[10px] text-[var(--text-secondary)] font-bold">
-            {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+          <span className={`text-[10px] sm:text-xs font-mono font-bold px-2 py-0.5 border border-[var(--border-strong)] ${telemetry?.isHardware ? 'bg-[var(--accent-green-bg)] text-[var(--accent-green-dark)]' : 'bg-red-50 text-red-700'}`}>
+            {telemetry?.isHardware ? 'HARDWARE ACTIVE' : 'AWAITING HARDWARE'}
           </span>
         </div>
 
-        <p className="text-xs sm:text-sm text-[var(--text-secondary)] font-bold leading-relaxed font-light italic bg-[var(--surface-primary)] p-4  border border-2 border-[var(--border-strong)]">
-          {`"Dear ${currentUser?.name?.split(' ')[0] || 'Friend'}, your body baseline is established around ${restingHrVal} bpm resting heart rate (${confidenceState}). Remember that brief quiet pauses during your daily routine help maintain your natural physiological rhythm."`}
-        </p>
+        <div className="text-xs text-[var(--text-secondary)] space-y-1 font-medium">
+          <p>Associated Device: <strong className="font-mono text-[var(--text-primary)]">{currentUser?.device_id || 'AWEN_ESP32_01'}</strong></p>
+          <p>Timezone: <strong className="text-[var(--text-primary)]">{currentUser?.timezone || 'Asia/Kolkata'}</strong></p>
+          <p className="text-[11px] text-[var(--text-muted)] mt-1">
+            Telemetry posted to <code className="bg-[var(--surface-secondary)] px-1 py-0.5 border border-[var(--border-strong)]">POST /api/readings</code> with this device ID is stored directly under your account.
+          </p>
+        </div>
       </div>
 
-          {/* Discovery Journey */}
-          <div className="space-y-3.5">
-            <div className="flex items-center justify-between">
-              <h2 className="font-heading text-base sm:text-lg font-bold text-[var(--text-primary)] flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-[var(--text-primary)]" />
-                <span>Discovery Journey</span>
-              </h2>
-              <span className="text-[10px] sm:text-xs text-[var(--text-secondary)] font-bold">Baseline Progress</span>
-            </div>
-
-            <div className="space-y-3">
-              {DISCOVERIES.map((disc, idx) => {
-                const isUnlocked = obsDay >= disc.minDay;
-                return (
-                  <div key={idx} className={`neo-surface p-4 sm:p-5  border transition-all ${isUnlocked ? 'border-2 border-[var(--border-strong)]' : 'border-2 border-[var(--border-strong)] opacity-60'}`}>
-                    <div className="flex items-center justify-between text-[10px] sm:text-xs">
-                      <span className={`font-semibold uppercase tracking-wider ${isUnlocked ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}>{disc.day}</span>
-                      <span className="text-[var(--text-secondary)] font-bold">{disc.title}</span>
-                    </div>
-                    {isUnlocked ? (
-                      <>
-                        <p className="text-xs sm:text-sm italic text-[var(--text-primary)] font-bold bg-[var(--surface-primary)] p-3  border border-2 border-[var(--border-strong)] font-light mt-1.5">
-                          "{disc.quote}"
-                        </p>
-                        <p className="text-[11px] sm:text-xs text-[var(--text-secondary)] font-bold leading-normal pt-1 font-light">
-                          {disc.detail}
-                        </p>
-                      </>
-                    ) : (
-                      <p className="text-xs text-[var(--text-secondary)] font-bold italic bg-[var(--surface-primary)] p-3  border border-2 border-[var(--border-strong)] font-light mt-1.5">
-                        🔒 Unlocks on Observation Day {disc.minDay} — Keep device active during daily routine to unlock.
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-      {/* Confirmation Modal to Stop Observation Mode */}
-      {isConfirmStopOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80  animate-fadeIn">
-          <div className="relative w-full max-w-md neo-surface p-6  border border-purple-500/30 space-y-4 shadow-[6px_6px_0px_#111] text-left bg-[#0d1527]">
-            <div className="flex items-center gap-2.5 text-purple-300 border-b border-2 border-[var(--border-strong)] pb-3">
-              <AlertCircle className="w-5 h-5 text-purple-400" />
-              <h3 className="font-heading text-base font-bold text-[var(--text-primary)]">Stop Observation Mode?</h3>
-            </div>
-
-            <p className="text-xs text-[var(--text-secondary)] font-bold leading-relaxed font-light">
-              Are you sure? AWEN will begin using your learned baseline signature for personalized observations.
-            </p>
-
-            <div className="flex justify-end gap-3 pt-2">
-              <button
-                onClick={() => setIsConfirmStopOpen(false)}
-                className="px-4 py-2  bg-[var(--surface-secondary)] hover:bg-[var(--surface-secondary)] text-xs font-medium text-[var(--text-secondary)] font-bold border border-2 border-[var(--border-strong)]"
+      {/* ── EDIT PROFILE MODAL ── */}
+      {isEditProfileOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-fadeIn backdrop-blur-sm">
+          <div className="relative w-full max-w-md neo-surface p-6 sm:p-8 space-y-5 text-left border-2 border-[var(--border-strong)] bg-[var(--surface-primary)] shadow-[6px_6px_0px_#111]">
+            <div className="flex items-center justify-between border-b-2 border-[var(--border-strong)] pb-3">
+              <div className="flex items-center gap-2">
+                <Edit3 className="w-5 h-5 text-[var(--accent-green-dark)]" />
+                <h3 className="font-heading text-lg font-bold text-[var(--text-primary)] uppercase">
+                  Edit Patient Profile
+                </h3>
+              </div>
+              <button 
+                onClick={() => setIsEditProfileOpen(false)}
+                className="p-1.5 border border-[var(--border-strong)] hover:bg-[var(--surface-secondary)]"
               >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  onToggleObservation(false);
-                  setIsConfirmStopOpen(false);
-                }}
-                className="px-4 py-2  bg-purple-600 hover:bg-purple-500 text-xs font-semibold text-[var(--text-primary)] shadow-[2px_2px_0px_#111] shadow-[2px_2px_0px_#111]"
-              >
-                Stop Learning
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      </div>
-
-      {/* IoT Pairing & Hardware Controls Modal */}
-      {isIoTModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#111111]/80 animate-fadeIn">
-          <div className="relative w-full max-w-md neo-surface p-6 sm:p-8 shadow-[6px_6px_0px_#111] text-left max-h-[90dvh] overflow-y-auto border-2 border-[var(--border-strong)] bg-[var(--surface-primary)]">
-            <div className="flex items-center justify-between border-b border-2 border-[var(--border-strong)] pb-3">
-              <h3 className="font-heading text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
-                <Cpu className="w-4 h-4 text-[var(--text-primary)]" />
-                <span>ESP32 Hardware & Serial Controls</span>
-              </h3>
-              <button onClick={() => setIsIoTModalOpen(false)} className="p-1 text-[var(--text-secondary)] font-bold hover:text-[var(--text-primary)]">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Hardware Web Serial Connection Section */}
-            <div className="p-4  bg-[var(--surface-primary)] border border-2 border-[var(--border-strong)] space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-[var(--text-primary)] font-bold">Physical Hardware Connection</span>
-                <span className={`text-[10px] font-semibold px-2 py-0.5  border ${
-                  telemetryStream?.isHardwareConnected 
-                    ? 'bg-emerald-500/20 text-[var(--accent-green-dark)] border-2 border-[var(--border-strong)]'
-                    : hwStatus === 'CONNECTING'
-                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                    : hwStatus === 'ERROR'
-                    ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
-                    : 'bg-slate-700/40 text-[var(--text-secondary)] font-bold border-2 border-[var(--border-strong)]'
-                }`}>
-                  {telemetryStream?.isHardwareConnected ? 'Connected (ESP32)' : hwStatus === 'CONNECTING' ? 'Connecting...' : hwStatus === 'ERROR' ? 'Error' : 'Disconnected'}
-                </span>
+            {saveErrorMsg && (
+              <div className="p-3 bg-red-50 border-2 border-red-600 text-red-700 text-xs font-bold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{saveErrorMsg}</span>
+              </div>
+            )}
+
+            {saveSuccessMsg && (
+              <div className="p-3 bg-[var(--accent-green-bg)] border-2 border-[var(--accent-green)] text-[var(--accent-green-dark)] text-xs font-bold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>{saveSuccessMsg}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveProfile} className="space-y-3.5 text-xs">
+              <div className="space-y-1">
+                <label className="font-mono font-bold uppercase text-[var(--text-secondary)]">Full Name</label>
+                <input 
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full px-3 py-2 border-2 border-[var(--border-strong)] bg-[var(--surface-secondary)] font-medium"
+                />
               </div>
 
-              <p className="text-[11px] text-[var(--text-secondary)] font-bold leading-relaxed font-light">
-                Connect physical ESP32 (MAX30102 PPG + MPU6050 IMU) over USB Serial at 115200 baud. Supported in Google Chrome & Microsoft Edge.
-              </p>
-
-              {hwError && (
-                <div className="p-3  bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                  <span>{hwError}</span>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-mono font-bold uppercase text-[var(--text-secondary)]">Age</label>
+                  <input 
+                    type="number"
+                    min="1"
+                    max="125"
+                    value={editAge}
+                    onChange={(e) => setEditAge(e.target.value)}
+                    className="w-full px-3 py-2 border-2 border-[var(--border-strong)] bg-[var(--surface-secondary)] font-medium"
+                  />
                 </div>
-              )}
 
-              {telemetryStream?.isHardwareConnected ? (
-                <button
-                  onClick={handleDisconnectSerial}
-                  className="w-full py-2  bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/30 text-xs font-semibold transition-colors"
-                >
-                  Disconnect ESP32 Serial Port
-                </button>
-              ) : (
-                <button
-                  onClick={handleConnectSerial}
-                  className="w-full py-2.5  bg-cyan-600 hover:bg-cyan-500 text-[var(--text-primary)] text-xs font-semibold shadow-[2px_2px_0px_#111] shadow-[2px_2px_0px_#111] transition-all flex items-center justify-center gap-2"
-                >
-                  <Cpu className="w-4 h-4" />
-                  <span>Connect ESP32 via Web Serial</span>
-                </button>
-              )}
-            </div>
-
-            {/* Serial Parser Self-Test Suite Section */}
-            <div className="p-4  bg-[var(--surface-primary)] border border-2 border-[var(--border-strong)] space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-[var(--text-primary)] font-bold">Data Contract & Parser Test Suite</span>
-                <button
-                  onClick={handleRunSelfTest}
-                  className="px-2.5 py-1  bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 text-[10px] font-semibold transition-colors"
-                >
-                  Run Parser Self-Test
-                </button>
-              </div>
-
-              {testResults ? (
-                <div className="space-y-1.5 pt-1">
-                  {testResults.map((tr, idx) => (
-                    <div key={idx} className="flex items-center justify-between text-[11px] p-2  bg-slate-950/40 border border-2 border-[var(--border-strong)]">
-                      <span className="text-[var(--text-secondary)] font-bold font-light">{tr.name}</span>
-                      <span className={`font-mono text-[10px] font-semibold px-2 py-0.5 rounded ${tr.passed ? 'bg-emerald-500/20 text-[var(--accent-green-dark)]' : 'bg-rose-500/20 text-rose-300'}`}>
-                        {tr.passed ? 'PASS' : 'FAIL'}
-                      </span>
-                    </div>
-                  ))}
+                <div className="space-y-1">
+                  <label className="font-mono font-bold uppercase text-[var(--text-secondary)]">Gender</label>
+                  <select 
+                    value={editGender}
+                    onChange={(e) => setGender(e.target.value)}
+                    className="w-full px-3 py-2 border-2 border-[var(--border-strong)] bg-[var(--surface-secondary)] font-medium"
+                  >
+                    <option value="Female">Female</option>
+                    <option value="Male">Male</option>
+                    <option value="Non-binary">Non-binary</option>
+                    <option value="Prefer not to say">Prefer not to say</option>
+                  </select>
                 </div>
-              ) : (
-                <p className="text-[11px] text-[var(--text-secondary)] font-bold italic font-light">
-                  Click 'Run Parser Self-Test' to validate 6 packet parsing test cases (out-of-bounds BPM, malformed JSON, finger contact loss, accelerometer vector).
-                </p>
-              )}
-            </div>
+              </div>
 
-            {/* Simulator Controls */}
-            <div className="space-y-2 text-xs pt-1">
-              <label className="font-semibold text-[var(--text-secondary)] font-bold">Simulate Physical Activity Scenario:</label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="font-mono font-bold uppercase text-[var(--text-secondary)]">Phone Number</label>
+                <input 
+                  type="tel"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  placeholder="+91 98765 43210"
+                  className="w-full px-3 py-2 border-2 border-[var(--border-strong)] bg-[var(--surface-secondary)] font-medium"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-mono font-bold uppercase text-[var(--text-secondary)]">Hardware Device ID</label>
+                <input 
+                  type="text"
+                  value={editDeviceId}
+                  onChange={(e) => setEditDeviceId(e.target.value)}
+                  placeholder="AWEN_ESP32_01"
+                  className="w-full px-3 py-2 border-2 border-[var(--border-strong)] bg-[var(--surface-secondary)] font-mono font-bold text-[var(--accent-green-dark)]"
+                />
+                <p className="text-[10px] text-[var(--text-muted)]">Must match the device_id transmitted by your ESP32.</p>
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
                 <button
-                  onClick={() => { telemetryStream?.setScenario('normal'); setIsIoTModalOpen(false); }}
-                  className="p-2.5  bg-[var(--surface-secondary)] hover:bg-[var(--surface-secondary)] text-[var(--text-primary)] font-bold border border-2 border-[var(--border-strong)] text-left"
+                  type="button"
+                  onClick={() => setIsEditProfileOpen(false)}
+                  className="px-4 py-2 border-2 border-[var(--border-strong)] hover:bg-[var(--surface-secondary)] font-bold uppercase tracking-wider"
                 >
-                  Resting (64 bpm)
+                  Cancel
                 </button>
                 <button
-                  onClick={() => { telemetryStream?.setScenario('stairs'); setIsIoTModalOpen(false); }}
-                  className="p-2.5  bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 text-left"
+                  type="submit"
+                  disabled={isSavingProfile}
+                  className="neo-btn neo-btn-primary px-5 py-2 font-bold uppercase tracking-wider flex items-center gap-2"
                 >
-                  Stairs (+34 bpm)
-                </button>
-                <button
-                  onClick={() => { telemetryStream?.setScenario('caffeine'); setIsIoTModalOpen(false); }}
-                  className="p-2.5  bg-cyan-500/10 hover:bg-cyan-500/20 text-[var(--text-primary)] border border-2 border-[var(--border-strong)] text-left"
-                >
-                  Caffeine Work
-                </button>
-                <button
-                  onClick={() => { telemetryStream?.setScenario('exercise'); setIsIoTModalOpen(false); }}
-                  className="p-2.5  bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/20 text-left"
-                >
-                  Running
+                  {isSavingProfile ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  <span>Save to SQLite</span>
                 </button>
               </div>
-            </div>
-
-            {/* Dev Baseline Testing Controls */}
-            <div className="space-y-2 text-xs pt-2 border-t border-2 border-[var(--border-strong)]">
-              <label className="font-semibold text-purple-300 flex items-center gap-1.5 font-mono">
-                <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-                <span>Test Baseline Engine Calculation:</span>
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={async () => {
-                    const b = await apiService.seedTestReadings(currentUser?.id, 58);
-                    if (b && onUpdateUserBaseline) onUpdateUserBaseline(b);
-                  }}
-                  className="p-2  bg-purple-500/10 hover:bg-purple-500/20 text-purple-200 border border-purple-500/20 text-left text-[11px]"
-                >
-                  Seed 58 bpm Profile
-                </button>
-                <button
-                  onClick={async () => {
-                    const b = await apiService.seedTestReadings(currentUser?.id, 76);
-                    if (b && onUpdateUserBaseline) onUpdateUserBaseline(b);
-                  }}
-                  className="p-2  bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-200 border border-2 border-[var(--border-strong)] text-left text-[11px]"
-                >
-                  Seed 76 bpm Profile
-                </button>
-              </div>
-            </div>
-
-            <div className="pt-2 border-t border-2 border-[var(--border-strong)] flex justify-end">
-              <button
-                onClick={() => setIsIoTModalOpen(false)}
-                className="px-4 py-2  bg-[var(--surface-primary)] text-xs font-medium text-[var(--text-primary)] hover:bg-slate-700 transition-colors"
-              >
-                Close
-              </button>
-            </div>
+            </form>
           </div>
         </div>
       )}
 
-    </>
+    </div>
   );
 };
