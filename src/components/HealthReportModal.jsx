@@ -1,25 +1,39 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Printer, Download, FileText, ShieldCheck, Heart, Wind, Thermometer, Calendar } from 'lucide-react';
+import { apiService } from '../services/apiService';
 
 export const HealthReportModal = ({ isOpen, onClose, currentUser, baselineData, telemetry }) => {
   const [duration, setDuration] = useState('7d');
-
-  if (!isOpen) return null;
+  const [readings, setReadings] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   const restingHr = baselineData?.restingHr ? Number(baselineData.restingHr).toFixed(1) : '64.0';
   const hrVariance = baselineData?.hrStdDev ? Number(baselineData.hrStdDev).toFixed(1) : '4.8';
   const confidence = currentUser?.baseline_confidence || baselineData?.confidence || 'Stable baseline';
 
-  // Sample physiological log entries for clinical review (G-12)
-  const AUDIT_LOG = [
-    { timestamp: 'Today, 08:15 AM', hr: '62.4', spo2: '98.8', temp: '36.6', context: 'Quiet Rest', delta: '-1.6' },
-    { timestamp: 'Today, 11:45 AM', hr: '98.0', spo2: '98.2', temp: '37.1', context: 'Stairs (Climbing)', delta: '+34.0' },
-    { timestamp: 'Today, 02:30 PM', hr: '68.5', spo2: '98.6', temp: '36.7', context: 'Study / Focus', delta: '+4.5' },
-    { timestamp: 'Today, 06:10 PM', hr: '84.2', spo2: '98.4', temp: '36.8', context: 'Walking (Outdoor)', delta: '+20.2' },
-    { timestamp: 'Yesterday, 07:45 AM', hr: '63.8', spo2: '98.7', temp: '36.5', context: 'Morning Rest', delta: '-0.2' },
-    { timestamp: 'Yesterday, 01:15 PM', hr: '71.0', spo2: '98.5', temp: '36.6', context: 'Desk Work', delta: '+7.0' },
-    { timestamp: 'Yesterday, 09:30 PM', hr: '61.5', spo2: '98.9', temp: '36.4', context: 'Evening Wind-Down', delta: '-2.5' }
-  ];
+  useEffect(() => {
+    if (!isOpen) return;
+    let isMounted = true;
+
+    async function loadReportData() {
+      setLoading(true);
+      try {
+        const history = await apiService.getReadingsHistory(50);
+        if (isMounted && history) {
+          setReadings(history);
+        }
+      } catch (err) {
+        console.warn('Failed to load report readings:', err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    loadReportData();
+    return () => { isMounted = false; };
+  }, [isOpen]);
+
+  if (!isOpen) return null;
 
   const handlePrint = () => {
     window.print();
@@ -28,6 +42,8 @@ export const HealthReportModal = ({ isOpen, onClose, currentUser, baselineData, 
   const handleExportJSON = () => {
     const reportData = {
       patient: {
+        id: currentUser?.id,
+        patient_id: currentUser?.patient_id || 'PAT-LOCAL',
         name: currentUser?.name || 'Explorer',
         email: currentUser?.email || 'user@awen.local',
         baseline_confidence: confidence
@@ -38,7 +54,14 @@ export const HealthReportModal = ({ isOpen, onClose, currentUser, baselineData, 
         resting_temp: '36.6',
         hr_variance: hrVariance
       },
-      audit_log: AUDIT_LOG,
+      audit_log: readings.map(r => ({
+        timestamp: r.created_at || r.timestamp,
+        hr: r.bpm,
+        spo2: r.spo2,
+        temp: r.temperature,
+        context: r.motion_context || 'Standard',
+        delta: (r.bpm - Number(restingHr)).toFixed(1)
+      })),
       generated_at: new Date().toISOString()
     };
     const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
@@ -192,38 +215,51 @@ export const HealthReportModal = ({ isOpen, onClose, currentUser, baselineData, 
           {/* Section 3: Telemetry Audit Log Table (G-12) */}
           <div className="space-y-2">
             <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--text-secondary)]">
-              Section 3: Physiological Audit Log (Selected Data Points)
+              Section 3: Physiological Audit Log (Persisted SQLite Sensor Telemetry)
             </h4>
-            <div className="border-2 border-[var(--border-strong)] overflow-x-auto shadow-[2px_2px_0px_#111]">
-              <table className="w-full text-left text-xs font-mono border-collapse">
-                <thead className="bg-[var(--surface-secondary)] border-b-2 border-[var(--border-strong)] text-[10px] font-bold uppercase tracking-wider">
-                  <tr>
-                    <th className="p-2.5">Timestamp</th>
-                    <th className="p-2.5">Heart Rate</th>
-                    <th className="p-2.5">SpO₂</th>
-                    <th className="p-2.5">Skin Temp</th>
-                    <th className="p-2.5">Context / Activity</th>
-                    <th className="p-2.5">Delta vs Base</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--border-light)] font-medium">
-                  {AUDIT_LOG.map((row, idx) => (
-                    <tr key={idx} className="hover:bg-[var(--surface-secondary)]">
-                      <td className="p-2.5 whitespace-nowrap">{row.timestamp}</td>
-                      <td className="p-2.5 font-bold">{row.hr} BPM</td>
-                      <td className="p-2.5">{row.spo2} %</td>
-                      <td className="p-2.5">{row.temp} °C</td>
-                      <td className="p-2.5">{row.context}</td>
-                      <td className="p-2.5 font-bold">
-                        <span className={Number(row.delta) > 10 ? 'text-[var(--accent-danger)]' : 'text-[var(--text-primary)]'}>
-                          {row.delta} BPM
-                        </span>
-                      </td>
+            {readings.length === 0 ? (
+              <div className="p-6 border-2 border-[var(--border-strong)] bg-[var(--surface-secondary)] text-center space-y-1">
+                <p className="text-xs font-bold text-[var(--text-primary)]">No sensor data available yet</p>
+                <p className="text-[11px] text-[var(--text-secondary)]">Connect an ESP32 hardware device or ingest readings via POST /api/readings.</p>
+              </div>
+            ) : (
+              <div className="border-2 border-[var(--border-strong)] overflow-x-auto shadow-[2px_2px_0px_#111]">
+                <table className="w-full text-left text-xs font-mono border-collapse">
+                  <thead className="bg-[var(--surface-secondary)] border-b-2 border-[var(--border-strong)] text-[10px] font-bold uppercase tracking-wider">
+                    <tr>
+                      <th className="p-2.5">Timestamp</th>
+                      <th className="p-2.5">Heart Rate</th>
+                      <th className="p-2.5">SpO₂</th>
+                      <th className="p-2.5">Skin Temp</th>
+                      <th className="p-2.5">Motion / Device</th>
+                      <th className="p-2.5">Delta vs Base</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--border-light)] font-medium">
+                    {readings.map((row, idx) => {
+                      const delta = (row.bpm - Number(restingHr)).toFixed(1);
+                      const isElevated = Number(delta) > 10;
+                      return (
+                        <tr key={idx} className="hover:bg-[var(--surface-secondary)]">
+                          <td className="p-2.5 whitespace-nowrap text-[10px]">
+                            {row.created_at ? new Date(row.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : 'Recent'}
+                          </td>
+                          <td className="p-2.5 font-bold">{row.bpm} BPM</td>
+                          <td className="p-2.5">{row.spo2} %</td>
+                          <td className="p-2.5">{row.temperature} °C</td>
+                          <td className="p-2.5 text-[11px]">{row.motion_context || row.device_id || 'Hardware'}</td>
+                          <td className="p-2.5 font-bold">
+                            <span className={isElevated ? 'text-[var(--accent-danger)]' : 'text-[var(--text-primary)]'}>
+                              {Number(delta) > 0 ? `+${delta}` : delta} BPM
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           {/* Section 4: Legal & Cryptographic Hash */}

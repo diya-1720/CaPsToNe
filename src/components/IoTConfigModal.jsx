@@ -155,28 +155,6 @@ export const IoTConfigModal = ({ isOpen, onClose, telemetryStream, telemetry }) 
           </div>
         </div>
 
-        {/* Simulated Telemetry Controls */}
-        <div className="space-y-3 border-t-2 border-[var(--border-strong)] pt-4">
-          <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--text-primary)]">Quick Telemetry Scenario Injection:</label>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {[
-              { id: 'normal', label: 'Resting (64 bpm)' },
-              { id: 'stairs', label: 'Stairs (+34 bpm)' },
-              { id: 'caffeine', label: 'Caffeine Spike' },
-              { id: 'exercise', label: 'Running Workout' },
-            ].map(scenario => (
-              <button
-                key={scenario.id}
-                onClick={() => {
-                  telemetryStream.setScenario(scenario.id);
-                }}
-                className="px-2 py-2 text-[10px] font-bold uppercase tracking-wider bg-[var(--surface-primary)] hover:bg-[var(--surface-secondary)] text-[var(--text-primary)] border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all"
-              >
-                {scenario.label}
-              </button>
-            ))}
-          </div>
-        </div>
 
         {/* Footer */}
         <div className="flex justify-end pt-4 border-t-2 border-[var(--border-strong)]">

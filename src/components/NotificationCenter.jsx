@@ -1,45 +1,41 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Bell, Check, Trash2, ChevronRight, Activity, Heart, ShieldCheck, Moon, X } from 'lucide-react';
+import { apiService } from '../services/apiService';
 
 export const NotificationCenter = ({ isOpen, onClose, onNavigate }) => {
-  const [notifications, setNotifications] = useState([
-    {
-      id: 'notif_1',
-      title: 'Baseline Corridor Confirmed',
-      desc: 'Resting heart rate established at 64.0 BPM with ±4.8 BPM natural tolerance corridor.',
-      time: '12m ago',
-      icon: ShieldCheck,
-      unread: true,
-      tab: 'insights'
-    },
-    {
-      id: 'notif_2',
-      title: 'Optimal Movement Recovery',
-      desc: 'Stair climbing elevation settled back to baseline within 88 seconds.',
-      time: '1h ago',
-      icon: Activity,
-      unread: true,
-      tab: 'today'
-    },
-    {
-      id: 'notif_3',
-      title: 'ESP32 Telemetry Ready',
-      desc: 'Web Serial driver ready at 115200 baud for MAX30102 PPG pulse stream.',
-      time: '3h ago',
-      icon: Heart,
-      unread: false,
-      tab: 'home'
-    },
-    {
-      id: 'notif_4',
-      title: 'Evening Quiet Transition',
-      desc: 'AWEN entering evening wind-down window. Reduced stimulation recommended.',
-      time: 'Yesterday',
-      icon: Moon,
-      unread: false,
-      tab: 'today'
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let isMounted = true;
+    async function loadObservations() {
+      setLoading(true);
+      try {
+        const obs = await apiService.getObservations();
+        if (isMounted && obs) {
+          const mapped = obs.map((o) => ({
+            id: o.id,
+            title: o.confidence_tier ? `${o.confidence_tier.toUpperCase()} Observation` : 'Observation Log',
+            desc: o.observation_text,
+            time: o.created_at ? new Date(o.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent',
+            icon: ShieldCheck,
+            unread: true,
+            tab: 'insights'
+          }));
+          setNotifications(mapped);
+        }
+      } catch (err) {
+        console.warn('Could not load observations:', err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
     }
-  ]);
+
+    loadObservations();
+    return () => { isMounted = false; };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
