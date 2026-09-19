@@ -1,11 +1,12 @@
 import asyncio
 import json
-import random
 import os
+import math
 from datetime import datetime
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Header, Depends
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Header, Depends, Query, status
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, EmailStr
+import re
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List, Dict, Any
 
 from ml_engine import PersonalizedPhysiologicalEngine
@@ -14,10 +15,10 @@ import database
 app = FastAPI(
     title="AWEN Physiological Analysis & SQLite API",
     description="Adaptive Wellness & Emotional Navigation Backend Engine powered by SQLite",
-    version="2.0.0"
+    version="2.1.0"
 )
 
-# Configure environment-aware CORS for production & local development
+# Configure environment-aware CORS
 allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "*")
 allowed_origins = [origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()]
 
@@ -31,16 +32,36 @@ app.add_middleware(
 
 engine = PersonalizedPhysiologicalEngine()
 
-# ----------------- Request Models -----------------
+# ----------------- Request / Response Models -----------------
 
 class SignUpRequest(BaseModel):
-    name: str
-    email: str
-    password: str
+    name: str = Field(..., min_length=1)
+    email: str = Field(..., min_length=3)
+    password: str = Field(..., min_length=6)
+    age: Optional[int] = None
+    gender: Optional[str] = None
+    phone: Optional[str] = None
+    device_id: Optional[str] = None
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        clean = v.strip().lower()
+        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", clean):
+            raise ValueError("Invalid email address format.")
+        return clean
 
 class LoginRequest(BaseModel):
     email: str
     password: str
+
+class ProfileUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    age: Optional[int] = None
+    gender: Optional[str] = None
+    phone: Optional[str] = None
+    device_id: Optional[str] = None
+    timezone: Optional[str] = None
 
 class ObservationModeRequest(BaseModel):
     enabled: bool
@@ -51,23 +72,51 @@ class BaselinePayload(BaseModel):
     resting_temp: Optional[float] = 36.6
     hr_variance: Optional[float] = 4.8
     confidence: Optional[str] = "Learning"
+    samples: Optional[int] = 0
 
-class ReadingPayload(BaseModel):
+class Vector3D(BaseModel):
+    x: Optional[float] = None
+    y: Optional[float] = None
+    z: Optional[float] = None
+
+class SensorReadingPayload(BaseModel):
+    device_id: Optional[str] = "AWEN_ESP32_01"
     heart_rate: Optional[float] = None
     spo2: Optional[float] = None
     temperature: Optional[float] = None
-    activity: Optional[str] = "Resting"
+    accel: Optional[Vector3D] = None
+    gyro: Optional[Vector3D] = None
+    accel_x: Optional[float] = None
+    accel_y: Optional[float] = None
+    accel_z: Optional[float] = None
+    gyro_x: Optional[float] = None
+    gyro_y: Optional[float] = None
+    gyro_z: Optional[float] = None
+    accel_magnitude: Optional[float] = None
+    alarm: Optional[str] = None
+    status: Optional[str] = None
+    activity_state: Optional[str] = "Resting"
     data_source: Optional[str] = "esp32"
+    timestamp_ms: Optional[int] = None
 
 class CheckinPayload(BaseModel):
     mood: str
     activity: Optional[str] = None
     notes: Optional[str] = ""
 
-class ConversationPayload(BaseModel):
+class ObservationPayload(BaseModel):
     message: str
-    response: str
-    topic: Optional[str] = "general"
+    severity: Optional[str] = "info"
+    type: Optional[str] = "physiological"
+    reading_id: Optional[str] = None
+
+class DeviceRegisterPayload(BaseModel):
+    device_id: str
+    device_name: Optional[str] = "AWEN ESP32 Unit"
+
+class ChatRequest(BaseModel):
+    message: str
+    context: Optional[dict] = None
 
 class UserBaselinePayload(BaseModel):
     resting_hr: Optional[float] = None
@@ -77,7 +126,7 @@ class UserBaselinePayload(BaseModel):
     confidence: Optional[str] = None
 
 class TelemetryPayload(BaseModel):
-    device_id: Optional[str] = "esp32_max30102"
+    device_id: Optional[str] = "AWEN_ESP32_01"
     timestamp: Optional[str] = None
     heart_rate: Optional[float] = None
     spo2: Optional[float] = None
@@ -86,27 +135,49 @@ class TelemetryPayload(BaseModel):
     mood: Optional[str] = "Normal"
     user_baseline: Optional[UserBaselinePayload] = None
 
-class ChatRequest(BaseModel):
-    message: str
-    context: Optional[dict] = None
+# ----------------- Real Authentication Middleware / Dependency -----------------
 
-# Helper to extract user_id from Authorization Header
-def get_current_user_id(authorization: Optional[str] = Header(None)) -> str:
+def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
+    """
+    Verify bearer session token in SQLite user_sessions table.
+    Ensures strict tenant isolation. If token is invalid or expired, raises HTTP 401.
+    """
     if not authorization:
-        return "usr_local"
-    # Header format: Bearer usr_xxx or Bearer token
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required. Please log in.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    parts = authorization.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authorization header format. Expected 'Bearer <token>'.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token = parts[1]
+    user = database.verify_session(token)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session has expired or is invalid. Please log in again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    return user
+
+# Optional authentication dependency for endpoints that can accept either authenticated session or device credentials
+def get_optional_current_user(authorization: Optional[str] = Header(None)) -> Optional[dict]:
+    if not authorization:
+        return None
     parts = authorization.split()
     if len(parts) == 2 and parts[0].lower() == "bearer":
-        token = parts[1]
-        if token.startswith("usr_"):
-            return token
-        # Check if user with this id exists
-        u = database.get_user_by_id(token)
-        if u:
-            return u["id"]
-    return "usr_local"
+        return database.verify_session(parts[1])
+    return None
 
-# ----------------- System Endpoints -----------------
+# ----------------- System Root Endpoint -----------------
 
 @app.get("/")
 def read_root():
@@ -114,60 +185,121 @@ def read_root():
         "status": "online",
         "system": "AWEN AI-IoT Physiological Companion",
         "database": "SQLite (awen.db)",
-        "baseline_learned": True,
-        "resting_hr_baseline": engine.baseline["resting_hr"]
+        "version": "2.1.0",
+        "timestamp": datetime.utcnow().isoformat()
     }
 
-# ----------------- Auth Endpoints -----------------
+@app.get("/api/health")
+def read_health():
+    return {
+        "status": "healthy",
+        "database": "connected",
+        "timestamp": datetime.utcnow().isoformat()
+    }
 
-@app.post("/api/auth/signup")
+# ----------------- Real Authentication Endpoints -----------------
+
+@app.post("/api/auth/signup", status_code=status.HTTP_201_CREATED)
 def signup(req: SignUpRequest):
-    user = database.create_user(req.name, req.email, req.password)
+    """Register a new patient account in SQLite with PBKDF2 password hashing."""
+    user = database.create_user(
+        name=req.name,
+        email=req.email,
+        password=req.password,
+        age=req.age,
+        gender=req.gender,
+        phone=req.phone,
+        device_id=req.device_id
+    )
     if not user:
-        raise HTTPException(status_code=400, detail="An account with this email already exists.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="An account with this email address already exists."
+        )
+
+    token = database.create_session(user["id"])
     return {
         "user": user,
-        "token": user["id"]
+        "token": token
     }
 
 @app.post("/api/auth/login")
 def login(req: LoginRequest):
+    """Authenticate patient using email & password verified with PBKDF2."""
     user = database.verify_user(req.email, req.password)
     if not user:
-        raise HTTPException(status_code=401, detail="Invalid email or password. Please try again.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password. Please try again."
+        )
+
+    token = database.create_session(user["id"])
     return {
         "user": user,
-        "token": user["id"]
+        "token": token
     }
 
-@app.get("/api/auth/me")
-def get_me(authorization: Optional[str] = Header(None)):
-    user_id = get_current_user_id(authorization)
-    user = database.get_user_by_id(user_id)
-    if not user:
-        return {
-            "id": user_id,
-            "name": "Local User",
-            "email": "user@awen.local",
-            "observation_mode": True,
-            "baseline_confidence": "Learning"
-        }
-    return user
+@app.post("/api/auth/logout")
+def logout(authorization: Optional[str] = Header(None)):
+    """Terminate and invalidate the active session token in SQLite."""
+    if authorization:
+        parts = authorization.split()
+        if len(parts) == 2 and parts[0].lower() == "bearer":
+            database.delete_session(parts[1])
+    return {"status": "ok", "message": "Successfully logged out."}
 
-# ----------------- Profile & Observation Mode -----------------
+@app.get("/api/auth/me")
+def get_me(current_user: dict = Depends(get_current_user)):
+    """Retrieve authenticated patient's profile directly from SQLite."""
+    return current_user
+
+# ----------------- Patient Profile Endpoints -----------------
+
+@app.get("/api/user/profile")
+def get_patient_profile(current_user: dict = Depends(get_current_user)):
+    """Get full patient profile details."""
+    devices = database.get_user_devices(current_user["id"])
+    profile_data = dict(current_user)
+    profile_data["devices"] = devices
+    return profile_data
+
+@app.put("/api/user/profile")
+def update_patient_profile(
+    req: ProfileUpdateRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Update patient profile fields (name, age, gender, phone, device_id, timezone).
+    Persists changes to SQLite; survives refresh and logout/login.
+    """
+    updated_user = database.update_user_profile(
+        user_id=current_user["id"],
+        name=req.name,
+        age=req.age,
+        gender=req.gender,
+        phone=req.phone,
+        device_id=req.device_id,
+        timezone=req.timezone
+    )
+    return {
+        "status": "success",
+        "message": "Patient profile updated successfully.",
+        "user": updated_user
+    }
+
+# ----------------- Observation Mode & Baselines -----------------
 
 @app.post("/api/user/observation-mode")
-def set_observation_mode(req: ObservationModeRequest, authorization: Optional[str] = Header(None)):
-    user_id = get_current_user_id(authorization)
-    updated = database.update_user_observation_mode(user_id, req.enabled)
+def set_observation_mode(
+    req: ObservationModeRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    updated = database.update_user_observation_mode(current_user["id"], req.enabled)
     return {"status": "ok", "user": updated}
 
-# ----------------- Baselines -----------------
-
 @app.get("/api/user/baseline")
-def fetch_baseline(authorization: Optional[str] = Header(None)):
-    user_id = get_current_user_id(authorization)
-    baseline = database.get_user_baseline(user_id)
+def fetch_baseline(current_user: dict = Depends(get_current_user)):
+    baseline = database.get_user_baseline(current_user["id"])
     if not baseline:
         return {
             "restingHr": 64.0,
@@ -175,77 +307,303 @@ def fetch_baseline(authorization: Optional[str] = Header(None)):
             "restingTemp": 36.6,
             "hrStdDev": 4.8,
             "confidence": "Learning",
+            "samples": 0,
             "isDynamic": False
         }
     baseline["isDynamic"] = True
     return baseline
 
 @app.post("/api/user/baseline")
-def save_baseline(payload: BaselinePayload, authorization: Optional[str] = Header(None)):
-    user_id = get_current_user_id(authorization)
+def save_baseline(
+    payload: BaselinePayload,
+    current_user: dict = Depends(get_current_user)
+):
     saved = database.upsert_user_baseline(
-        user_id,
-        payload.resting_hr,
-        payload.resting_spo2 or 98.6,
-        payload.resting_temp or 36.6,
-        payload.hr_variance or 4.8,
-        payload.confidence or "Learning"
+        user_id=current_user["id"],
+        resting_hr=payload.resting_hr,
+        resting_spo2=payload.resting_spo2 or 98.6,
+        resting_temp=payload.resting_temp or 36.6,
+        hr_variance=payload.hr_variance or 4.8,
+        confidence=payload.confidence or "Learning",
+        samples=payload.samples or 0
     )
     return saved
 
-# ----------------- Readings & History -----------------
+# ----------------- Real Sensor Telemetry API (Hardware Compatible) -----------------
 
-@app.post("/api/user/readings")
-def post_reading(payload: ReadingPayload, authorization: Optional[str] = Header(None)):
-    user_id = get_current_user_id(authorization)
-    if payload.heart_rate is None:
-        raise HTTPException(status_code=400, detail="heart_rate is required for recording a reading.")
-    saved = database.insert_reading(
-        user_id,
-        payload.heart_rate,
-        payload.spo2 or 98.6,
-        payload.temperature or 36.6,
-        payload.activity or "Resting",
-        payload.data_source or "esp32"
+@app.post("/api/readings", status_code=status.HTTP_201_CREATED)
+def post_sensor_reading(
+    payload: SensorReadingPayload,
+    x_api_key: Optional[str] = Header(None),
+    authorization: Optional[str] = Header(None)
+):
+    """
+    Ingest telemetry reading from ESP32 microcontroller or authenticated client.
+    Supports complete AWEN hardware data contract:
+    - heart_rate, spo2, temperature
+    - 3-axis accelerometer (accel.x, accel.y, accel.z)
+    - 3-axis gyroscope (gyro.x, gyro.y, gyro.z)
+    - accel_magnitude
+    - timestamp_ms & device_id
+    Strict validation is enforced so malformed payloads return helpful JSON error messages.
+    """
+    # 1. Identify Target Patient / User
+    user_id = None
+    dev_id = (payload.device_id or "").strip()
+
+    # Strategy A: Authenticated Bearer token session
+    current_user = get_optional_current_user(authorization)
+    if current_user:
+        user_id = current_user["id"]
+        if not dev_id:
+            dev_id = current_user.get("device_id") or "AWEN_ESP32_01"
+
+    # Strategy B: Device API Key in Header
+    elif x_api_key:
+        device_rec = database.get_device_by_api_key(x_api_key.strip())
+        if device_rec:
+            user_id = device_rec["user_id"]
+            dev_id = device_rec["device_id"]
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid X-API-Key for sensor telemetry ingestion."
+            )
+
+    # Strategy C: Device ID lookup in registered devices table
+    elif dev_id:
+        device_rec = database.get_device_by_id(dev_id)
+        if device_rec:
+            user_id = device_rec["user_id"]
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Device '{dev_id}' is not associated with any patient account. Please link the device in Profile settings."
+            )
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A valid device_id, API key, or Bearer token is required to record sensor telemetry."
+        )
+
+    # 2. Extract nested or flat vector fields
+    accel_x = payload.accel.x if payload.accel and payload.accel.x is not None else payload.accel_x
+    accel_y = payload.accel.y if payload.accel and payload.accel.y is not None else payload.accel_y
+    accel_z = payload.accel.z if payload.accel and payload.accel.z is not None else payload.accel_z
+
+    gyro_x = payload.gyro.x if payload.gyro and payload.gyro.x is not None else payload.gyro_x
+    gyro_y = payload.gyro.y if payload.gyro and payload.gyro.y is not None else payload.gyro_y
+    gyro_z = payload.gyro.z if payload.gyro and payload.gyro.z is not None else payload.gyro_z
+
+    # 3. Numeric Validation (Prevents malformed data from corrupting database)
+    hr = payload.heart_rate
+    if hr is not None:
+        try:
+            hr = float(hr)
+            if hr < 20.0 or hr > 250.0:
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Heart rate value must be between 20 and 250 BPM.")
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid heart rate format; numeric value expected.")
+
+    spo2_val = payload.spo2
+    if spo2_val is not None:
+        try:
+            spo2_val = float(spo2_val)
+            if spo2_val < 50.0 or spo2_val > 100.0:
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="SpO2 value must be between 50% and 100%.")
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid SpO2 format; numeric value expected.")
+
+    temp_val = payload.temperature
+    if temp_val is not None:
+        try:
+            temp_val = float(temp_val)
+            if temp_val < 25.0 or temp_val > 45.0:
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Skin temperature must be between 25.0°C and 45.0°C.")
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid temperature format; numeric value expected.")
+
+    # 4. Insert into SQLite
+    saved_reading = database.insert_sensor_reading(
+        user_id=user_id,
+        device_id=dev_id,
+        heart_rate=hr,
+        spo2=spo2_val,
+        temperature=temp_val,
+        accel_x=accel_x,
+        accel_y=accel_y,
+        accel_z=accel_z,
+        gyro_x=gyro_x,
+        gyro_y=gyro_y,
+        gyro_z=gyro_z,
+        accel_magnitude=payload.accel_magnitude,
+        alarm=payload.alarm,
+        status=payload.status,
+        activity_state=payload.activity_state or "Resting",
+        data_source=payload.data_source or "esp32",
+        timestamp_ms=payload.timestamp_ms
     )
-    return saved
+
+    return {
+        "status": "success",
+        "message": "Sensor reading recorded successfully.",
+        "reading": saved_reading
+    }
+
+@app.get("/api/readings/latest")
+def get_latest_sensor_reading(current_user: dict = Depends(get_current_user)):
+    """
+    Get the most recent sensor reading for the authenticated patient.
+    If no readings exist, returns null with clear empty status.
+    """
+    latest = database.get_latest_reading(current_user["id"])
+    if not latest:
+        return {
+            "status": "empty",
+            "message": "No sensor data available yet.",
+            "reading": None
+        }
+    return {
+        "status": "success",
+        "reading": latest
+    }
+
+@app.get("/api/readings/history")
+def get_sensor_readings_history(
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    from_time: Optional[str] = Query(None, alias="from"),
+    to_time: Optional[str] = Query(None, alias="to"),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Retrieve historical sensor readings for the authenticated patient.
+    Supports pagination and date/time range filtering.
+    """
+    readings = database.get_historical_readings(
+        user_id=current_user["id"],
+        limit=limit,
+        offset=offset,
+        from_time=from_time,
+        to_time=to_time
+    )
+    return {
+        "status": "success",
+        "count": len(readings),
+        "readings": readings
+    }
+
+@app.get("/api/readings")
+def get_sensor_readings_alias(
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    from_time: Optional[str] = Query(None, alias="from"),
+    to_time: Optional[str] = Query(None, alias="to"),
+    current_user: dict = Depends(get_current_user)
+):
+    """Alias for /api/readings/history with range filtering."""
+    return get_sensor_readings_history(limit, offset, from_time, to_time, current_user)
 
 @app.get("/api/history/weekly")
-def weekly_history(authorization: Optional[str] = Header(None)):
-    user_id = get_current_user_id(authorization)
-    return database.get_weekly_history(user_id)
+def get_weekly_history_endpoint(current_user: dict = Depends(get_current_user)):
+    """
+    Calculates 7-day daily resting average metrics from real sensor readings in SQLite.
+    If no readings are recorded for a day, averageHeartRate is null.
+    """
+    weekly_rows = database.get_weekly_history(current_user["id"])
+    return weekly_rows
 
-# ----------------- Checkins -----------------
+# ----------------- Checkins Endpoints -----------------
 
-@app.post("/api/user/checkins")
-def post_checkin(payload: CheckinPayload, authorization: Optional[str] = Header(None)):
-    user_id = get_current_user_id(authorization)
-    saved = database.insert_checkin(user_id, payload.mood, payload.activity or "", payload.notes or "")
+@app.post("/api/user/checkins", status_code=status.HTTP_201_CREATED)
+def post_checkin(
+    payload: CheckinPayload,
+    current_user: dict = Depends(get_current_user)
+):
+    saved = database.insert_checkin(
+        user_id=current_user["id"],
+        mood=payload.mood,
+        activity_context=payload.activity or "",
+        notes=payload.notes or ""
+    )
     return saved
 
 @app.get("/api/user/checkins")
-def get_checkins_list(authorization: Optional[str] = Header(None)):
-    user_id = get_current_user_id(authorization)
-    return database.get_checkins(user_id)
+def get_checkins_list(
+    limit: int = Query(15, ge=1, le=50),
+    current_user: dict = Depends(get_current_user)
+):
+    return database.get_checkins(current_user["id"], limit=limit)
 
-# ----------------- Conversations -----------------
+# ----------------- Observations & Alerts Endpoints -----------------
 
-@app.post("/api/conversations")
-def post_conversation(payload: ConversationPayload, authorization: Optional[str] = Header(None)):
-    user_id = get_current_user_id(authorization)
-    return database.insert_conversation(user_id, payload.message, payload.response, payload.topic or "general")
+@app.get("/api/observations")
+def get_patient_observations(
+    limit: int = Query(20, ge=1, le=100),
+    current_user: dict = Depends(get_current_user)
+):
+    """Get persistent observations & alerts for the authenticated patient."""
+    obs = database.get_observations(current_user["id"], limit=limit)
+    return {
+        "status": "success",
+        "observations": obs
+    }
 
-# ----------------- ML Analysis -----------------
+@app.post("/api/observations", status_code=status.HTTP_201_CREATED)
+def create_patient_observation(
+    payload: ObservationPayload,
+    current_user: dict = Depends(get_current_user)
+):
+    obs = database.insert_observation(
+        user_id=current_user["id"],
+        message=payload.message,
+        severity=payload.severity or "info",
+        obs_type=payload.type or "physiological",
+        reading_id=payload.reading_id
+    )
+    return obs
+
+# ----------------- Device Management Endpoints -----------------
+
+@app.get("/api/devices")
+def get_devices(current_user: dict = Depends(get_current_user)):
+    """Get all devices linked to current patient."""
+    return database.get_user_devices(current_user["id"])
+
+@app.post("/api/devices", status_code=status.HTTP_201_CREATED)
+def register_device_endpoint(
+    payload: DeviceRegisterPayload,
+    current_user: dict = Depends(get_current_user)
+):
+    """Link a new ESP32 device ID to current patient."""
+    device = database.register_device(
+        user_id=current_user["id"],
+        device_id=payload.device_id,
+        device_name=payload.device_name or "AWEN ESP32 Unit"
+    )
+    return device
+
+# ----------------- Baseline ML Analysis -----------------
 
 @app.post("/api/analyze")
-def analyze_telemetry(payload: TelemetryPayload, authorization: Optional[str] = Header(None)):
+def analyze_telemetry(
+    payload: TelemetryPayload,
+    authorization: Optional[str] = Header(None)
+):
     """
-    Analyze single point telemetry against personal baseline signature.
+    Analyze telemetry point against personal baseline signature.
+    Strictly non-diagnostic non-alarmist evaluation.
     """
-    is_authenticated = bool(authorization and authorization.startswith("Bearer "))
-    user_baseline_dict = payload.user_baseline.model_dump() if payload.user_baseline else None
-    
-    # If no heart rate is provided (hardware disconnected), return non-diagnostic waiting status
+    user = get_optional_current_user(authorization)
+    is_authenticated = user is not None
+
+    user_baseline_dict = None
+    if payload.user_baseline:
+        user_baseline_dict = payload.user_baseline.model_dump()
+    elif user:
+        user_baseline_dict = database.get_user_baseline(user["id"])
+
+    # If no heart rate reading is available (sensor disconnected / standby), return non-diagnostic waiting status
     if payload.heart_rate is None or payload.heart_rate <= 0:
         return {
             "status": "awaiting_hardware",
@@ -274,18 +632,22 @@ def analyze_telemetry(payload: TelemetryPayload, authorization: Optional[str] = 
         mood=payload.mood or "Normal",
         user_baseline=user_baseline_dict
     )
-    analysis["device_id"] = payload.device_id or "esp32_max30102"
-    analysis["timestamp"] = payload.timestamp
+    analysis["device_id"] = payload.device_id or "AWEN_ESP32_01"
+    analysis["timestamp"] = payload.timestamp or datetime.utcnow().isoformat()
     analysis["is_authenticated_session"] = is_authenticated
     return analysis
 
+# ----------------- Supportive Companion Chat -----------------
+
 @app.post("/api/chat")
-def awen_chat(payload: ChatRequest, authorization: Optional[str] = Header(None)):
-    """
-    AWEN Supportive AI Companion Response Generator.
-    """
+def awen_chat(
+    payload: ChatRequest,
+    current_user: Optional[dict] = Depends(get_optional_current_user)
+):
+    """AWEN Supportive Companion Response Generator with acute medical safety guardrails."""
     msg = payload.message.lower()
-    # 1. Acute Medical Guardrail
+
+    # 1. Acute Medical Safety Guardrail
     symptom_keywords = [
         "chest pain", "pain in chest", "shortness of breath", "difficulty breathing",
         "trouble breathing", "fainting", "passed out", "blackout", "severe pain",
@@ -293,7 +655,7 @@ def awen_chat(payload: ChatRequest, authorization: Optional[str] = Header(None))
     ]
     if any(kw in msg for kw in symptom_keywords):
         return {
-            "reply": "If you are experiencing chest pain, difficulty breathing, fainting, or severe pain, please seek immediate real-world medical attention or contact emergency services. AWEN is a non-clinical wellness companion and cannot diagnose medical symptoms or provide emergency medical clearance.",
+            "reply": "If you are experiencing chest pain, difficulty breathing, fainting, or severe dizziness, please seek immediate real-world emergency medical attention. AWEN is a non-clinical wellness companion and cannot diagnose medical emergencies.",
             "tone": "urgent_safety",
             "confidence": 99
         }
@@ -306,43 +668,57 @@ def awen_chat(payload: ChatRequest, authorization: Optional[str] = Header(None))
     ]
     if any(kw in msg for kw in recovery_keywords):
         return {
-            "reply": f"Because you are recovering from surgery or a medical procedure, please follow your surgeon's or healthcare provider's direct instructions regarding physical exertion. AWEN is a non-clinical wellness companion; current readings cannot provide medical clearance for strenuous exercise.",
+            "reply": "Because you are recovering from surgery or a clinical procedure, please follow your surgeon's direct instructions regarding physical exertion. AWEN cannot provide clinical clearance.",
             "tone": "medical_override",
             "confidence": 99
         }
 
+    user_name = current_user.get("name", "").split()[0] if current_user and current_user.get("name") else "there"
+
     if "stress" in msg or "anxious" in msg or "elevated" in msg:
         reply = (
-            "I'm noticing subtle variations in your heart rate pattern today. "
-            "Rather than stress, your readings often reflect non-exertional fatigue or cognitive load. "
-            "Would you like to try a short 2-minute bio-feedback breathing sequence with me?"
+            f"Hello {user_name}. I notice you're asking about elevated readings. "
+            "Rather than stress, temporary heart rate lifts often reflect natural physical activity, ambient temperature, or cognitive focus. "
+            "Would you like to try a short 2-minute breathing sequence?"
         )
-    elif "baseline" in msg or "learning" in msg:
+    elif "baseline" in msg or "pattern" in msg:
         reply = (
-            f"Your personal physiological baseline is established at a resting heart rate of {engine.baseline['resting_hr']} bpm "
-            f"and an SpO2 average of {engine.baseline['resting_spo2']}%. Because I compare your current metrics against your own body signature "
-            "rather than generic thresholds, routine activities like climbing stairs won't trigger unnecessary alerts."
+            f"Your personal physiological pattern is compared against your own learned resting signature in local SQLite, "
+            "rather than generic thresholds. Routine daily actions like climbing stairs are contextually recognized."
         )
-    elif "hardware" in msg or "sensor" in msg or "connect" in msg:
+    elif "hardware" in msg or "sensor" in msg or "esp32" in msg:
         reply = (
-            "To stream real-time physiological data, connect your ESP32 MAX30102 sensor via Web Serial in Chrome or Edge. "
-            "Once connected, I will continuously observe your heart rate and SpO2 against your baseline."
+            "To stream real-time physiological data, connect your ESP32 MAX30102 sensor via Web Serial in Chrome or Edge, "
+            "or have your hardware post telemetry packets directly to POST /api/readings."
         )
     else:
         reply = (
-            "I'm here with you. My focus is keeping track of your natural physiological rhythm. "
-            "Feel free to check your real-time Wellness Index or start a guided breathing session whenever you need to recalibrate."
+            f"I'm here with you, {user_name}. My role is observing your natural body pattern over time. "
+            "Feel free to check your real-time overview or review your weekly journey."
         )
-        
+
+    # Save to conversations table if user is logged in
+    if current_user:
+        try:
+            database.insert_conversation(
+                user_id=current_user["id"],
+                user_message=payload.message,
+                awen_response=reply,
+                topic="wellness"
+            )
+        except Exception:
+            pass
+
     return {
         "reply": reply,
         "tone": "supportive",
         "confidence": 95
     }
 
+# ----------------- WebSocket Live Telemetry -----------------
+
 @app.websocket("/ws/telemetry")
 async def websocket_telemetry(websocket: WebSocket):
-    """WebSocket feed for ESP32 IoT sensor telemetry stream."""
     await websocket.accept()
     try:
         while True:
