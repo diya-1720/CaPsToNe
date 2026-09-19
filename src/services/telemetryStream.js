@@ -245,25 +245,7 @@ export class TelemetryStream {
       // Port successfully opened! Immediately notify that hardware is connected
       this.setHardwareState("CONNECTED");
 
-      // Deliver initial active telemetry packet immediately so web displays live vitals right away
-      if (this.onReading) {
-        this.onReading({
-          device_id: "esp32_max30102",
-          timestamp: new Date().toISOString(),
-          heart_rate: 68.0,
-          heartRate: 68.0,
-          spo2: 98.5,
-          temperature: 36.6,
-          activity: this.currentActivity || "Resting",
-          mood: this.currentMood || "Normal",
-          isHardware: true,
-          fingerDetected: true,
-          sqi: 90,
-          sqiStatus: "Connected"
-        });
-      }
-
-      // Begin background serial reading loop
+      // Begin background serial reading loop to read real packets from device
       this.readSerialLoop();
       return true;
     } catch (err) {
