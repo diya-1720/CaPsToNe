@@ -29,7 +29,8 @@ export const HomeScreen = ({
   onOpenHardware,
   currentUser,
   baselineData,
-  telemetryStream
+  telemetryStream,
+  latestReading
 }) => {
   const firstName = currentUser?.name?.split(' ')[0] || '';
   const [timeStr, setTimeStr] = useState('');
@@ -41,6 +42,15 @@ export const HomeScreen = ({
   const canvasRef = useRef(null);
   const animFrameRef = useRef(null);
   const cloudTimerRef = useRef(null);
+
+  const isConnected = Boolean(telemetry?.isHardware);
+  const hasReading = (telemetry?.heartRate !== null && telemetry?.heartRate !== undefined) || 
+    (latestReading && ((latestReading.heart_rate !== null && latestReading.heart_rate !== undefined) || (latestReading.bpm !== null && latestReading.bpm !== undefined)));
+  const currentHr = telemetry?.heartRate ?? latestReading?.heart_rate ?? latestReading?.bpm ?? null;
+  const currentSpo2 = telemetry?.spo2 ?? latestReading?.spo2 ?? null;
+  const currentTemp = telemetry?.temperature ?? latestReading?.temperature ?? null;
+  const currentActivity = telemetry?.activity ?? latestReading?.activity_state ?? "Resting";
+  const readingTime = telemetry?.timestamp || (latestReading?.created_at ? new Date(latestReading.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : null);
 
   // Live Digital Clock
   useEffect(() => {
@@ -54,7 +64,6 @@ export const HomeScreen = ({
     return () => clearInterval(timer);
   }, []);
 
-  const isConnected = Boolean(telemetry?.isHardware);
   const restingHr = baselineData?.restingHr ? Number(baselineData.restingHr).toFixed(1) : '64.0';
 
   const getTimeGreeting = () => {
@@ -357,14 +366,14 @@ export const HomeScreen = ({
               </div>
               <div>
                 <span className="metric-value text-2xl block">
-                  {isConnected && telemetry?.heartRate ? telemetry.heartRate : '--'}{' '}
+                  {hasReading && currentHr ? currentHr : '--'}{' '}
                   <span className="text-xs text-[var(--text-secondary)] font-normal font-sans">BPM</span>
                 </span>
                 <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase block">
-                  {isConnected ? (telemetry?.activity || 'Resting') : 'No Signal'}
+                  {hasReading ? currentActivity : 'No Signal'}
                 </span>
               </div>
-              {/* Mini Sparkline (G-2) */}
+              {/* Mini Sparkline */}
               <div className="h-4 w-full pt-1">
                 <svg className="w-full h-full" viewBox="0 0 100 20" fill="none">
                   <path d="M0,10 L30,10 L35,2 L40,18 L45,6 L50,14 L55,10 L100,10" stroke="#DC2626" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -380,14 +389,14 @@ export const HomeScreen = ({
               </div>
               <div>
                 <span className="metric-value text-2xl block">
-                  {isConnected && telemetry?.spo2 ? telemetry.spo2 : '--'}{' '}
+                  {hasReading && currentSpo2 ? currentSpo2 : '--'}{' '}
                   <span className="text-xs text-[var(--text-secondary)] font-normal font-sans">%</span>
                 </span>
                 <span className="text-[10px] font-bold text-[var(--accent-green-dark)] uppercase block">
-                  {isConnected ? 'Optimal' : 'No Signal'}
+                  {hasReading ? 'Optimal' : 'No Signal'}
                 </span>
               </div>
-              {/* Mini Curve (G-3) */}
+              {/* Mini Curve */}
               <div className="h-4 w-full pt-1">
                 <svg className="w-full h-full" viewBox="0 0 100 20" fill="none">
                   <path d="M0,12 Q25,8 50,11 T100,10" stroke="#15803D" strokeWidth="1.8" strokeLinecap="round" />
@@ -403,14 +412,14 @@ export const HomeScreen = ({
               </div>
               <div>
                 <span className="metric-value text-2xl block">
-                  {isConnected && telemetry?.temperature ? telemetry.temperature : '--'}{' '}
+                  {hasReading && currentTemp ? currentTemp : '--'}{' '}
                   <span className="text-xs text-[var(--text-secondary)] font-normal font-sans">°C</span>
                 </span>
                 <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase block">
-                  {isConnected ? 'Nominal' : 'No Signal'}
+                  {hasReading ? 'Nominal' : 'No Signal'}
                 </span>
               </div>
-              {/* Mini Thermal Curve (G-4) */}
+              {/* Mini Thermal Curve */}
               <div className="h-4 w-full pt-1">
                 <svg className="w-full h-full" viewBox="0 0 100 20" fill="none">
                   <path d="M0,10 C30,12 60,8 100,10" stroke="#D97706" strokeWidth="1.8" strokeLinecap="round" />
@@ -426,15 +435,17 @@ export const HomeScreen = ({
               </div>
               <div>
                 <span className="metric-value text-base sm:text-lg block truncate">
-                  {telemetry?.activity || 'Resting'}
+                  {hasReading ? currentActivity : 'Standby'}
                 </span>
-                <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase block">
-                  Cognitive Filter
+                <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase block">
+                  {readingTime ? `Recorded: ${readingTime}` : 'Awaiting Sensor'}
                 </span>
               </div>
-              {/* Energy Gauge */}
-              <div className="w-full bg-[var(--surface-secondary)] h-2 border border-[var(--border-strong)] overflow-hidden mt-2">
-                <div className="bg-indigo-600 h-full w-[45%]" />
+              {/* Activity indicator */}
+              <div className="h-4 w-full pt-1">
+                <div className="w-full bg-[var(--surface-secondary)] h-1.5 rounded-full overflow-hidden border border-[var(--border-light)]">
+                  <div className={`h-full ${hasReading ? 'bg-indigo-500 w-3/4' : 'bg-transparent'}`} />
+                </div>
               </div>
             </div>
 
