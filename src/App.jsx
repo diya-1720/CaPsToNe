@@ -54,6 +54,7 @@ export default function App() {
     timestamp: null
   });
 
+  const [latestReading, setLatestReading] = useState(null);
   const [evaluation, setEvaluation] = useState(null);
   const [awenState, setAwenState] = useState(null);
   const [userBaseline, setUserBaseline] = useState(null);
@@ -69,6 +70,34 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  // Poll for latest real sensor reading persisted in SQLite
+  useEffect(() => {
+    if (!currentUser) return;
+    let isSubscribed = true;
+
+    async function loadLatest() {
+      try {
+        const res = await apiService.getLatestReading();
+        if (isSubscribed) {
+          if (res && res.bpm) {
+            setLatestReading(res);
+          } else {
+            setLatestReading(null);
+          }
+        }
+      } catch (err) {
+        // silent catch
+      }
+    }
+
+    loadLatest();
+    const interval = setInterval(loadLatest, 4000);
+    return () => {
+      isSubscribed = false;
+      clearInterval(interval);
+    };
+  }, [currentUser]);
 
   // Restore Active User Session & Baseline from SQLite Backend / Local Storage
   useEffect(() => {
@@ -103,11 +132,7 @@ export default function App() {
         if (stateObj.isHardwareConnected) {
           setTelemetry(prev => ({
             ...prev,
-            isHardware: true,
-            heartRate: prev.heartRate || 68.0,
-            spo2: prev.spo2 || 98.5,
-            temperature: prev.temperature || 36.6,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+            isHardware: true
           }));
         } else {
           setTelemetry(prev => ({
@@ -236,30 +261,8 @@ export default function App() {
         <LandingPage 
           onGetStarted={() => setIsAuthOpen(true)}
           onOpenAuth={() => setIsAuthOpen(true)}
-          onTryDemo={() => {
-            const guestUser = {
-              id: 'guest_demo',
-              name: 'Guest Explorer',
-              email: 'guest@awen.health',
-              isGuest: true,
-              observation_mode: false,
-              observation_day: 5
-            };
-            apiService.saveLocalSession(guestUser);
-            setCurrentUser(guestUser);
-          }}
-          onStartDemo={() => {
-            const guestUser = {
-              id: 'guest_demo',
-              name: 'Guest Explorer',
-              email: 'guest@awen.health',
-              isGuest: true,
-              observation_mode: false,
-              observation_day: 5
-            };
-            apiService.saveLocalSession(guestUser);
-            setCurrentUser(guestUser);
-          }}
+          onTryDemo={() => setIsAuthOpen(true)}
+          onStartDemo={() => setIsAuthOpen(true)}
         />
 
         <AuthModal 
@@ -554,6 +557,7 @@ export default function App() {
           {activeTab === 'home' && (
             <HomeScreen
               telemetry={telemetry}
+              latestReading={latestReading}
               evaluation={evaluation}
               awenState={awenState}
               baselineData={baselineEngineRef.current?.baseline}
@@ -644,6 +648,10 @@ export default function App() {
               onLogout={handleLogout}
               onOpenAuth={() => setIsAuthOpen(true)}
               onToggleObservation={handleToggleObservation}
+              onProfileUpdated={(updated) => {
+                setCurrentUser(updated);
+                apiService.saveLocalSession(updated);
+              }}
               baselineData={baselineEngineRef.current?.baseline}
               telemetryStream={telemetryStreamRef.current}
               telemetry={telemetry}

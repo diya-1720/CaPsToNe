@@ -231,16 +231,19 @@ export const SettingsScreen = ({
               </button>
             </div>
 
-            {/* Demonstrator Baseline Calibration */}
-            <div className="p-4 bg-[var(--surface-secondary)] border border-[var(--border-strong)] space-y-3">
+            {/* DEV/TEST ONLY Baseline Calibration */}
+            <div className="p-4 bg-[var(--surface-secondary)] border-2 border-dashed border-amber-600/60 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-[var(--accent-green-dark)]" />
-                  <span>Demonstrator Profile Quick-Calibration</span>
+                <h3 className="text-sm font-bold text-amber-700 flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-amber-600" />
+                  <span>[DEV/TEST ONLY] Baseline Calibration Tool</span>
                 </h3>
+                <span className="text-[10px] font-mono font-bold bg-amber-100 text-amber-800 border border-amber-400 px-2 py-0.5">
+                  DEBUG UTILITY
+                </span>
               </div>
               <p className="text-xs text-[var(--text-secondary)]">
-                Seed synthesized resting physiological profiles directly into SQLite to observe how AWEN contextualizes different baselines without waiting 7 days.
+                Developer testing only. Calibrate personal baseline parameters directly into SQLite without waiting 7 days of observation. Not medical data.
               </p>
 
               {seedSuccessMsg && (
@@ -255,19 +258,19 @@ export const SettingsScreen = ({
                   onClick={() => handleSeed(58)}
                   className="neo-btn px-4 py-2 text-xs font-bold bg-[var(--surface-primary)] hover:bg-[var(--surface-tertiary)]"
                 >
-                  Seed Athletic Profile (58 BPM)
+                  Set Test Baseline: 58 BPM
                 </button>
                 <button
                   onClick={() => handleSeed(68)}
                   className="neo-btn px-4 py-2 text-xs font-bold bg-[var(--surface-primary)] hover:bg-[var(--surface-tertiary)]"
                 >
-                  Seed Typical Profile (68 BPM)
+                  Set Test Baseline: 68 BPM
                 </button>
                 <button
                   onClick={() => handleSeed(78)}
                   className="neo-btn px-4 py-2 text-xs font-bold bg-[var(--surface-primary)] hover:bg-[var(--surface-tertiary)]"
                 >
-                  Seed Active Profile (78 BPM)
+                  Set Test Baseline: 78 BPM
                 </button>
               </div>
             </div>
