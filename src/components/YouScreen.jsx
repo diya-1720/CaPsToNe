@@ -102,14 +102,14 @@ export const YouScreen = ({
             <div className="space-y-1 min-w-0">
               <div className="flex items-center gap-2">
                 <h1 className="font-heading text-xl sm:text-2xl font-bold text-[var(--text-primary)] truncate">
-                  {currentUser?.name || 'Local Patient'}
+                  {currentUser?.name || 'User'}
                 </h1>
                 <span className="text-[10px] font-mono font-bold px-2 py-0.5 border border-[var(--border-strong)] bg-[var(--surface-secondary)] text-[var(--text-primary)]">
-                  {currentUser?.patient_id || 'PAT-LOCAL'}
+                  {currentUser?.patient_id || 'USR-LOCAL'}
                 </span>
               </div>
               <p className="text-xs text-[var(--text-secondary)] font-medium truncate">
-                {currentUser?.email || 'patient@awen.local'}
+                {currentUser?.email || 'user@awen.local'}
               </p>
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-[var(--accent-green-bg)] text-[var(--accent-green-dark)] text-xs font-mono font-bold border border-[var(--border-strong)]">
                 <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
@@ -123,7 +123,7 @@ export const YouScreen = ({
             <button
               onClick={handleOpenEdit}
               className="px-3 py-2 neo-surface hover:bg-[var(--surface-secondary)] border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111] flex items-center gap-1.5 text-xs font-bold transition-all"
-              title="Edit Patient Profile"
+              title="Edit User Profile"
             >
               <Edit3 className="w-3.5 h-3.5" />
               <span>Edit Profile</span>
@@ -186,7 +186,7 @@ export const YouScreen = ({
             <span>Learned Body Baseline (SQLite Single Source of Truth)</span>
           </span>
           <span className="text-[10px] text-[var(--text-secondary)] font-bold font-mono">
-            {currentUser?.patient_id ? `PATIENT REF: ${currentUser.patient_id}` : "CALIBRATING"}
+            {currentUser?.patient_id ? `USER REF: ${currentUser.patient_id}` : "CALIBRATING"}
           </span>
         </div>
 
@@ -295,7 +295,7 @@ export const YouScreen = ({
               <div className="flex items-center gap-2">
                 <Edit3 className="w-5 h-5 text-[var(--accent-green-dark)]" />
                 <h3 className="font-heading text-lg font-bold text-[var(--text-primary)] uppercase">
-                  Edit Patient Profile
+                  Edit User Profile
                 </h3>
               </div>
               <button 

@@ -417,7 +417,7 @@ export const LandingPage = ({
               onClick={handleAuth}
               className="w-full sm:w-auto px-10 py-4 bg-[var(--text-primary)] text-white font-black uppercase tracking-widest text-lg border-2 border-[var(--border-strong)] shadow-[4px_4px_0px_var(--accent-green-dark)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all flex items-center justify-center gap-2"
             >
-              Patient Sign In / Register
+              User Sign In / Register
               <ArrowRight className="w-5 h-5" />
             </button>
 

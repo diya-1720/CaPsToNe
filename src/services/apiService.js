@@ -189,7 +189,7 @@ export class ApiService {
       headers: this.getHeaders()
     });
     if (!res.ok) {
-      throw new Error("Failed to load patient profile from backend.");
+      throw new Error("Failed to load user profile from backend.");
     }
     const data = await res.json();
     this.currentUser = { ...this.currentUser, ...data };
@@ -276,6 +276,23 @@ export class ApiService {
       console.warn("Could not fetch readings history:", e.message);
     }
     return [];
+  }
+
+  /**
+   * Patient Summary: Fetch SQLite-computed patient observation summary
+   */
+  async getUserSummary() {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/user/summary`, {
+        headers: this.getHeaders()
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      console.warn("Could not fetch user summary:", e.message);
+    }
+    return null;
   }
 
   /**

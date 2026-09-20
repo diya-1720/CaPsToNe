@@ -62,7 +62,7 @@ export const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
               </span>
             </div>
             <h2 className="font-heading text-2xl font-bold text-[var(--text-primary)] mt-0.5">
-              {isSignUp ? 'Patient Registration' : 'Patient Sign In'}
+              {isSignUp ? 'User Registration' : 'User Sign In'}
             </h2>
           </div>
 
@@ -168,7 +168,7 @@ export const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="patient@awen.local"
+                placeholder="user@awen.local"
                 className="w-full pl-9 pr-3 py-2 border-2 border-[var(--border-strong)] bg-[var(--surface-secondary)] text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:bg-[var(--surface-primary)] transition-all font-medium"
               />
             </div>
@@ -200,7 +200,7 @@ export const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <>
-                <span>{isSignUp ? 'Create Patient Account' : 'Authenticate & Enter'}</span>
+                <span>{isSignUp ? 'Create User Account' : 'Authenticate & Enter'}</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
@@ -217,7 +217,7 @@ export const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
             }}
             className="text-xs font-bold text-[var(--accent-green-dark)] hover:underline"
           >
-            {isSignUp ? 'Already have an account? Sign in here' : "Need a patient account? Register here"}
+            {isSignUp ? 'Already have an account? Sign in here' : "Need an account? Register here"}
           </button>
         </div>
 
