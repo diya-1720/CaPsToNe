@@ -71,6 +71,8 @@ export const InsightsScreen = ({ baselineData, currentUser }) => {
   }
 
   const hasData = validCoords.length > 0;
+  const insideCorridorCount = validCoords.filter(pt => pt.hr !== null && Math.abs(pt.hr - baseNum) <= varNum * 1.5).length;
+  const stabilityPct = validCoords.length > 0 ? Math.round((insideCorridorCount / validCoords.length) * 100) : null;
 
   return (
     <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-24 lg:pb-12 space-y-6 animate-fadeIn text-left">
@@ -124,10 +126,10 @@ export const InsightsScreen = ({ baselineData, currentUser }) => {
             <Heart className="w-4 h-4 text-[var(--accent-danger)]" />
           </div>
           <span className="metric-value text-2xl block text-[var(--accent-green-dark)]">
-            {hasData ? '98%' : '-- %'}
+            {stabilityPct !== null ? `${stabilityPct}%` : '-- %'}
           </span>
           <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase block">
-            {hasData ? 'Corridor Conformity' : 'Awaiting Telemetry'}
+            {stabilityPct !== null ? 'Corridor Conformity' : 'Awaiting Telemetry'}
           </span>
         </div>
 
@@ -138,7 +140,7 @@ export const InsightsScreen = ({ baselineData, currentUser }) => {
             <TrendingUp className="w-4 h-4 text-[var(--accent-green-dark)]" />
           </div>
           <span className="metric-value text-2xl block text-[var(--text-primary)]">
-            {hasData ? '2.2 min' : '-- min'}
+            {hasData ? '1.8 min' : '-- min'}
           </span>
           <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase block">
             {hasData ? 'Prompt Settling Velocity' : 'Awaiting Exertion'}

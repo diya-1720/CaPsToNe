@@ -43,11 +43,16 @@ export default function App() {
   const baselineEngineRef = useRef(new BaselineEngine(DEFAULT_BASELINE));
   const telemetryStreamRef = useRef(null);
 
-  // Initial telemetry: disconnected with null values (no fake/default data attached)
+  // Initial telemetry: disconnected with null values (truthful hardware initial state)
   const [telemetry, setTelemetry] = useState({
     heartRate: null,
     spo2: null,
     temperature: null,
+    hasTemperatureSensor: false,
+    accel: { x: 0.0, y: 0.0, z: 1.0 },
+    accelMagnitude: 1.0,
+    isMoving: false,
+    fingerDetected: false,
     activity: "Resting",
     mood: "Normal",
     isHardware: false,
@@ -120,6 +125,8 @@ export default function App() {
 
   // Initialize Telemetry Stream (Web Serial ESP32 hardware connector)
   useEffect(() => {
+    let lastPersistTime = 0;
+
     const stream = new TelemetryStream(
       (reading) => {
         setTelemetry({
@@ -127,6 +134,13 @@ export default function App() {
           isHardware: true,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
         });
+
+        // Throttled persistence of real hardware readings to SQLite (every 3.5 seconds when valid pulse is verified)
+        const now = Date.now();
+        if (reading.fingerDetected && reading.heartRate && (now - lastPersistTime > 3500)) {
+          lastPersistTime = now;
+          apiService.saveReading(reading).catch((e) => console.warn("Auto-persist reading failed:", e));
+        }
       },
       (stateObj) => {
         if (stateObj.isHardwareConnected) {
@@ -140,6 +154,11 @@ export default function App() {
             heartRate: null,
             spo2: null,
             temperature: null,
+            hasTemperatureSensor: false,
+            accel: { x: 0.0, y: 0.0, z: 1.0 },
+            accelMagnitude: 1.0,
+            isMoving: false,
+            fingerDetected: false,
             isHardware: false
           }));
         }
@@ -173,12 +192,14 @@ export default function App() {
         if (!isMounted) return;
 
         // Compute AWEN State Engine Object (LEARNING, BALANCED, ACTIVE, WATCHFUL, WIND_DOWN)
+        // MPU-6050 physical movement dynamically drives ACTIVE state
+        const derivedActivity = telemetry?.isMoving ? "Walking" : (telemetry?.activity || "Resting");
         const computedState = stateEngine.evaluateState({
           observationMode: currentUser?.observation_mode || false,
           daysObserved: currentUser?.observation_day || 5,
           heartRate: telemetry?.heartRate || baselineEngineRef.current.baseline.restingHr,
           baselineHeartRate: baselineEngineRef.current.baseline.restingHr,
-          activityState: telemetry?.activity || "Resting",
+          activityState: derivedActivity,
           isNightMode: false
         });
 

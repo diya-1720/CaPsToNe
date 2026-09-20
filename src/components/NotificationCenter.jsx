@@ -17,10 +17,10 @@ export const NotificationCenter = ({ isOpen, onClose, onNavigate }) => {
         if (isMounted && obs) {
           const mapped = obs.map((o) => ({
             id: o.id,
-            title: o.confidence_tier ? `${o.confidence_tier.toUpperCase()} Observation` : 'Observation Log',
-            desc: o.observation_text,
-            time: o.created_at ? new Date(o.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent',
-            icon: ShieldCheck,
+            title: o.type ? `${o.type.replace('_', ' ').toUpperCase()}` : (o.confidence_tier ? `${o.confidence_tier.toUpperCase()} Observation` : 'Observation Alert'),
+            desc: o.message || o.observation_text || 'Physiological observation event.',
+            time: o.created_at ? new Date(o.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : 'Recent',
+            icon: o.severity === 'watchful' ? Heart : ShieldCheck,
             unread: true,
             tab: 'insights'
           }));

@@ -19,6 +19,8 @@ export class TelemetryStream {
     this.lastHardwareError = null;
     this.rawLog = [];
     this.onRawLine = null;
+    this.lastPacketTime = 0;
+    this.watchdogInterval = null;
 
     // Listen to device unplug/replug globally if supported
     if (typeof navigator !== 'undefined' && 'serial' in navigator) {
@@ -55,10 +57,42 @@ export class TelemetryStream {
   start() {
     this.isRunning = true;
     this.setHardwareState(this.isHardwareConnected ? "CONNECTED" : "DISCONNECTED");
+    
+    if (this.watchdogInterval) clearInterval(this.watchdogInterval);
+    this.watchdogInterval = setInterval(() => {
+      if (this.isHardwareConnected && this.lastPacketTime > 0 && (Date.now() - this.lastPacketTime > 6000)) {
+        // Hardware connected but telemetry stopped arriving for >6s
+        if (this.onReading) {
+          this.onReading({
+            isValid: true,
+            device_id: "esp32_max30102",
+            timestamp: new Date().toISOString(),
+            heart_rate: null,
+            heartRate: null,
+            spo2: null,
+            temperature: null,
+            hasTemperatureSensor: false,
+            accel: { x: 0.0, y: 0.0, z: 1.0 },
+            accelMagnitude: 1.0,
+            isMoving: false,
+            activity: "Resting",
+            mood: this.currentMood,
+            isHardware: true,
+            fingerDetected: false,
+            sqi: 0,
+            sqiStatus: "No Live Data / Sensor Standby"
+          });
+        }
+      }
+    }, 2000);
   }
 
   stop() {
     this.isRunning = false;
+    if (this.watchdogInterval) {
+      clearInterval(this.watchdogInterval);
+      this.watchdogInterval = null;
+    }
     this.disconnectHardware();
   }
 
@@ -94,33 +128,53 @@ export class TelemetryStream {
       if (match) jsonStr = match[0];
     }
 
+    let rawData = null;
     if (jsonStr) {
       try {
-        const data = JSON.parse(jsonStr);
+        rawData = JSON.parse(jsonStr);
+        const data = rawData;
 
         // Extract BPM across common casing conventions
-        bpm = Number(data.bpm ?? data.BPM ?? data.heart_rate ?? data.heartRate ?? data.HeartRate ?? data.hr ?? data.HR);
+        if (data.bpm !== undefined && data.bpm !== null) bpm = Number(data.bpm);
+        else if (data.BPM !== undefined && data.BPM !== null) bpm = Number(data.BPM);
+        else if (data.heart_rate !== undefined && data.heart_rate !== null) bpm = Number(data.heart_rate);
+        else if (data.heartRate !== undefined && data.heartRate !== null) bpm = Number(data.heartRate);
+        else if (data.hr !== undefined && data.hr !== null) bpm = Number(data.hr);
 
         // Extract SpO2 across common conventions
-        spo2 = Number(data.spo2 ?? data.SPO2 ?? data.oximetry ?? data.oxygen ?? data.O2 ?? data.SpO2);
+        if (data.spo2 !== undefined && data.spo2 !== null) spo2 = Number(data.spo2);
+        else if (data.SPO2 !== undefined && data.SPO2 !== null) spo2 = Number(data.SPO2);
+        else if (data.oximetry !== undefined && data.oximetry !== null) spo2 = Number(data.oximetry);
+        else if (data.oxygen !== undefined && data.oxygen !== null) spo2 = Number(data.oxygen);
 
-        // Extract Temperature
-        temp = Number(data.temp ?? data.TEMP ?? data.temperature ?? data.Temperature ?? data.tempC ?? data.Temp);
+        // Extract Temperature (Preserve null if not provided or disconnected)
+        if (data.temp !== undefined && data.temp !== null) temp = Number(data.temp);
+        else if (data.TEMP !== undefined && data.TEMP !== null) temp = Number(data.TEMP);
+        else if (data.temperature !== undefined && data.temperature !== null) temp = Number(data.temperature);
+        else if (data.tempC !== undefined && data.tempC !== null) temp = Number(data.tempC);
 
         // Extract IR amplitude
-        ir = Number(data.ir ?? data.IR ?? data.irValue ?? data.rawIR);
+        if (data.ir !== undefined && data.ir !== null) ir = Number(data.ir);
 
-        // Extract Accel
+        // Extract MPU-6050 Accel
         if (data.accel && typeof data.accel === 'object') {
           accel = data.accel;
         }
         if (data.moving !== undefined) {
           isMoving = Boolean(data.moving);
         }
-        if (data.finger_detected !== undefined) {
+        
+        // Accurate finger presence detection
+        if (data.finger !== undefined && data.finger !== null) {
+          fingerDetected = Boolean(data.finger);
+        } else if (data.finger_detected !== undefined && data.finger_detected !== null) {
           fingerDetected = Boolean(data.finger_detected);
         } else if (ir !== null && !isNaN(ir)) {
           fingerDetected = ir > 15000;
+        } else if (bpm !== null && !isNaN(bpm)) {
+          fingerDetected = bpm >= 35 && bpm <= 230;
+        } else {
+          fingerDetected = false;
         }
       } catch (e) {
         // Fall through to regex strategy
@@ -155,58 +209,72 @@ export class TelemetryStream {
           ir = nums[0];
           bpm = nums[1];
           spo2 = nums[2] || 98.5;
-          temp = nums[3] || 36.6;
+          temp = nums[3] || null;
         } else {
           bpm = nums[0];
           spo2 = nums[1] || 98.5;
-          temp = nums[2] || 36.6;
+          temp = nums[2] || null;
         }
       }
     }
 
-    // If no numerical telemetry found at all, this is a non-telemetry log message
-    if ((bpm === null || isNaN(bpm)) && (spo2 === null || isNaN(spo2)) && (temp === null || isNaN(temp))) {
+    // If no numerical telemetry, accel object, or moving status found, return null
+    if ((bpm === null || isNaN(bpm)) && (spo2 === null || isNaN(spo2)) && (temp === null || isNaN(temp)) && !accel && rawData?.moving === undefined) {
       return null;
     }
 
-    // Normalize BPM (ensure sensible physiological range)
-    let finalBpm;
-    if (!isNaN(bpm) && bpm >= 35 && bpm <= 230) {
+    // Process BPM (Only populate when finger contact is verified)
+    let finalBpm = null;
+    if (fingerDetected && bpm !== null && !isNaN(bpm) && bpm >= 35 && bpm <= 230) {
       finalBpm = Math.round(bpm * 10) / 10;
-    } else if (bpm === 0 || bpm < 35) {
-      finalBpm = 68.0; // Sensor establishing finger contact
-    } else {
-      finalBpm = 72.0;
     }
 
-    // Normalize SpO2
-    let finalSpo2;
-    if (!isNaN(spo2) && spo2 >= 75 && spo2 <= 100) {
+    // Process SpO2 (Only populate when finger contact is verified)
+    let finalSpo2 = null;
+    if (fingerDetected && spo2 !== null && !isNaN(spo2) && spo2 >= 70 && spo2 <= 100) {
       finalSpo2 = Math.round(spo2 * 10) / 10;
-    } else {
-      finalSpo2 = 98.5;
     }
 
-    // Normalize Temperature
-    let finalTemp;
-    if (!isNaN(temp) && temp >= 30 && temp <= 45) {
+    // Process Temperature (Keep null if sensor is unattached / optional probe)
+    let finalTemp = null;
+    if (temp !== null && !isNaN(temp) && temp >= 20 && temp <= 48) {
       finalTemp = Math.round(temp * 10) / 10;
-    } else {
-      finalTemp = 36.6;
     }
 
-    // Derive Activity from Accelerometer
-    let derivedActivity = currentActivity;
+    // Process MPU-6050 3-Axis Accelerometer & Magnitude
+    let accelObj = null;
+    let accelMag = 1.0;
     if (accel && typeof accel === 'object') {
       const x = Number(accel.x) || 0;
       const y = Number(accel.y) || 0;
       const z = Number(accel.z) || 1.0;
-      const mag = Math.sqrt(x * x + y * y + z * z);
-      if (mag > 1.8) derivedActivity = "Running";
-      else if (mag > 1.4) derivedActivity = "Climbing Stairs";
-      else if (mag > 1.15) derivedActivity = "Walking";
-    } else if (isMoving) {
+      accelObj = {
+        x: Math.round(x * 100) / 100,
+        y: Math.round(y * 100) / 100,
+        z: Math.round(z * 100) / 100
+      };
+      accelMag = Math.sqrt(x * x + y * y + z * z);
+    } else if (rawData?.accel_magnitude !== undefined && !isNaN(Number(rawData.accel_magnitude))) {
+      accelMag = Number(rawData.accel_magnitude);
+    }
+    accelMag = Math.round(accelMag * 100) / 100;
+
+    if (rawData?.moving !== undefined) {
+      isMoving = Boolean(rawData.moving);
+    } else {
+      isMoving = (accelMag > 1.15 || accelMag < 0.85);
+    }
+
+    // Derive Activity from Accelerometer
+    let derivedActivity = "Resting";
+    if (accelMag > 1.75) {
+      derivedActivity = "Running";
+    } else if (accelMag > 1.35) {
+      derivedActivity = "Climbing Stairs";
+    } else if (isMoving || accelMag > 1.15 || accelMag < 0.85) {
       derivedActivity = "Walking";
+    } else {
+      derivedActivity = currentActivity || "Resting";
     }
 
     return {
@@ -217,13 +285,17 @@ export class TelemetryStream {
       heartRate: finalBpm,
       spo2: finalSpo2,
       temperature: finalTemp,
+      hasTemperatureSensor: finalTemp !== null,
+      accel: accelObj || { x: 0.0, y: 0.0, z: 1.0 },
+      accelMagnitude: accelMag,
+      isMoving: isMoving,
       activity: derivedActivity,
       mood: currentMood,
       isHardware: true,
       ir: ir,
       fingerDetected: fingerDetected,
-      sqi: fingerDetected ? 95 : 30,
-      sqiStatus: fingerDetected ? "High" : "Calibrating"
+      sqi: fingerDetected ? 95 : 15,
+      sqiStatus: fingerDetected ? "Optimal Signal" : "Awaiting Contact"
     };
   }
 
@@ -291,6 +363,7 @@ export class TelemetryStream {
               // Parse packet
               const parsed = TelemetryStream.parseSerialPacket(trimmed, this.currentActivity, this.currentMood);
               if (parsed && this.onReading) {
+                this.lastPacketTime = Date.now();
                 this.onReading(parsed);
               }
             }
@@ -320,6 +393,7 @@ export class TelemetryStream {
   async disconnectHardware() {
     this.isHardwareConnected = false;
     this.hardwareState = "DISCONNECTED";
+    this.lastPacketTime = 0;
 
     if (this.reader) {
       try {
@@ -417,7 +491,12 @@ export class TelemetryStream {
       {
         name: "Low BPM Standby (0 bpm)",
         input: '{"bpm": 0, "spo2": 0, "finger_detected": false}',
-        expectedValid: true // Normalized safely to 68.0 resting
+        expectedValid: true // Safely recognized as standby packet with fingerDetected: false
+      },
+      {
+        name: "Null Temperature (Unattached Probe)",
+        input: '{"bpm": 72.0, "spo2": 98.5, "temp": null, "finger": true, "accel": {"x": 0.0, "y": 0.0, "z": 1.0}}',
+        expectedValid: true
       },
       {
         name: "IMU Acceleration Motion Shift",

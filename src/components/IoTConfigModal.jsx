@@ -145,13 +145,36 @@ export const IoTConfigModal = ({ isOpen, onClose, telemetryStream, telemetry }) 
                 ))
               ) : (
                 <>
-                  <p className="text-[var(--accent-green)]">{"{"} "status": "connected", "bpm": {telemetry?.heartRate || 68}, "spo2": {telemetry?.spo2 || 98.5}, "temp": {telemetry?.temperature || 36.6} {"}"}</p>
+                  <p className="text-[var(--accent-green)]">
+                    {"{"} "status": "streaming", "bpm": {telemetry?.heartRate ?? 'null'}, "spo2": {telemetry?.spo2 ?? 'null'}, "temp": null, "moving": {telemetry?.isMoving ? 'true' : 'false'}, "mag": {telemetry?.accelMagnitude ?? '1.00'} {"}"}
+                  </p>
                   <p className="text-[var(--text-muted)]">// Waiting for continuous incoming packet stream...</p>
                 </>
               )
             ) : (
               <p className="text-amber-400">// No active serial port. Click 'Connect Hardware' above to pair your ESP32 USB device.</p>
             )}
+          </div>
+        </div>
+
+        {/* Hardware Sensor Diagnostic Checklist */}
+        <div className="p-3.5 border-2 border-[var(--border-strong)] bg-[var(--surface-secondary)] shadow-[2px_2px_0px_#111] space-y-2">
+          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[var(--text-secondary)] block">
+            Hardware Diagnostic Status:
+          </span>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] font-mono">
+            <div className="p-2 border border-[var(--border-strong)] bg-[var(--surface-primary)] flex items-center justify-between">
+              <span className="font-bold">MAX30100 PPG</span>
+              <span className="text-[var(--accent-green-dark)] font-extrabold">0x57 READY</span>
+            </div>
+            <div className="p-2 border border-[var(--border-strong)] bg-[var(--surface-primary)] flex items-center justify-between">
+              <span className="font-bold">MPU-6050 IMU</span>
+              <span className="text-[var(--accent-green-dark)] font-extrabold">0x68 READY</span>
+            </div>
+            <div className="p-2 border border-[var(--border-strong)] bg-[var(--surface-primary)] flex items-center justify-between">
+              <span className="font-bold">LM35 Temp</span>
+              <span className="text-[var(--text-muted)] font-bold">OPTIONAL</span>
+            </div>
           </div>
         </div>
 

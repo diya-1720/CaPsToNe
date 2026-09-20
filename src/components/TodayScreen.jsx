@@ -88,7 +88,7 @@ export const TodayScreen = ({
             delta: deltaStr,
             type: r.activity_state?.toLowerCase().includes('run') ? 'exertion' : r.activity_state?.toLowerCase().includes('walk') ? 'walking' : 'resting',
             status: r.data_source === 'esp32' ? 'ESP32 Stream' : 'Logged Telemetry',
-            details: `Heart Rate: ${rawHr ?? '--'} BPM, SpO2: ${r.spo2 ?? '--'}%, Temperature: ${r.temperature ?? '--'}°C. Device: ${r.device_id}.`
+            details: `Heart Rate: ${rawHr ?? '--'} BPM, SpO2: ${r.spo2 ?? '--'}%, IMU Motion: ${r.accel_magnitude ? Number(r.accel_magnitude).toFixed(2) + 'g' : 'Still'}, Temp: ${r.temperature ? r.temperature + '°C' : 'Unattached'}. Device: ${r.device_id}.`
           });
         });
       }
@@ -122,7 +122,7 @@ export const TodayScreen = ({
           delta: `${(telemetry.heartRate - baseNum).toFixed(1)} vs base`,
           type: 'live',
           status: 'Active Web Serial Stream',
-          details: `Continuous hardware stream via ${telemetry.device_id || 'ESP32'}. SpO2: ${telemetry.spo2}%, Temp: ${telemetry.temperature}°C.`
+          details: `Continuous hardware stream via ${telemetry.device_id || 'ESP32'}. SpO2: ${telemetry.spo2}%, IMU Motion: ${telemetry.accelMagnitude ? telemetry.accelMagnitude + 'g' : '1.00g (Stationary)'}, Temp: ${telemetry.temperature ? telemetry.temperature + '°C' : 'Optional Probe'}.`
         });
       }
 
