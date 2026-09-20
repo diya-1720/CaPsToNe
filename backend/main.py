@@ -287,7 +287,18 @@ def update_patient_profile(
         "user": updated_user
     }
 
-# ----------------- Observation Mode & Baselines -----------------
+# ----------------- Observation Mode, Baselines & Summary -----------------
+
+@app.get("/api/user/summary")
+def get_user_summary_endpoint(current_user: dict = Depends(get_current_user)):
+    """
+    Get comprehensive patient observation summary generated strictly from SQLite database records.
+    Includes observation period, reading counts, min/max/avg vitals, and abnormal events.
+    """
+    summary = database.get_patient_summary(current_user["id"])
+    if not summary:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient record not found.")
+    return summary
 
 @app.post("/api/user/observation-mode")
 def set_observation_mode(

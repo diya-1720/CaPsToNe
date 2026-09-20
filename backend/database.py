@@ -79,6 +79,9 @@ def init_db():
         cursor.execute("ALTER TABLE users ADD COLUMN phone TEXT;")
     if "device_id" not in existing_cols:
         cursor.execute("ALTER TABLE users ADD COLUMN device_id TEXT;")
+    if "observation_start" not in existing_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN observation_start TEXT;")
+        cursor.execute("UPDATE users SET observation_start = created_at WHERE observation_start IS NULL")
 
     # User Sessions Table (Persistent SQLite token sessions)
     cursor.execute("""
@@ -231,13 +234,13 @@ def create_user(
         cursor.execute("""
             INSERT INTO users (
                 id, patient_id, name, email, password_hash, age, gender, phone,
-                timezone, observation_mode, observation_day, baseline_confidence,
+                timezone, observation_mode, observation_start, observation_day, baseline_confidence,
                 device_id, created_at, updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Asia/Kolkata', 1, 1, 'Learning', ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Asia/Kolkata', 1, ?, 1, 'Learning', ?, ?, ?)
         """, (
             user_id, patient_id, name.strip(), email.lower().strip(), pw_hash,
-            age, gender, phone, assigned_device_id, now_iso, now_iso
+            age, gender, phone, now_iso, assigned_device_id, now_iso, now_iso
         ))
 
         # Create baseline record
@@ -266,6 +269,44 @@ def create_user(
     finally:
         conn.close()
 
+def format_user_record(user: dict) -> dict:
+    if not user:
+        return None
+    user.pop("password_hash", None)
+    user["observation_mode"] = bool(user.get("observation_mode"))
+    
+    # Calculate observation duration and dynamic observation day from observation_start
+    obs_start = user.get("observation_start") or user.get("created_at")
+    user["observation_start"] = obs_start
+    if obs_start:
+        try:
+            clean_str = obs_start.replace("Z", "").split("+")[0]
+            start_dt = datetime.fromisoformat(clean_str)
+            now_dt = datetime.utcnow()
+            diff = now_dt - start_dt
+            total_seconds = max(0, int(diff.total_seconds()))
+            days = total_seconds // 86400
+            hours = (total_seconds % 86400) // 3600
+            minutes = (total_seconds % 3600) // 60
+            
+            if days > 0:
+                user["observation_duration"] = f"{days} day{'s' if days != 1 else ''}, {hours} hour{'s' if hours != 1 else ''}"
+            elif hours > 0:
+                user["observation_duration"] = f"{hours} hour{'s' if hours != 1 else ''}, {minutes} min"
+            else:
+                user["observation_duration"] = f"{max(1, minutes)} min"
+
+            if user["observation_mode"]:
+                user["observation_day"] = min(7, max(1, days + 1))
+            else:
+                user["observation_day"] = 7
+        except Exception:
+            user["observation_duration"] = "0 min"
+    else:
+        user["observation_duration"] = "0 min"
+
+    return user
+
 def verify_user(email: str, password: str) -> dict:
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -278,9 +319,7 @@ def verify_user(email: str, password: str) -> dict:
 
     user = dict(row)
     if verify_password(password, user.get("password_hash")):
-        user.pop("password_hash", None)
-        user["observation_mode"] = bool(user["observation_mode"])
-        return user
+        return format_user_record(user)
     return None
 
 def get_user_by_id(user_id: str) -> dict:
@@ -292,10 +331,7 @@ def get_user_by_id(user_id: str) -> dict:
 
     if not row:
         return None
-    user = dict(row)
-    user.pop("password_hash", None)
-    user["observation_mode"] = bool(user["observation_mode"])
-    return user
+    return format_user_record(dict(row))
 
 def get_user_by_email(email: str) -> dict:
     conn = get_db_connection()
@@ -303,7 +339,7 @@ def get_user_by_email(email: str) -> dict:
     cursor.execute("SELECT * FROM users WHERE email = ?", (email.lower().strip(),))
     row = cursor.fetchone()
     conn.close()
-    return dict(row) if row else None
+    return format_user_record(dict(row)) if row else None
 
 def update_user_profile(
     user_id: str,
@@ -399,10 +435,7 @@ def verify_session(token: str) -> dict:
 
     if not row:
         return None
-    user = dict(row)
-    user.pop("password_hash", None)
-    user["observation_mode"] = bool(user["observation_mode"])
-    return user
+    return format_user_record(dict(row))
 
 def delete_session(token: str):
     if not token:
@@ -536,6 +569,30 @@ def insert_sensor_reading(
                     f"Resting heart rate ({heart_rate:.1f} BPM) is {delta:+.1f} BPM above your quiet baseline ({bsl['resting_hr']:.1f} BPM). Take a quiet break to recalibrate.",
                     now_iso
                 ))
+
+    # Automatically log observation if SpO2 is clinically low (< 92%)
+    if spo2 is not None and spo2 < 92.0:
+        obs_id = f"obs_{uuid.uuid4().hex[:10]}"
+        cursor.execute("""
+            INSERT INTO observations (id, user_id, reading_id, severity, message, type, status, created_at)
+            VALUES (?, ?, ?, 'watchful', ?, 'low_spo2', 'active', ?)
+        """, (
+            obs_id, user_id, reading_id,
+            f"Observed SpO2 dip ({spo2:.1f}%) below standard arterial normal threshold (95.0%). Ensure sensor placement is snug.",
+            now_iso
+        ))
+
+    # Automatically log observation if skin temp is elevated (> 38.0°C)
+    if temperature is not None and temperature > 38.0:
+        obs_id = f"obs_{uuid.uuid4().hex[:10]}"
+        cursor.execute("""
+            INSERT INTO observations (id, user_id, reading_id, severity, message, type, status, created_at)
+            VALUES (?, ?, ?, 'watchful', ?, 'elevated_temp', 'active', ?)
+        """, (
+            obs_id, user_id, reading_id,
+            f"Skin temperature reading ({temperature:.1f}°C) is elevated above normal resting equilibrium (36.6°C). Monitor for symptoms.",
+            now_iso
+        ))
 
     conn.commit()
     conn.close()
@@ -695,16 +752,24 @@ def update_user_observation_mode(user_id: str, enabled: bool) -> dict:
     conn = get_db_connection()
     cursor = conn.cursor()
     confidence = 'Learning' if enabled else 'Stable baseline'
-    cursor.execute("""
-        UPDATE users 
-        SET observation_mode = ?, baseline_confidence = ?, updated_at = datetime('now')
-        WHERE id = ?
-    """, (1 if enabled else 0, confidence, user_id))
+    now_iso = datetime.utcnow().isoformat()
+    if enabled:
+        cursor.execute("""
+            UPDATE users 
+            SET observation_mode = 1, observation_start = ?, observation_day = 1, baseline_confidence = ?, updated_at = ?
+            WHERE id = ?
+        """, (now_iso, confidence, now_iso, user_id))
+    else:
+        cursor.execute("""
+            UPDATE users 
+            SET observation_mode = 0, baseline_confidence = ?, updated_at = ?
+            WHERE id = ?
+        """, (confidence, now_iso, user_id))
     cursor.execute("""
         UPDATE user_baselines
-        SET confidence = ?, updated_at = datetime('now')
+        SET confidence = ?, updated_at = ?
         WHERE user_id = ?
-    """, (confidence, user_id))
+    """, (confidence, now_iso, user_id))
     conn.commit()
     conn.close()
     return get_user_by_id(user_id)
@@ -813,4 +878,163 @@ def insert_conversation(user_id: str, user_message: str, awen_response: str, top
         "awen_response": awen_response,
         "topic": topic,
         "created_at": now_iso
+    }
+
+# ----------------- Patient Observation Summary -----------------
+
+def get_patient_summary(user_id: str) -> dict:
+    """
+    Computes patient summary strictly from SQLite database records.
+    Calculates observation period, reading counts, min/max/average metrics,
+    and lists all abnormal events. Returns 'Insufficient data for this metric.'
+    if no data has been collected.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # 1. Fetch user record
+    cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+    user_row = cursor.fetchone()
+    if not user_row:
+        conn.close()
+        return None
+    user = format_user_record(dict(user_row))
+
+    # 2. Fetch baseline record
+    cursor.execute("SELECT * FROM user_baselines WHERE user_id = ?", (user_id,))
+    bsl_row = cursor.fetchone()
+    bsl = dict(bsl_row) if bsl_row else {}
+    resting_baseline_hr = bsl.get("resting_hr", 64.0)
+
+    # 3. Aggregates from sensor_readings
+    cursor.execute("""
+        SELECT 
+            COUNT(*) as total_count,
+            MIN(created_at) as first_reading,
+            MAX(created_at) as last_reading,
+            AVG(heart_rate) as avg_hr,
+            MIN(heart_rate) as min_hr,
+            MAX(heart_rate) as max_hr,
+            AVG(spo2) as avg_spo2,
+            MIN(spo2) as min_spo2,
+            MAX(spo2) as max_spo2,
+            AVG(temperature) as avg_temp,
+            MIN(temperature) as min_temp,
+            MAX(temperature) as max_temp
+        FROM sensor_readings
+        WHERE user_id = ?
+    """, (user_id,))
+    agg = cursor.fetchone()
+    total_count = agg["total_count"] if agg else 0
+
+    # 4. Fetch abnormal events from observations table
+    cursor.execute("""
+        SELECT id, reading_id, severity, message, type, created_at
+        FROM observations
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+    """, (user_id,))
+    obs_rows = cursor.fetchall()
+    abnormal_events = [dict(r) for r in obs_rows]
+
+    # Count abnormal readings exceeding thresholds
+    cursor.execute("""
+        SELECT id, created_at, heart_rate, spo2, temperature, activity_state, data_source
+        FROM sensor_readings
+        WHERE user_id = ? AND (
+            (activity_state = 'Resting' AND heart_rate > (? + 9.6)) OR
+            (spo2 IS NOT NULL AND spo2 < 92.0) OR
+            (temperature IS NOT NULL AND temperature > 38.0)
+        )
+        ORDER BY created_at DESC
+    """, (user_id, resting_baseline_hr))
+    direct_abnormal = cursor.fetchall()
+    
+    # 5. Data sources count
+    cursor.execute("""
+        SELECT data_source, COUNT(*) as cnt
+        FROM sensor_readings
+        WHERE user_id = ?
+        GROUP BY data_source
+    """, (user_id,))
+    source_counts = {r["data_source"]: r["cnt"] for r in cursor.fetchall()}
+
+    conn.close()
+
+    # Build observation period
+    insufficient = "Insufficient data for this metric."
+    if total_count > 0 and agg["first_reading"] and agg["last_reading"]:
+        clean_first = agg["first_reading"].replace("Z", "").split("+")[0]
+        clean_last = agg["last_reading"].replace("Z", "").split("+")[0]
+        first_dt = datetime.fromisoformat(clean_first)
+        last_dt = datetime.fromisoformat(clean_last)
+        period_delta = last_dt - first_dt
+        days_span = period_delta.days + (1 if period_delta.seconds > 0 or period_delta.days == 0 else 0)
+        duration_str = f"{period_delta.days} days, {period_delta.seconds // 3600} hours" if period_delta.days > 0 else f"{period_delta.seconds // 3600} hours, {(period_delta.seconds % 3600) // 60} minutes"
+        obs_period = {
+            "start": agg["first_reading"],
+            "end": agg["last_reading"],
+            "days_recorded": max(1, days_span),
+            "duration": duration_str,
+            "status": "Active Observation" if user.get("observation_mode") else "Completed Observation"
+        }
+    elif user.get("observation_start"):
+        obs_period = {
+            "start": user.get("observation_start"),
+            "end": datetime.utcnow().isoformat(),
+            "days_recorded": 0,
+            "duration": user.get("observation_duration", "0 min"),
+            "status": "Awaiting Initial Readings"
+        }
+    else:
+        obs_period = {
+            "start": None,
+            "end": None,
+            "days_recorded": 0,
+            "duration": insufficient,
+            "status": "No observation recorded"
+        }
+
+    hr_metrics = {
+        "average": round(agg["avg_hr"], 1) if agg and agg["avg_hr"] is not None else insufficient,
+        "min": round(agg["min_hr"], 1) if agg and agg["min_hr"] is not None else insufficient,
+        "max": round(agg["max_hr"], 1) if agg and agg["max_hr"] is not None else insufficient,
+        "resting_baseline": resting_baseline_hr
+    }
+
+    spo2_metrics = {
+        "average": round(agg["avg_spo2"], 1) if agg and agg["avg_spo2"] is not None else insufficient,
+        "min": round(agg["min_spo2"], 1) if agg and agg["min_spo2"] is not None else insufficient,
+        "max": round(agg["max_spo2"], 1) if agg and agg["max_spo2"] is not None else insufficient
+    }
+
+    temp_metrics = {
+        "average": round(agg["avg_temp"], 1) if agg and agg["avg_temp"] is not None else insufficient,
+        "min": round(agg["min_temp"], 1) if agg and agg["min_temp"] is not None else insufficient,
+        "max": round(agg["max_temp"], 1) if agg and agg["max_temp"] is not None else insufficient
+    }
+
+    return {
+        "patient": {
+            "id": user["id"],
+            "patient_id": user.get("patient_id"),
+            "name": user.get("name"),
+            "email": user.get("email"),
+            "age": user.get("age"),
+            "gender": user.get("gender"),
+            "device_id": user.get("device_id"),
+            "observation_mode": user.get("observation_mode"),
+            "observation_day": user.get("observation_day"),
+            "observation_duration": user.get("observation_duration"),
+            "baseline_confidence": user.get("baseline_confidence")
+        },
+        "observation_period": obs_period,
+        "total_readings": total_count,
+        "data_sources": source_counts,
+        "heart_rate": hr_metrics,
+        "spo2": spo2_metrics,
+        "temperature": temp_metrics,
+        "abnormal_events": abnormal_events,
+        "abnormal_readings_count": len(direct_abnormal),
+        "generated_at": datetime.utcnow().isoformat()
     }
