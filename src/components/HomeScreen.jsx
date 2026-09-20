@@ -3,6 +3,7 @@ import { AwenSpirit } from './AwenSpirit';
 import { AwenSpeechCloud } from './AwenSpeechCloud';
 import { evaluateAwenSpeech } from '../services/speechEngine';
 import { AWEN_STATES } from '../services/stateEngine';
+import { apiService } from '../services/apiService';
 import { 
   Heart, 
   Wind, 
@@ -16,7 +17,12 @@ import {
   Activity, 
   ArrowRight,
   ShieldCheck,
-  Clock
+  Clock,
+  Database,
+  AlertTriangle,
+  CheckCircle2,
+  Calendar,
+  AlertCircle
 } from 'lucide-react';
 
 export const HomeScreen = ({
@@ -38,19 +44,71 @@ export const HomeScreen = ({
   const [cloudMessage, setCloudMessage] = useState('');
   const [isCloudVisible, setIsCloudVisible] = useState(false);
   const [mascotExpression, setMascotExpression] = useState('happy');
+  const [alerts, setAlerts] = useState([]);
 
   const canvasRef = useRef(null);
   const animFrameRef = useRef(null);
   const cloudTimerRef = useRef(null);
 
   const isConnected = Boolean(telemetry?.isHardware);
-  const hasReading = (telemetry?.heartRate !== null && telemetry?.heartRate !== undefined) || 
-    (latestReading && ((latestReading.heart_rate !== null && latestReading.heart_rate !== undefined) || (latestReading.bpm !== null && latestReading.bpm !== undefined)));
-  const currentHr = telemetry?.heartRate ?? latestReading?.heart_rate ?? latestReading?.bpm ?? null;
-  const currentSpo2 = telemetry?.spo2 ?? latestReading?.spo2 ?? null;
-  const currentTemp = telemetry?.temperature ?? latestReading?.temperature ?? null;
-  const currentActivity = telemetry?.activity ?? latestReading?.activity_state ?? "Resting";
-  const readingTime = telemetry?.timestamp || (latestReading?.created_at ? new Date(latestReading.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : null);
+  const fingerDetected = Boolean(telemetry?.fingerDetected);
+  const isMoving = Boolean(telemetry?.isMoving);
+  const accel = telemetry?.accel || { x: 0.0, y: 0.0, z: 1.0 };
+  const accelMagnitude = telemetry?.accelMagnitude ? Number(telemetry.accelMagnitude).toFixed(2) : '1.00';
+
+  // Strict Separation: LIVE vitals exist ONLY when hardware is actively streaming with valid signal
+  const liveHr = (isConnected && fingerDetected && telemetry?.heartRate != null) ? telemetry.heartRate : null;
+  const liveSpo2 = (isConnected && fingerDetected && telemetry?.spo2 != null) ? telemetry.spo2 : null;
+  const liveTemp = (isConnected && telemetry?.temperature != null) ? telemetry.temperature : null;
+  const liveActivity = isConnected ? (telemetry?.activity || (isMoving ? "Walking" : "Resting")) : null;
+
+  // Stored Historical Reading from SQLite (Last Recorded)
+  const historicalReading = latestReading;
+
+  // Device Status Description
+  const getDeviceStatus = () => {
+    if (!isConnected) {
+      return { 
+        label: 'DEVICE DISCONNECTED', 
+        badge: 'bg-red-100 text-red-800 border-red-600', 
+        dot: 'bg-red-600',
+        sub: 'ESP32 sensor is not currently streaming'
+      };
+    }
+    if (!fingerDetected) {
+      return { 
+        label: 'NO LIVE DATA · PLACE FINGER', 
+        badge: 'bg-amber-100 text-amber-800 border-amber-500', 
+        dot: 'bg-amber-500 animate-pulse',
+        sub: 'Hardware connected. Optical PPG sensor awaiting finger placement'
+      };
+    }
+    return { 
+      label: 'CONNECTED · LIVE STREAM', 
+      badge: 'bg-[var(--accent-green-bg)] text-[var(--accent-green-dark)] border-[var(--border-strong)]', 
+      dot: 'bg-[var(--accent-green-dark)] animate-pulse',
+      sub: 'Continuous 60 FPS biometric telemetry'
+    };
+  };
+
+  const devStatus = getDeviceStatus();
+
+  // Load Real SQLite Alerts
+  useEffect(() => {
+    let isMounted = true;
+    async function loadAlerts() {
+      try {
+        const obs = await apiService.getObservations(5);
+        if (isMounted && obs) {
+          setAlerts(obs);
+        }
+      } catch (e) {
+        console.warn('Could not load alerts:', e);
+      }
+    }
+    loadAlerts();
+    return () => { isMounted = false; };
+  }, [currentUser, latestReading]);
 
   // Live Digital Clock
   useEffect(() => {
@@ -75,19 +133,74 @@ export const HomeScreen = ({
     return `REST WELL${suffix}`;
   };
 
+  // Abnormality Detection (Unified Source of Truth across readings, observations & state)
+  const baseNum = Number(restingHr) || 64.0;
+  const isAbnormalReading = Boolean(
+    (latestReading && (
+      (latestReading.heart_rate && (latestReading.heart_rate > baseNum + 15 || latestReading.heart_rate < baseNum - 15)) ||
+      (latestReading.spo2 && latestReading.spo2 < 93.0) ||
+      (latestReading.temperature && latestReading.temperature > 37.8)
+    )) ||
+    (alerts && alerts.length > 0 && alerts[0].severity === 'warning') ||
+    (awenState?.wellnessState === 'WATCHFUL')
+  );
+
+  // Auto-trigger Well-Being Question when an abnormal condition is detected
+  useEffect(() => {
+    if (isAbnormalReading) {
+      setMascotExpression("concerned");
+      setCloudMessage("I noticed an unusual pattern in your readings. Are you feeling okay?");
+      setIsCloudVisible(true);
+    }
+  }, [isAbnormalReading, latestReading?.id, alerts?.length]);
+
+  // Handle Mascot Well-Being Check-in Response (Saves to SQLite user_checkins)
+  const handleMascotResponse = async (feeling) => {
+    const isOkay = feeling === 'okay';
+    try {
+      await apiService.saveCheckin({
+        mood: isOkay ? 'Good' : 'Difficult',
+        activity: liveActivity || 'Resting',
+        notes: isOkay 
+          ? 'User response to AWEN Mascot prompt: Confirmed feeling okay.' 
+          : 'User response to AWEN Mascot prompt: Indicated feeling unwell.'
+      });
+      if (isOkay) {
+        setMascotExpression("happy");
+        setCloudMessage("Glad to hear that. I'll keep observing your rhythm quietly. 💚");
+      } else {
+        setMascotExpression("concerned");
+        setCloudMessage("Please rest and take it easy. I'm here if you want to talk. 💙");
+      }
+    } catch (e) {
+      console.warn("Could not record mascot check-in:", e);
+    }
+    if (cloudTimerRef.current) clearTimeout(cloudTimerRef.current);
+    cloudTimerRef.current = setTimeout(() => setIsCloudVisible(false), 5000);
+  };
+
+  const speechOptions = (cloudMessage.includes("feeling okay") || cloudMessage.includes("feeling today") || cloudMessage.includes("How are you")) ? [
+    { label: "✓ I'm okay", variant: "success", onClick: () => handleMascotResponse('okay') },
+    { label: "✗ Feeling unwell", variant: "danger", onClick: () => handleMascotResponse('unwell') }
+  ] : [];
+
   // Handle Mascot Click Interaction
   const handleAwenTap = () => {
-    if (!isConnected) {
+    if (isAbnormalReading) {
+      setCloudMessage("I noticed an unusual pattern in your readings. Are you feeling okay?");
+      setMascotExpression("concerned");
+      setIsCloudVisible(true);
+    } else if (!isConnected) {
       setCloudMessage("I'm ready! Connect your ESP32 sensor so I can observe your real-time body pattern.");
       setMascotExpression("listening");
       setIsCloudVisible(true);
     } else {
       const wellnessContext = {
-        heartRate: telemetry?.heartRate || 64,
+        heartRate: liveHr || 64,
         baselineHeartRate: baselineData?.restingHr || 64,
-        spo2: telemetry?.spo2 || 98.6,
-        temperature: telemetry?.temperature || 36.6,
-        activityState: telemetry?.activity || "Resting",
+        spo2: liveSpo2 || 98.6,
+        temperature: liveTemp || 36.6,
+        activityState: liveActivity || "Resting",
         sleepQuality: "Good",
         observationMode: awenState?.wellnessState === AWEN_STATES.LEARNING,
         isNightMode: false
@@ -99,7 +212,7 @@ export const HomeScreen = ({
     }
 
     if (cloudTimerRef.current) clearTimeout(cloudTimerRef.current);
-    cloudTimerRef.current = setTimeout(() => setIsCloudVisible(false), 5000);
+    cloudTimerRef.current = setTimeout(() => setIsCloudVisible(false), 6500);
   };
 
   // 60 FPS Live Canvas Oscilloscope (G-1)
@@ -112,16 +225,14 @@ export const HomeScreen = ({
     const width = canvas.width = canvas.offsetWidth;
     const height = canvas.height = canvas.offsetHeight;
 
-    // Buffer of points
     const points = new Array(width).fill(height / 2);
     let phase = 0;
 
     const render = () => {
-      // Clear background
       ctx.fillStyle = '#090D11';
       ctx.fillRect(0, 0, width, height);
 
-      // Draw Grid Lines (28px horiz, 18px vert)
+      // Grid Lines
       ctx.strokeStyle = 'rgba(50, 232, 117, 0.08)';
       ctx.lineWidth = 1;
       for (let x = 0; x < width; x += 28) {
@@ -137,18 +248,11 @@ export const HomeScreen = ({
         ctx.stroke();
       }
 
-      if (isConnected) {
-        // Draw physiological PPG pulse waveform with systolic peak and dicrotic notch
+      if (isConnected && fingerDetected && liveHr) {
         phase += 0.08;
-        const currentBpm = telemetry?.heartRate || 72;
-        const freq = (currentBpm / 60) * 0.05;
-        
-        // Advance scanline
         scanX = (scanX + 2) % width;
 
-        // Generate current PPG amplitude
         const t = phase;
-        // Systolic peak + dicrotic wave
         const systolic = Math.sin(t * 2) * 0.5;
         const dicrotic = Math.sin(t * 4 + 1.2) * 0.25;
         const noise = (Math.random() - 0.5) * 0.04;
@@ -156,7 +260,6 @@ export const HomeScreen = ({
 
         points[scanX] = sampleVal;
 
-        // Draw waveform path
         ctx.strokeStyle = '#32E875';
         ctx.lineWidth = 2;
         ctx.beginPath();
@@ -166,19 +269,37 @@ export const HomeScreen = ({
         }
         ctx.stroke();
 
-        // Animated vertical scan beam
         const grad = ctx.createLinearGradient(scanX - 25, 0, scanX, 0);
         grad.addColorStop(0, 'rgba(50, 232, 117, 0)');
         grad.addColorStop(1, 'rgba(50, 232, 117, 0.4)');
         ctx.fillStyle = grad;
         ctx.fillRect(Math.max(0, scanX - 25), 0, 25, height);
 
-        // Leading cursor
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(scanX, 0, 2, height);
 
+      } else if (isConnected) {
+        ctx.strokeStyle = 'rgba(245, 158, 11, 0.4)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        const midY = height / 2;
+        for (let x = 0; x < width; x++) {
+          const y = midY + Math.sin((x + scanX) * 0.03) * 3;
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        scanX = (scanX + 1) % width;
+
+        ctx.fillStyle = '#F59E0B';
+        ctx.font = 'bold 11px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('● HARDWARE ONLINE · PLACE FINGER ON MAX30102 SENSOR', width / 2, height / 2 - 10);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.font = '10px monospace';
+        ctx.fillText('AWAITING ARTERIAL CONTACT TO STREAM LIVE VITALS', width / 2, height / 2 + 10);
+
       } else {
-        // Standby baseline flatline with gentle ambient wave
         ctx.strokeStyle = 'rgba(220, 38, 38, 0.4)';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
@@ -191,14 +312,13 @@ export const HomeScreen = ({
         ctx.stroke();
         scanX = (scanX + 0.5) % width;
 
-        // Standby text overlay
         ctx.fillStyle = '#DC2626';
         ctx.font = 'bold 11px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('STANDBY · AWAITING SENSOR TELEMETRY', width / 2, height / 2 - 12);
+        ctx.fillText('STANDBY · NO LIVE HARDWARE SIGNAL', width / 2, height / 2 - 12);
         ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
         ctx.font = '10px monospace';
-        ctx.fillText('CONNECT ESP32 (MAX30102) TO ACTIVATE WAVEFORM', width / 2, height / 2 + 8);
+        ctx.fillText('CONNECT ESP32 (MAX30102 + MPU-6050) TO ACTIVATE LIVE STREAM', width / 2, height / 2 + 8);
       }
 
       animFrameRef.current = requestAnimationFrame(render);
@@ -206,7 +326,7 @@ export const HomeScreen = ({
 
     animFrameRef.current = requestAnimationFrame(render);
     return () => cancelAnimationFrame(animFrameRef.current);
-  }, [isConnected, telemetry?.heartRate]);
+  }, [isConnected, fingerDetected, liveHr]);
 
   return (
     <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-24 lg:pb-12 space-y-6 animate-fadeIn text-left">
@@ -221,22 +341,20 @@ export const HomeScreen = ({
             </span>
           </div>
           <h1 className="font-heading text-2xl sm:text-3xl font-extrabold uppercase tracking-tight text-[var(--text-primary)]">
-            Executive Wellness Overview
+            Observation Dashboard
           </h1>
           <p className="text-xs sm:text-sm font-medium text-[var(--text-secondary)]">
-            Your personal physiological baseline is actively contextualizing your body signals.
+            Longitudinal personal baseline observation powered by local SQLite storage.
           </p>
         </div>
 
         {/* Right Info Cluster */}
         <div className="flex items-center gap-3">
           {/* Status Pill */}
-          <div className={`px-3 py-1.5 border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111] text-xs font-mono font-bold flex items-center gap-2 ${
-            isConnected ? 'bg-[var(--accent-green-bg)] text-[var(--accent-green-dark)]' : 'bg-red-100 text-red-700'
-          }`}>
-            <span className={`w-2 h-2 rounded-full shrink-0 ${isConnected ? 'bg-[var(--accent-green-dark)] animate-pulse' : 'bg-red-600'}`} />
+          <div className={`px-3 py-1.5 border-2 shadow-[2px_2px_0px_#111] text-xs font-mono font-bold flex items-center gap-2 ${devStatus.badge}`}>
+            <span className={`w-2 h-2 rounded-full shrink-0 ${devStatus.dot}`} />
             <span className="uppercase tracking-wider">
-              {isConnected ? 'BALANCED · 60 FPS STREAM' : 'SENSOR STANDBY'}
+              {devStatus.label}
             </span>
           </div>
 
@@ -252,17 +370,59 @@ export const HomeScreen = ({
         </div>
       </div>
 
-      {/* ── 2. SENSOR STATUS BANNER (When Standby) ── */}
+      {/* ── 2. PATIENT / OBSERVATION DETAILS STRIP (STEP 6) ── */}
+      <div className="neo-surface p-4 border-2 border-[var(--border-strong)] bg-[var(--surface-secondary)] shadow-[3px_3px_0px_#111] grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs font-mono">
+        {/* User / Subject Name & ID */}
+        <div className="space-y-0.5">
+          <span className="text-[10px] text-[var(--text-muted)] uppercase block font-bold">User Account</span>
+          <span className="text-sm font-bold text-[var(--text-primary)] truncate block">{currentUser?.name || 'User'}</span>
+          <span className="text-[10px] text-[var(--text-secondary)]">User ID: {currentUser?.patient_id || 'USR-LOCAL'}</span>
+        </div>
+        <div>
+          <span className="text-[10px] text-[var(--text-muted)] uppercase block font-bold">Observation Status</span>
+          <span className="text-sm font-bold text-[var(--accent-green-dark)] block">
+            {currentUser?.observation_mode ? `Day ${currentUser?.observation_day || 1} of 7` : 'Settled Baseline'}
+          </span>
+          <span className="text-[10px] text-[var(--text-secondary)]">
+            {currentUser?.observation_mode ? 'Learning Cycle' : 'Calibrated'}
+          </span>
+        </div>
+        <div>
+          <span className="text-[10px] text-[var(--text-muted)] uppercase block font-bold">Observation Start</span>
+          <span className="text-sm font-bold text-[var(--text-primary)] block">
+            {currentUser?.observation_start ? new Date(currentUser.observation_start).toLocaleDateString([], { month: 'short', day: 'numeric' }) : 'Initial'}
+          </span>
+          <span className="text-[10px] text-[var(--text-secondary)]">
+            {currentUser?.observation_start ? new Date(currentUser.observation_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--'}
+          </span>
+        </div>
+        <div>
+          <span className="text-[10px] text-[var(--text-muted)] uppercase block font-bold">Observation Duration</span>
+          <span className="text-sm font-bold text-[var(--text-primary)] block truncate">
+            {currentUser?.observation_duration || '0 days'}
+          </span>
+          <span className="text-[10px] text-[var(--text-secondary)]">Elapsed Window</span>
+        </div>
+        <div>
+          <span className="text-[10px] text-[var(--text-muted)] uppercase block font-bold">Device Link</span>
+          <span className={`text-xs font-bold block truncate ${isConnected ? 'text-[var(--accent-green-dark)]' : 'text-red-700'}`}>
+            {currentUser?.device_id || 'AWEN_ESP32_01'}
+          </span>
+          <span className="text-[10px] text-[var(--text-secondary)]">{isConnected ? 'Port Active' : 'Disconnected'}</span>
+        </div>
+      </div>
+
+      {/* ── 3. DISCONNECTED NOTICE (When Standby) ── */}
       {!isConnected && (
         <div className="p-4 border-2 border-red-600 bg-red-50 text-red-800 shadow-[3px_3px_0px_#dc2626] flex flex-wrap sm:flex-nowrap items-center justify-between gap-4 animate-fadeIn">
           <div className="flex items-center gap-3">
             <span className="w-3 h-3 rounded-full bg-red-600 animate-pulse shrink-0" />
             <div>
               <span className="font-mono text-xs font-bold uppercase tracking-wider block text-red-900">
-                Hardware Not Connected — Sensor Standby
+                Device Disconnected — No Live Hardware Data
               </span>
               <span className="text-xs text-red-700 font-medium">
-                Connect your physical ESP32 MAX30102 sensor via Web Serial to initiate live 60 FPS biometric waveform analysis.
+                Live sensor vitals show empty (--). Historical readings are safely preserved below in local SQLite. Connect ESP32 to stream real biometric data.
               </span>
             </div>
           </div>
@@ -273,14 +433,14 @@ export const HomeScreen = ({
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider border-2 border-black shadow-[2px_2px_0px_#111] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all flex items-center gap-1.5"
               >
                 <Cpu className="w-3.5 h-3.5" />
-                <span>Pair Hardware</span>
+                <span>Connect Hardware</span>
               </button>
             )}
           </div>
         </div>
       )}
 
-      {/* ── 3. MAIN DASHBOARD GRID (5 Cols Left, 7 Cols Right) ── */}
+      {/* ── 4. MAIN DASHBOARD GRID (5 Cols Left, 7 Cols Right) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
         {/* ── LEFT COLUMN (5 Cols): Living Companion & Narrative ── */}
@@ -291,6 +451,7 @@ export const HomeScreen = ({
             <AwenSpeechCloud 
               message={cloudMessage}
               isVisible={isCloudVisible}
+              options={speechOptions}
               onTalkMore={onOpenTalk}
             />
 
@@ -312,7 +473,7 @@ export const HomeScreen = ({
             <div className="mt-3 inline-flex items-center gap-2 px-3 py-1 border-2 border-[var(--border-strong)] bg-[var(--text-primary)] text-[var(--bg-base)] text-xs font-mono shadow-[2px_2px_0px_#111]">
               <span className={`w-2 h-2 rounded-full shrink-0 ${isConnected ? 'bg-[var(--accent-green)]' : 'bg-red-500 animate-pulse'}`} />
               <span className="font-bold uppercase tracking-widest">
-                {isConnected ? (awenState?.wellnessState || 'BALANCED') : 'AWAITING SENSOR'}
+                {isConnected ? (awenState?.wellnessState || 'BALANCED') : 'DEVICE DISCONNECTED'}
               </span>
             </div>
 
@@ -331,17 +492,17 @@ export const HomeScreen = ({
             <div className="flex items-center justify-between border-b-2 border-[var(--border-strong)] pb-2.5">
               <span className="font-mono text-xs font-bold uppercase tracking-wider text-[var(--text-primary)] flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-[var(--accent-green-dark)]" />
-                <span>Your Rhythm Today</span>
+                <span>Observation Rhythm</span>
               </span>
               <span className="text-[10px] font-mono px-2 py-0.5 border border-[var(--border-strong)] bg-[var(--surface-secondary)] font-bold">
-                DIAGNOSTIC
+                SQLITE PERSISTED
               </span>
             </div>
             
             <p className="text-xs sm:text-sm font-medium text-[var(--text-secondary)] leading-relaxed">
               {isConnected
-                ? "Your resting telemetry closely conforms with your calibrated 64.0 BPM quiet baseline. Physical movement episodes were recognized and contextually filtered."
-                : "Awaiting active sensor telemetry. Your personal 64.0 BPM resting baseline signature is saved in local SQLite storage."}
+                ? "Your resting telemetry closely conforms with your calibrated resting quiet baseline. Physical movement episodes are contextually recognized."
+                : "Awaiting active sensor telemetry. Your personal learned baseline signature is safely saved in local SQLite storage."}
             </p>
 
             <div className="p-3 border border-[var(--border-strong)] bg-[var(--surface-secondary)] text-[11px] font-mono font-bold flex items-center justify-between">
@@ -350,105 +511,207 @@ export const HomeScreen = ({
             </div>
           </div>
 
+          {/* Real Alerts Card (STEP 6) */}
+          <div className="neo-surface p-5 bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] shadow-[3px_3px_0px_#111] space-y-3">
+            <div className="flex items-center justify-between border-b-2 border-[var(--border-strong)] pb-2.5">
+              <span className="font-mono text-xs font-bold uppercase tracking-wider text-[var(--text-primary)] flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600" />
+                <span>Detected Events ({alerts.length})</span>
+              </span>
+              <span className="text-[10px] font-mono px-2 py-0.5 border border-[var(--border-strong)] bg-[var(--surface-secondary)] font-bold">
+                REAL ALERTS
+              </span>
+            </div>
+
+            {alerts.length === 0 ? (
+              <div className="p-3 bg-[var(--surface-secondary)] border border-[var(--border-strong)] text-center text-xs font-medium text-[var(--text-secondary)]">
+                No abnormal events detected. All telemetry aligns with baseline corridors.
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {alerts.map((al, idx) => (
+                  <div key={al.id || idx} className="p-2.5 border border-amber-300 bg-amber-50/60 text-left space-y-0.5 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-amber-900 uppercase text-[10px] font-mono">{al.type || 'Watchful'}</span>
+                      <span className="text-[9px] font-mono text-[var(--text-muted)]">
+                        {al.created_at ? new Date(al.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-amber-950 font-medium leading-tight">{al.message}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
         </div>
 
-        {/* ── RIGHT COLUMN (7 Cols): Vitals, Oscilloscope & Controls ── */}
+        {/* ── RIGHT COLUMN (7 Cols): Vitals, Stored Data, Oscilloscope ── */}
         <div className="lg:col-span-7 space-y-6">
           
-          {/* Row of 4 Biometric Metric Cards (G-2, G-3, G-4) */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            
-            {/* Card 1: Heart Rate */}
-            <div className="metric-card space-y-2 border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111]">
-              <div className="flex items-center justify-between">
-                <span className="metric-label">Heart Rate</span>
-                <Heart className="w-3.5 h-3.5 text-[var(--accent-danger)]" />
-              </div>
-              <div>
-                <span className="metric-value text-2xl block">
-                  {hasReading && currentHr ? currentHr : '--'}{' '}
-                  <span className="text-xs text-[var(--text-secondary)] font-normal font-sans">BPM</span>
-                </span>
-                <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase block">
-                  {hasReading ? currentActivity : 'No Signal'}
-                </span>
-              </div>
-              {/* Mini Sparkline */}
-              <div className="h-4 w-full pt-1">
-                <svg className="w-full h-full" viewBox="0 0 100 20" fill="none">
-                  <path d="M0,10 L30,10 L35,2 L40,18 L45,6 L50,14 L55,10 L100,10" stroke="#DC2626" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
+          {/* Row of 4 LIVE Biometric Metric Cards (Strictly live values or '--') */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--text-secondary)] flex items-center gap-1.5">
+                <Radio className={`w-3.5 h-3.5 ${isConnected ? 'text-[var(--accent-green-dark)] animate-pulse' : 'text-red-500'}`} />
+                <span>Live Hardware Stream Vitals</span>
+              </span>
+              <span className={`text-[10px] font-mono font-bold px-2 py-0.5 border ${isConnected ? 'bg-[var(--accent-green-bg)] text-[var(--accent-green-dark)] border-[var(--accent-green-dark)]' : 'bg-red-50 text-red-700 border-red-300'}`}>
+                {isConnected ? 'LIVE TELEMETRY' : 'DISCONNECTED (--)'}
+              </span>
             </div>
 
-            {/* Card 2: SpO₂ */}
-            <div className="metric-card space-y-2 border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111]">
-              <div className="flex items-center justify-between">
-                <span className="metric-label">SpO₂ Pulse</span>
-                <Wind className="w-3.5 h-3.5 text-[var(--accent-green-dark)]" />
-              </div>
-              <div>
-                <span className="metric-value text-2xl block">
-                  {hasReading && currentSpo2 ? currentSpo2 : '--'}{' '}
-                  <span className="text-xs text-[var(--text-secondary)] font-normal font-sans">%</span>
-                </span>
-                <span className="text-[10px] font-bold text-[var(--accent-green-dark)] uppercase block">
-                  {hasReading ? 'Optimal' : 'No Signal'}
-                </span>
-              </div>
-              {/* Mini Curve */}
-              <div className="h-4 w-full pt-1">
-                <svg className="w-full h-full" viewBox="0 0 100 20" fill="none">
-                  <path d="M0,12 Q25,8 50,11 T100,10" stroke="#15803D" strokeWidth="1.8" strokeLinecap="round" />
-                </svg>
-              </div>
-            </div>
-
-            {/* Card 3: Skin Temp */}
-            <div className="metric-card space-y-2 border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111]">
-              <div className="flex items-center justify-between">
-                <span className="metric-label">Skin Temp</span>
-                <Thermometer className="w-3.5 h-3.5 text-[var(--accent-warm)]" />
-              </div>
-              <div>
-                <span className="metric-value text-2xl block">
-                  {hasReading && currentTemp ? currentTemp : '--'}{' '}
-                  <span className="text-xs text-[var(--text-secondary)] font-normal font-sans">°C</span>
-                </span>
-                <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase block">
-                  {hasReading ? 'Nominal' : 'No Signal'}
-                </span>
-              </div>
-              {/* Mini Thermal Curve */}
-              <div className="h-4 w-full pt-1">
-                <svg className="w-full h-full" viewBox="0 0 100 20" fill="none">
-                  <path d="M0,10 C30,12 60,8 100,10" stroke="#D97706" strokeWidth="1.8" strokeLinecap="round" />
-                </svg>
-              </div>
-            </div>
-
-            {/* Card 4: Activity Context */}
-            <div className="metric-card space-y-2 border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111]">
-              <div className="flex items-center justify-between">
-                <span className="metric-label">Context</span>
-                <Footprints className="w-3.5 h-3.5 text-indigo-600" />
-              </div>
-              <div>
-                <span className="metric-value text-base sm:text-lg block truncate">
-                  {hasReading ? currentActivity : 'Standby'}
-                </span>
-                <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase block">
-                  {readingTime ? `Recorded: ${readingTime}` : 'Awaiting Sensor'}
-                </span>
-              </div>
-              {/* Activity indicator */}
-              <div className="h-4 w-full pt-1">
-                <div className="w-full bg-[var(--surface-secondary)] h-1.5 rounded-full overflow-hidden border border-[var(--border-light)]">
-                  <div className={`h-full ${hasReading ? 'bg-indigo-500 w-3/4' : 'bg-transparent'}`} />
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              
+              {/* Card 1: Heart Rate */}
+              <div className="metric-card space-y-2 border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111]">
+                <div className="flex items-center justify-between">
+                  <span className="metric-label">Heart Rate</span>
+                  <Heart className={`w-3.5 h-3.5 ${liveHr ? 'text-[var(--accent-danger)] animate-pulse' : 'text-[var(--text-muted)]'}`} />
+                </div>
+                <div>
+                  <span className="metric-value text-2xl block">
+                    {liveHr ? liveHr : '--'}{' '}
+                    <span className="text-xs text-[var(--text-secondary)] font-normal font-sans">BPM</span>
+                  </span>
+                  <span className={`text-[10px] font-bold uppercase block truncate ${
+                    isConnected && !fingerDetected ? 'text-amber-600 animate-pulse' : 'text-[var(--text-secondary)]'
+                  }`}>
+                    {!isConnected ? 'Disconnected' : !fingerDetected ? 'Place Finger' : (isMoving ? 'Active Pulse' : 'Resting Baseline')}
+                  </span>
+                </div>
+                <div className="h-4 w-full pt-1">
+                  <svg className="w-full h-full" viewBox="0 0 100 20" fill="none">
+                    <path d="M0,10 L30,10 L35,2 L40,18 L45,6 L50,14 L55,10 L100,10" stroke={liveHr ? "#DC2626" : "#888888"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
                 </div>
               </div>
+
+              {/* Card 2: SpO₂ */}
+              <div className="metric-card space-y-2 border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111]">
+                <div className="flex items-center justify-between">
+                  <span className="metric-label">SpO₂ Pulse</span>
+                  <Wind className={`w-3.5 h-3.5 ${liveSpo2 ? 'text-[var(--accent-green-dark)]' : 'text-[var(--text-muted)]'}`} />
+                </div>
+                <div>
+                  <span className="metric-value text-2xl block">
+                    {liveSpo2 ? liveSpo2 : '--'}{' '}
+                    <span className="text-xs text-[var(--text-secondary)] font-normal font-sans">%</span>
+                  </span>
+                  <span className="text-[10px] font-bold text-[var(--accent-green-dark)] uppercase block truncate">
+                    {!isConnected ? 'Disconnected' : !fingerDetected ? 'Awaiting Pulse' : 'Optimal'}
+                  </span>
+                </div>
+                <div className="h-4 w-full pt-1">
+                  <svg className="w-full h-full" viewBox="0 0 100 20" fill="none">
+                    <path d="M0,12 Q25,8 50,11 T100,10" stroke={liveSpo2 ? "#15803D" : "#888888"} strokeWidth="1.8" strokeLinecap="round" />
+                  </svg>
+                </div>
+              </div>
+
+              {/* Card 3: Skin Temp */}
+              <div className="metric-card space-y-2 border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111]">
+                <div className="flex items-center justify-between">
+                  <span className="metric-label">Skin Temp</span>
+                  <Thermometer className={`w-3.5 h-3.5 ${liveTemp !== null ? 'text-[var(--accent-warm)]' : 'text-[var(--text-muted)]'}`} />
+                </div>
+                <div>
+                  <span className="metric-value text-2xl block">
+                    {liveTemp !== null ? liveTemp : '--'}{' '}
+                    <span className="text-xs text-[var(--text-secondary)] font-normal font-sans">°C</span>
+                  </span>
+                  <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase block truncate">
+                    {!isConnected ? 'Disconnected' : (liveTemp !== null ? 'Nominal' : 'Probe Unattached')}
+                  </span>
+                </div>
+                <div className="h-4 w-full pt-0.5 text-[9px] font-mono text-[var(--text-muted)] truncate">
+                  {liveTemp !== null ? 'GPIO 34 Active' : 'Optional Probe'}
+                </div>
+              </div>
+
+              {/* Card 4: Physical Motion & IMU (MPU-6050) */}
+              <div className="metric-card space-y-2 border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111]">
+                <div className="flex items-center justify-between">
+                  <span className="metric-label">Motion / IMU</span>
+                  <Activity className={`w-3.5 h-3.5 ${isMoving ? 'text-amber-500 animate-pulse' : 'text-indigo-600'}`} />
+                </div>
+                <div>
+                  <span className={`text-[11px] font-mono font-bold px-1.5 py-0.5 border border-[var(--border-strong)] inline-block uppercase shadow-[1px_1px_0px_#111] ${
+                    !isConnected 
+                      ? 'bg-[var(--surface-secondary)] text-[var(--text-muted)]' 
+                      : isMoving 
+                        ? 'bg-amber-100 text-amber-900 border-amber-500 font-extrabold animate-pulse' 
+                        : 'bg-[var(--accent-green-bg)] text-[var(--accent-green-dark)]'
+                  }`}>
+                    {!isConnected ? 'Disconnected' : isMoving ? '⚡ Motion' : '● Still'}
+                  </span>
+                  <span className="text-[10px] font-mono font-bold text-[var(--text-secondary)] block mt-1">
+                    |a|: {isConnected ? `${accelMagnitude}g` : '--'}
+                  </span>
+                </div>
+                <div className="h-4 w-full pt-0.5 text-[9px] font-mono text-[var(--text-muted)] truncate">
+                  {isConnected ? `X:${accel.x.toFixed(2)} Y:${accel.y.toFixed(2)} Z:${accel.z.toFixed(2)}` : 'No IMU stream'}
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          {/* ── LAST STORED READING IN SQLITE (CLEARLY LABELED AS HISTORICAL) ── */}
+          <div className="neo-surface p-4 bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] shadow-[3px_3px_0px_#111] space-y-2">
+            <div className="flex items-center justify-between border-b-2 border-[var(--border-strong)] pb-2">
+              <span className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--text-primary)] flex items-center gap-2">
+                <Database className="w-3.5 h-3.5 text-[var(--accent-green-dark)]" />
+                <span>Last Recorded Telemetry (SQLite awen.db)</span>
+              </span>
+              <span className="text-[10px] font-mono px-2 py-0.5 border border-[var(--border-strong)] bg-[var(--surface-secondary)] font-bold">
+                HISTORICAL RECORD
+              </span>
             </div>
 
+            {historicalReading ? (
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs font-mono pt-1">
+                <div>
+                  <span className="text-[10px] text-[var(--text-muted)] uppercase block font-bold">Recorded Time</span>
+                  <span className="font-bold text-[var(--text-primary)] block">
+                    {historicalReading.created_at ? new Date(historicalReading.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Recent'}
+                  </span>
+                  <span className="text-[10px] text-[var(--text-secondary)]">
+                    {historicalReading.created_at ? new Date(historicalReading.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' }) : ''}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-[var(--text-muted)] uppercase block font-bold">Heart Rate</span>
+                  <span className="text-sm font-bold text-[var(--text-primary)] block">
+                    {historicalReading.bpm ?? historicalReading.heart_rate ?? '--'} BPM
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-[var(--text-muted)] uppercase block font-bold">SpO₂</span>
+                  <span className="text-sm font-bold text-[var(--text-primary)] block">
+                    {historicalReading.spo2 ? `${historicalReading.spo2}%` : '--'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-[var(--text-muted)] uppercase block font-bold">Skin Temp</span>
+                  <span className="text-sm font-bold text-[var(--text-primary)] block">
+                    {historicalReading.temperature ? `${historicalReading.temperature}°C` : '--'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-[var(--text-muted)] uppercase block font-bold">Data Source</span>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 border inline-block ${
+                    historicalReading.data_source === 'demo_synthetic' ? 'bg-purple-100 text-purple-900 border-purple-300' : 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                  }`}>
+                    {historicalReading.data_source === 'demo_synthetic' ? 'Synthetic Demo' : (historicalReading.data_source || 'ESP32 Stream')}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-[var(--text-secondary)] font-medium py-1">
+                No historical readings stored in SQLite yet. Ingest telemetry or connect an ESP32 device.
+              </p>
+            )}
           </div>
 
           {/* ── LIVE PPG OSCILLOSCOPE (G-1) ── */}
@@ -457,15 +720,15 @@ export const HomeScreen = ({
               <div className="flex items-center gap-2">
                 <Activity className="w-4 h-4 text-[var(--accent-green-dark)]" />
                 <span className="font-heading text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
-                  Live PPG Pulse Signal (MAX30102 Optical Waveform)
+                  Biometric Signal Monitor (MAX30102 Optical PPG)
                 </span>
               </div>
               <span className={`text-[10px] font-mono font-bold px-2 py-0.5 border-2 rounded-sm ${
-                isConnected 
+                isConnected && fingerDetected
                   ? 'bg-[var(--accent-green-bg)] text-[var(--accent-green-dark)] border-[var(--accent-green-dark)]' 
                   : 'bg-red-100 text-red-700 border-red-600'
               }`}>
-                {isConnected ? '● LIVE 60 FPS' : '● WAITING FOR SIGNAL'}
+                {isConnected && fingerDetected ? '● LIVE 60 FPS' : '● SENSOR STANDBY'}
               </span>
             </div>
 
@@ -476,9 +739,9 @@ export const HomeScreen = ({
 
             {/* Footer Telemetry Specs */}
             <div className="flex flex-wrap items-center justify-between text-[10px] font-mono text-[var(--text-muted)] pt-1">
-              <span>Sampling: 115200 Baud · Continuous 60 FPS Optical Telemetry</span>
+              <span>Sampling: 115200 Baud · Real Sensor Stream</span>
               <span className="font-bold text-[var(--text-primary)]">
-                SQI: {isConnected ? '98% Optimal Signal' : '0% (No Contact)'}
+                Status: {devStatus.label}
               </span>
             </div>
           </div>
@@ -513,7 +776,7 @@ export const HomeScreen = ({
                 className="px-4 py-2.5 bg-[var(--surface-primary)] hover:bg-[var(--surface-tertiary)] border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111] text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
               >
                 <FileText className="w-4 h-4" />
-                <span>View Clinical Reports</span>
+                <span>View User Summary</span>
               </button>
 
               <button

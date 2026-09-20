@@ -7,7 +7,7 @@ import { ArrowRight, MessageCircle, Heart, TrendingUp } from 'lucide-react';
  * Features a downward tail pointing to AWEN, clean 2-3 lines of text,
  * and quick contextual options (Talk to AWEN, Explain My Wellness, Today's Insight).
  */
-const AwenSpeechCloudComponent = ({ message, isVisible, onTalkMore, onExplain, onInsights }) => {
+const AwenSpeechCloudComponent = ({ message, isVisible, onTalkMore, onExplain, onInsights, options = [] }) => {
   if (!isVisible || !message) return null;
 
   return (
@@ -16,9 +16,33 @@ const AwenSpeechCloudComponent = ({ message, isVisible, onTalkMore, onExplain, o
       {/* Main Neo-Brutalist Speech Cloud Body */}
       <div className="relative neo-surface p-4 space-y-3 bg-[var(--surface-primary)] shadow-[4px_4px_0px_#111]">
         
-        <p className="text-xs font-bold uppercase tracking-wide leading-relaxed">
+        <p className="text-xs font-bold uppercase tracking-wide leading-relaxed text-[var(--text-primary)]">
           <span className="highlight-yellow">"{message}"</span>
         </p>
+
+        {/* Interactive Response Options */}
+        {options && options.length > 0 && (
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            {options.map((opt, idx) => (
+              <button
+                key={idx}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (opt.onClick) opt.onClick();
+                }}
+                className={`py-1.5 px-2 text-[10px] font-mono font-bold uppercase tracking-wider border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111] transition-all active:translate-x-[1px] active:translate-y-[1px] active:shadow-none flex items-center justify-center gap-1 ${
+                  opt.variant === 'danger'
+                    ? 'bg-red-50 hover:bg-red-100 text-red-700 border-red-600'
+                    : opt.variant === 'success'
+                    ? 'bg-[var(--accent-green-bg)] hover:bg-emerald-100 text-[var(--accent-green-dark)] border-[var(--accent-green-dark)]'
+                    : 'bg-[var(--surface-secondary)] hover:bg-[var(--surface-tertiary)] text-[var(--text-primary)]'
+                }`}
+              >
+                <span>{opt.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Interactive Options */}
         <div className="pt-2 border-t-2 border-[var(--border-strong)] space-y-2 mt-2">
