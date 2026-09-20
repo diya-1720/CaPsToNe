@@ -1,46 +1,78 @@
+<div align="center">
+
 # AWEN
 
-> **Adaptive Wellness & Emotional Navigation**  
-> *Personalized Physiological Baseline Intelligence & Longitudinal Health Companion*
+### **Adaptive Wellness & Emotional Navigation**
+*Personalized Physiological Baseline Intelligence & Longitudinal Health Companion*
+
+[![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
+[![Python](https://img.shields.io/badge/Python_3.13-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![React](https://img.shields.io/badge/React_19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite_8-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
+[![SQLite](https://img.shields.io/badge/SQLite_3-07405E?style=for-the-badge&logo=sqlite&logoColor=white)](https://sqlite.org)
+[![ESP32](https://img.shields.io/badge/ESP32-E7352C?style=for-the-badge&logo=espressif&logoColor=white)](https://espressif.com/)
+[![Arduino](https://img.shields.io/badge/Arduino_IDE-00979D?style=for-the-badge&logo=arduino&logoColor=white)](https://arduino.cc)
+[![W3C Web Serial](https://img.shields.io/badge/Web_Serial_API-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](https://wicg.github.io/serial/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
+[![Status](https://img.shields.io/badge/System_Status-Demo_Ready-brightgreen?style=for-the-badge)]()
+[![Tests](https://img.shields.io/badge/Tests-All_Passing-success?style=for-the-badge)]()
+
+<br/>
+
+**A complete full-stack IoT physiological baseline monitoring system designed for students, professionals, and general users.**  
+*Comparing your body against your own physiological normal — not static population averages.*
+
+</div>
 
 ---
 
-## Project Overview
+## 📌 Project Overview
 
-**AWEN (Adaptive Wellness & Emotional Navigation)** is a full-stack, personal health and physiological monitoring platform designed to address a critical limitation in conventional healthcare monitors: **static medical thresholds**. 
+**AWEN (Adaptive Wellness & Emotional Navigation)** is a full-stack, personal health and physiological monitoring platform designed to address a critical limitation in conventional wellness wearables: **static population thresholds**. 
 
-Traditional wearable devices compare every individual to generic population averages (for example, triggering alerts whenever heart rate exceeds 100 BPM). However, resting physiological parameters vary naturally from person to person. A heart rate of 82 BPM may be completely normal for one individual during quiet study, yet an indicator of acute fatigue for an athlete.
+Traditional wearable devices compare every individual to generic medical averages (for example, triggering alerts whenever heart rate exceeds 100 BPM). However, resting physiological parameters vary naturally from person to person. A heart rate of 82 BPM may be completely normal for one individual during quiet study, yet an indicator of acute fatigue for an endurance athlete.
 
-AWEN continuously learns a patient's **individual resting baseline** over time. By combining physiological data (Heart Rate, Blood Oxygen SpO₂, and Skin Temperature) with physical motion context (6-axis accelerometer and gyroscope vectors), AWEN evaluates whether today's body behavior deviates from the patient's **own personal normal**, preventing false stress alarms during exercise and providing calm, contextual recovery feedback.
+AWEN continuously learns a user's **individual resting baseline** over time. By combining physiological data (Heart Rate, Blood Oxygen SpO₂, and Skin Temperature) with physical motion context (6-axis accelerometer and gyroscope vectors), AWEN evaluates whether today's body behavior deviates from the user's **own personal normal**, preventing false stress alarms during exercise and providing calm, contextual recovery feedback.
 
 ---
 
-## Key Features
+## 🚀 Key Features
 
 The following capabilities are fully implemented in the codebase and backed by a real SQLite database:
 
-- **Real Patient Registration**: Complete registration flow collecting patient name, email, password, age, gender, contact number, and assigned device ID. Auto-generates permanent clinical identifiers (`PAT-XXXXXX`).
+- **User Registration & Security**: Complete registration flow collecting user name, email, password, age, gender, contact number, and assigned device ID. Auto-generates permanent user identifiers (`PAT-XXXXXX` / `USR-XXXXXX`).
 - **Cryptographic Authentication**: Secure password hashing using PBKDF2-HMAC-SHA256 with 100,000 iterations and per-user unique 16-byte random salts. Persistent SQLite session tokens.
-- **Patient Profile Management**: Interactive profile module where patients view and edit their demographics, contact details, and hardware associations, persisting immediately to SQLite.
-- **Multi-Tenant Patient Data Isolation**: Absolute data isolation enforced at the database query layer (`WHERE user_id = current_user.id`). Patient A can never query or view Patient B's records, vitals, or baselines.
+- **User Profile Management**: Interactive profile module where users view and edit their demographics, contact details, and hardware associations, persisting immediately to SQLite.
+- **Multi-Tenant User Data Isolation**: Absolute data isolation enforced at the database query layer (`WHERE user_id = current_user.id`). User A can never query or view User B's records, vitals, or baselines.
 - **Hardware-Compatible Sensor Data Ingestion**: REST endpoint (`POST /api/readings`) and Web Serial USB bridge capable of accepting real multi-parameter telemetry packets from ESP32 microcontrollers.
+- **AI Living Mascot & Well-Being Interaction**:
+  - State-reactive vector mascot with 6 facial expressions (`happy`, `thinking`, `listening`, `concerned`, `sleeping`, `celebrating`).
+  - **Dynamic Well-Being Prompt**: When an abnormal reading or alert state occurs, the mascot automatically asks: *"I noticed an unusual pattern in your readings. Are you feeling okay?"*
+  - **Interactive Action Pills**: Users can respond directly with `[ ✓ I'm okay ]` or `[ ✗ Feeling unwell ]`.
+  - **Emotional Mood Transition**: AWEN adapts its mood immediately based on the response and stores the check-in directly in the SQLite `user_checkins` table.
+- **ESP32 SSD1306 128×64 OLED Hardware Mascot**:
+  - Embedded monochrome mascot face on 128×64 OLED (`^ ^` friendly smile during normal state, `O O` concerned expression with `"ARE YOU OK?"` on alerts).
+  - 3-screen non-blocking auto-rotation (Mascot → Vitals → IMU/Status).
+  - Robust 3-beat lock pulse peak detection algorithm with `-- BPM` fallback (zero fake BPM).
+  - Raw register reads for MPU-6500 / 9250 sensors (`WHO_AM_I = 0x70` compatible).
+  - Active buzzer alerts on GPIO 25.
 - **Physiological Parameter Tracking**:
   - **Heart Rate (BPM)**: Photoplethysmography (PPG) pulse rate tracking.
   - **Blood Oxygen (SpO₂ %)**: Arterial oxygen saturation percentage.
-  - **Skin Temperature (°C)**: Thermal equilibrium tracking.
+  - **Skin Temperature (°C)**: Thermal equilibrium tracking via 16-sample ADC averaging.
   - **Accelerometer (3-Axis $a_x, a_y, a_z$ & Total Magnitude)**: Motion exertion detection.
-  - **Gyroscope (3-Axis $g_x, g_y, g_z$)**: Orientation stability.
+  - **Gyroscope (3-Axis $g_x, g_y, g_z$)**: Orientation and posture stability.
 - **Authentic Zero-Mock Empty State**: When hardware is not streaming and no database readings exist, the dashboard displays `--` and explicitly states `"No sensor data available yet"` with an `AWAITING SENSOR` status. Fake, randomized, or mock numbers are strictly prohibited.
 - **Interactive Executive Dashboard**: Features 4 metric cards, a real-time 60 FPS HTML5 Canvas PPG pulse wave oscilloscope, current activity context badges, and an interactive vector mascot.
 - **Chronological Today Timeline**: Aggregates real timestamped sensor readings and subjective daily check-ins into an ordered daily recovery timeline.
 - **7-Day Longitudinal Journey**: SQLite-computed rolling daily resting averages and an interactive database inspection table showing raw stored records.
 - **Comparative Baseline Insights**: Statistical dispersion chart plotting individual resting averages against learned personal baseline corridors.
 - **Automated Observation Engine**: Detects statistically significant heart rate elevations during quiet resting periods and writes actionable recovery observations to the database.
-- **Clinical Health Report Export**: Formatted printable PDF report and structured JSON export containing authenticated patient details, baseline corridors, and raw audit logs.
+- **Health Summary Report Export**: Formatted printable PDF report and structured JSON export containing authenticated user details, baseline corridors, and raw audit logs.
 
 ---
 
-## Technology Stack
+## 🛠️ Technology Stack
 
 ### Frontend Application
 - **Framework**: React 19 (ES6+ JavaScript)
@@ -60,20 +92,26 @@ The following capabilities are fully implemented in the codebase and backed by a
 - **Security**: PBKDF2 password hashing (hashlib), cryptographically secure session tokens (secrets module)
 
 ### IoT & Hardware Integration
-- **Microcontroller**: ESP32-WROOM-32 (Dual-Core 240 MHz Tensilica LX6)
-- **Sensors**: MAX30102 / MAX30100 Optical PPG + MPU-6050 6-DOF IMU + Temperature sensor
+- **Microcontroller**: ESP32 Dev Module (Dual-Core 240 MHz Tensilica LX6)
+- **Display**: SSD1306 128×64 Monochrome I2C OLED (Address `0x3C`)
+- **PPG Pulse Oximeter**: MAX30100 / MAX30102 Optical PPG (Address `0x57`)
+- **Motion Sensor**: MPU-6050 / MPU-6500 6-Axis IMU (Address `0x68`, raw register reads)
+- **Temperature**: Analog LM35 Linear Temperature Sensor on GPIO 34
+- **Buzzer**: Active Buzzer on GPIO 25
 - **Protocols**: W3C Web Serial API (Direct USB CDC at 115,200 baud) and HTTP POST REST telemetry
 
 ---
 
-## System Architecture
+## 📐 System Architecture
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │                   ESP32 Hardware Node                            │
-│  - MAX30102 Optical PPG (Heart Rate, SpO2)                       │
-│  - MPU-6050 6-Axis IMU (Accelerometer & Gyroscope)               │
-│  - On-Die / External Thermal Sensor                              │
+│  - MAX30100/102 Optical PPG (Heart Rate, SpO2)                   │
+│  - MPU-6050/6500 6-Axis IMU (Accelerometer & Gyroscope)          │
+│  - LM35 Precision Analog Thermal Sensor (GPIO 34)                │
+│  - Active Alert Buzzer (GPIO 25)                                 │
+│  - SSD1306 128x64 OLED with AWEN Mascot & Multi-Screen Rotation  │
 └─────────────────────────────────┬────────────────────────────────┘
                                   │
                  HTTP POST /api/readings  OR  Web Serial USB
@@ -90,7 +128,7 @@ The following capabilities are fully implemented in the codebase and backed by a
                                   ▼
 ┌──────────────────────────────────────────────────────────────────┐
 │                   SQLite Database (backend/awen.db)              │
-│  - users & user_sessions (Patient authentication & isolation)    │
+│  - users & user_sessions (User authentication & isolation)       │
 │  - sensor_readings (Timestamped physiological signals)           │
 │  - user_baselines (Calibrated resting baseline corridors)        │
 │  - user_checkins & observations (Subjective & algorithmic logs)  │
@@ -102,21 +140,16 @@ The following capabilities are fully implemented in the codebase and backed by a
 ┌──────────────────────────────────────────────────────────────────┐
 │                   AWEN Frontend (:5173)                          │
 │  - Executive Dashboard (Vitals & Oscilloscope)                   │
+│  - Living Mascot Stage with Interactive Well-Being Prompts       │
 │  - Today Chronology & Recovery Timeline                          │
 │  - 7-Day Longitudinal Journey & Database Inspector               │
 │  - Insights Dispersion Chart & Printable Health Reports          │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-### Localhost Architecture
-The application runs entirely on the local machine without requiring external cloud accounts:
-- **Frontend Server**: `http://localhost:5173`
-- **Backend API Server**: `http://127.0.0.1:8000`
-- **Persistent Database**: `backend/awen.db`
-
 ---
 
-## Project Structure
+## 📂 Project Structure
 
 ```
 CaPsToNe/
@@ -125,18 +158,22 @@ CaPsToNe/
 │   ├── database.py                 # SQLite schema, CRUD operations, PBKDF2 auth
 │   ├── main.py                     # FastAPI routes, Pydantic models, CORS middleware
 │   ├── ml_engine.py                # Physiological baseline ML analytics engine
-│   ├── test_complete_e2e.py        # 16-point automated integration test suite
+│   ├── test_complete_audit.py      # Comprehensive 16-point audit script
+│   ├── test_mascot_wellbeing.py    # AI mascot prompt & SQLite check-in test suite
+│   ├── seed_demo_observation.py    # 4-day synthetic baseline observation seeder
 │   └── esp32_firmware/
 │       └── esp32_max30102.ino      # ESP32 C++ Arduino firmware sketch
 ├── src/
 │   ├── components/
-│   │   ├── AuthModal.jsx           # Real registration & login dialog
+│   │   ├── AuthModal.jsx           # User registration & login dialog
+│   │   ├── AwenSpirit.jsx          # 60 FPS vector mascot with dynamic emotional states
+│   │   ├── AwenSpeechCloud.jsx     # Glass speech cloud with interactive well-being choices
 │   │   ├── HomeScreen.jsx          # Executive dashboard with vitals & oscilloscope
 │   │   ├── TodayScreen.jsx         # Daily timeline of sensor readings & check-ins
 │   │   ├── JourneyScreen.jsx       # 7-day baseline evolution & raw SQLite table
 │   │   ├── InsightsScreen.jsx      # Baseline corridor statistical dispersion chart
 │   │   ├── TalkScreen.jsx          # AI companion conversational interface
-│   │   ├── YouScreen.jsx           # Patient profile & demographic editor
+│   │   ├── YouScreen.jsx           # User profile & demographic editor
 │   │   ├── SettingsScreen.jsx      # Display units & test baseline utilities
 │   │   ├── HealthReportModal.jsx   # Clinical printable PDF & JSON report generator
 │   │   ├── NotificationCenter.jsx  # Algorithmic observation notifications
@@ -159,196 +196,80 @@ CaPsToNe/
 
 ---
 
-## Installation
+## ⚡ Quick Start
 
-### Prerequisites
+### 1. Prerequisites
 - **Node.js**: v18.0.0 or higher
 - **Python**: v3.10 or higher with `pip`
+- **Arduino IDE**: 2.x (with `ESP32 by Espressif`, `Adafruit SSD1306`, `Adafruit GFX`, and `MAX30100lib`)
 
-### Step 1: Install Frontend Dependencies
+### 2. Frontend Setup
 ```powershell
-cd "c:\Users\Anurag Singh\Desktop\capstone\CaPsToNe"
 npm install
-```
-
-### Step 2: Install Backend Dependencies
-```powershell
-cd "c:\Users\Anurag Singh\Desktop\capstone\CaPsToNe\backend"
-pip install fastapi uvicorn pydantic pandas numpy scikit-learn
-```
-
----
-
-## Running the Project
-
-### 1. Start the FastAPI Backend
-```powershell
-cd "c:\Users\Anurag Singh\Desktop\capstone\CaPsToNe\backend"
-python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
-```
-- **Backend API**: `http://127.0.0.1:8000`
-- **Interactive OpenAPI Documentation**: `http://127.0.0.1:8000/docs`
-- **Health Check**: `http://127.0.0.1:8000/api/health`
-
-### 2. Start the React Frontend
-In a separate terminal window:
-```powershell
-cd "c:\Users\Anurag Singh\Desktop\capstone\CaPsToNe"
 npm run dev
 ```
-- **Web Application**: `http://localhost:5173`
+Runs at: `http://localhost:5173`
 
----
-
-## Authentication
-
-AWEN uses a real, persistent authentication architecture:
-1. **Registration**: The patient registers with Name, Email, Password, Age, Gender, and Phone.
-2. **Password Hashing**: Passwords are never stored in plaintext. Passwords are salted with a 16-byte cryptographically secure random salt and hashed using PBKDF2-HMAC-SHA256 across 100,000 iterations.
-3. **Session Tokens**: Successful login generates an active session token stored in the `user_sessions` SQLite table.
-4. **Authorization Header**: All protected requests pass `Authorization: Bearer <TOKEN>`.
-5. **Logout**: Invalidates the active session token in SQLite; subsequent requests are rejected with `HTTP 401 Unauthorized`.
-6. **No Mock Fallbacks**: Hardcoded credentials and fake guest bypasses (`guest_demo`) are completely removed.
-
----
-
-## Database
-
-The database is a local SQLite 3 database located at:
-```
-backend/awen.db
-```
-
-### Major Tables
-- `users`: Patient profiles, hashed credentials, demographics, and assigned device IDs.
-- `user_sessions`: Active authentication bearer tokens with timestamps.
-- `devices`: Registered hardware units and device API keys.
-- `sensor_readings`: High-precision physiological readings (BPM, SpO₂, temperature, 3-axis accelerometer, 3-axis gyroscope, acceleration magnitude, motion context).
-- `user_baselines`: Individual quiet resting baseline values (resting HR, variance, sample count).
-- `user_checkins`: Timestamped daily subjective wellness and recovery logs.
-- `observations`: Algorithmic baseline deviation events detected by the system.
-- `awen_conversations`: Timestamped dialogue history with the AI wellness companion.
-
----
-
-## API Endpoints
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/health` | Backend system & database health check |
-| `POST` | `/api/auth/signup` | Register new patient account with PBKDF2 hash |
-| `POST` | `/api/auth/login` | Authenticate patient credentials; returns bearer token |
-| `POST` | `/api/auth/logout` | Terminate session and invalidate token in SQLite |
-| `GET` | `/api/auth/me` | Retrieve currently authenticated patient details |
-| `GET` | `/api/user/profile` | Retrieve patient profile including Patient ID |
-| `PUT` | `/api/user/profile` | Update editable profile fields (age, phone, etc.) |
-| `POST` | `/api/readings` | Ingest ESP32 sensor telemetry packet |
-| `GET` | `/api/readings/latest` | Retrieve patient's newest reading (`null` if empty) |
-| `GET` | `/api/readings/history` | Paginated sensor history with date filtering |
-| `GET` | `/api/history/weekly` | 7-day daily rolling averages calculated in SQLite |
-| `GET` | `/api/user/baseline` | Retrieve calibrated resting baseline signature |
-| `POST` | `/api/user/checkins` | Record daily subjective check-in |
-| `GET` | `/api/observations` | Retrieve baseline observation alert history |
-
----
-
-## ESP32 Integration
-
-Physical ESP32 hardware transmits sensor packets to the backend via HTTP POST or USB Web Serial.
-
-### HTTP POST Ingestion
-- **URL**: `http://<HOST_IP>:8000/api/readings`
-- **Method**: `POST`
-- **Headers**:
-  ```http
-  Content-Type: application/json
-  Authorization: Bearer <TOKEN>
-  ```
-  *(Or `X-API-Key: <DEVICE_API_KEY>`)*
-
-### Expected JSON Telemetry Payload
-```json
-{
-  "device_id": "AWEN_ESP32_01",
-  "heart_rate": 72.4,
-  "spo2": 98.8,
-  "temperature": 36.65,
-  "accel_x": 0.05,
-  "accel_y": 0.12,
-  "accel_z": 0.98,
-  "gyro_x": 0.01,
-  "gyro_y": -0.02,
-  "gyro_z": 0.00,
-  "accel_magnitude": 0.99,
-  "alarm": "NONE",
-  "status": "NORMAL",
-  "activity_state": "Resting",
-  "timestamp_ms": 1726744800000
-}
-```
-
----
-
-## Patient Data Privacy / Isolation
-
-Patient data is strictly separated:
-- Every query to `sensor_readings`, `user_baselines`, `user_checkins`, and `observations` filters strictly by the authenticated patient's internal user ID (`WHERE user_id = current_user['id']`).
-- **Patient A cannot access Patient B's data**: In automated testing, Patient B registered on the same system sees 0 records from Patient A and cannot query Patient A's telemetry, history, or profile.
-
----
-
-## Testing
-
-The application was validated using an automated 16-point end-to-end integration test suite located at `backend/test_complete_e2e.py`.
-
-### Execution Command
+### 3. Backend Setup
 ```powershell
 cd backend
-python test_complete_e2e.py
+pip install fastapi uvicorn pydantic pandas numpy scikit-learn
+python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
-
-### Test Results Summary (16/16 Passed)
-1. `[PASS]` 1. Backend health check (HTTP 200, SQLite connected).
-2. `[PASS]` 2. Patient A registration: PBKDF2 hash & auto-generated `PAT-XXXXXX` ID.
-3. `[PASS]` 3. Empty database verification: Returns `reading: null` before telemetry ingestion.
-4. `[PASS]` 4. Empty history verification: 0 records found for newly created patient.
-5. `[PASS]` 5. ESP32 sensor POST: Successfully stored reading with HR, SpO₂, temperature, and motion.
-6. `[PASS]` 6. Second ESP32 sensor POST: Successfully recorded exertion reading (`88.5 BPM`, Walking).
-7. `[PASS]` 7. Latest reading fetch: Successfully returned newest reading.
-8. `[PASS]` 8. Reading history verification: Retrieved exactly 2 records in descending order.
-9. `[PASS]` 9. Patient profile update: Demographics updated and verified in SQLite.
-10. `[PASS]` 10. Patient B registration: Created independent second patient account.
-11. `[PASS]` 11. Patient isolation: Patient B sees 0 readings from Patient A.
-12. `[PASS]` 12. Cross-patient isolation: Patient A history contains 0 records from Patient B.
-13. `[PASS]` 13. Patient A logout: Session token invalidated in SQLite.
-14. `[PASS]` 14. Protected route enforcement: Revoked session rejected with `HTTP 401 Unauthorized`.
-15. `[PASS]` 15. Re-login Patient A: Authenticated with password, issued new session.
-16. `[PASS]` 16. Persistence verified: Profile and all sensor readings 100% present after re-login.
+Runs at: `http://127.0.0.1:8000` (Docs: `http://127.0.0.1:8000/docs`)
 
 ---
 
-## Hardware Components
+## 🔒 User Authentication & Privacy Isolation
 
-The physical hardware architecture of AWEN includes:
-1. **ESP32 Microcontroller (ESP32-WROOM-32)**: Dual-core processor handling I2C sensor polling, pulse peak detection algorithms, and serial/Wi-Fi packet transmission.
-2. **MAX30102 / MAX30100 Pulse Oximeter**: Optical sensor module utilizing dual red (660 nm) and infrared (880 nm) LEDs to measure photoplethysmography (PPG) pulse waves and calculate blood oxygen saturation (SpO₂).
-3. **MPU-6050 6-Axis Motion Tracking Sensor**: Combines a 3-axis accelerometer and 3-axis gyroscope on a shared I2C bus to quantify movement magnitude and distinguish physical exertion from psychological stress.
-4. **Skin Temperature Sensor**: On-die thermal sensor / analog LM35 providing peripheral body temperature readings.
+AWEN enforces strict security and data isolation:
+1. **User Registration**: Users register with Name, Email, Password, Age, Gender, and Phone.
+2. **PBKDF2 Password Hashing**: Passwords are salted with a 16-byte random salt and hashed using PBKDF2-HMAC-SHA256 across 100,000 iterations.
+3. **Session Tokens**: Successful login generates an active session token stored in SQLite `user_sessions`.
+4. **Authorization Header**: All protected requests require `Authorization: Bearer <TOKEN>`.
+5. **Data Isolation**: Every database query explicitly filters by `WHERE user_id = current_user.id`. User A can never view or modify User B's physiological readings or check-in logs.
 
 ---
 
-## Current Status
+## 📡 ESP32 Hardware & OLED Mascot Integration
 
-- **Fully Implemented & Verified**:
-  - Full-stack FastAPI + SQLite backend with 8 normalized tables.
-  - PBKDF2 cryptographic authentication and session token management.
-  - Multi-tenant patient isolation.
-  - Hardware ingestion REST endpoint and Web Serial parser.
-  - Zero-mock empty state and live dashboard polling.
-  - Today timeline, 7-day Journey history, and Insights dispersion charts.
-  - Interactive profile editor and clinical PDF/JSON report exports.
-- **Hardware-Dependent**:
-  - Continuous streaming relies on physical ESP32 hardware connected via USB Web Serial or posting over local Wi-Fi. The backend API and frontend parser are 100% ready to receive live hardware packets.
-- **Future Work**:
-  - Bluetooth Low Energy (BLE) peripheral profile for direct smartphone pairing.
-  - Nocturnal sleep stage classification using continuous overnight pulse interval analysis.
+The ESP32 firmware ([backend/esp32_firmware/esp32_max30102.ino](backend/esp32_firmware/esp32_max30102.ino)) is a complete, copy-paste-ready Arduino sketch:
+
+### Pinout Configuration
+| Component | ESP32 Pin | Interface / Details |
+|---|---|---|
+| **SSD1306 OLED** | SDA: GPIO 21, SCL: GPIO 22 | I2C Address `0x3C` |
+| **MAX30100 / MAX30102** | SDA: GPIO 21, SCL: GPIO 22 | I2C Address `0x57` |
+| **MPU-6050 / MPU-6500** | SDA: GPIO 21, SCL: GPIO 22 | I2C Address `0x68` (Raw Register Read) |
+| **LM35 Temperature** | GPIO 34 | Analog Input (16-sample ADC averaging) |
+| **Active Buzzer** | GPIO 25 | Digital Output (Active HIGH on abnormality) |
+
+### OLED Mascot Screen Rotation
+- **Screen 0 (Mascot)**: Shows the AWEN mascot face (`^ ^` friendly smile when normal, `O O` concerned face with `"ARE YOU OK?"` on abnormal readings).
+- **Screen 1 (Vitals)**: Shows BPM, SpO₂ %, and LM35 Temperature (°C).
+- **Screen 2 (Motion & Status)**: Shows Accelerometer magnitude, Gyroscope activity, and observation status.
+- **Auto-Rotation**: Smooth non-blocking rotation every 2.8 seconds without display flicker.
+
+---
+
+## 🧪 Automated Testing & Verification
+
+Run the comprehensive test suites located in `backend/`:
+
+### Complete System Audit (16/16 Checks)
+```powershell
+python backend/test_complete_audit.py
+```
+Validates backend health, user registration, token revocation, profile updates, multi-tenant privacy isolation, and telemetry ingestion.
+
+### AI Mascot Well-Being Flow Test
+```powershell
+python backend/test_mascot_wellbeing.py
+```
+Validates mascot alert triggering, user response submission (`[ ✓ I'm okay ]` / `[ ✗ Feeling unwell ]`), and persistence into SQLite `user_checkins`.
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
