@@ -3,9 +3,17 @@ import { X, Cpu, Radio, RefreshCw, CheckCircle, AlertCircle, Terminal, Play } fr
 
 export const IoTConfigModal = ({ isOpen, onClose, telemetryStream, telemetry }) => {
   const [baudRate, setBaudRate] = useState("115200");
+  const [esp32UrlInput, setEsp32UrlInput] = useState(telemetryStream?.esp32BaseUrl || "http://172.20.168.254");
+  const [urlSavedFeedback, setUrlSavedFeedback] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
   const [connecting, setConnecting] = useState(false);
   const [logLines, setLogLines] = useState([]);
+
+  useEffect(() => {
+    if (telemetryStream?.esp32BaseUrl) {
+      setEsp32UrlInput(telemetryStream.esp32BaseUrl);
+    }
+  }, [telemetryStream?.esp32BaseUrl]);
 
   useEffect(() => {
     if (!isOpen || !telemetryStream) return;
@@ -41,6 +49,15 @@ export const IoTConfigModal = ({ isOpen, onClose, telemetryStream, telemetry }) 
     setLogLines([]);
   };
 
+  const handleSaveEsp32Url = (e) => {
+    e.preventDefault();
+    if (!esp32UrlInput || !telemetryStream) return;
+    telemetryStream.setEsp32Url(esp32UrlInput);
+    telemetryStream.pollEsp32Telemetry();
+    setUrlSavedFeedback(true);
+    setTimeout(() => setUrlSavedFeedback(false), 2500);
+  };
+
   const isConnected = Boolean(telemetry?.isHardware);
 
   return (
@@ -58,7 +75,7 @@ export const IoTConfigModal = ({ isOpen, onClose, telemetryStream, telemetry }) 
                 ESP32 IoT Sensor Configuration
               </h3>
               <p className="text-xs font-medium text-[var(--text-secondary)]">
-                Connect physical MAX30102 PPG sensor hardware or control telemetry stream
+                Hardware suite: MAX30100 PPG, MPU-6050 IMU, LM35 Temp, Active Buzzer & ESP32
               </p>
             </div>
           </div>
@@ -81,10 +98,12 @@ export const IoTConfigModal = ({ isOpen, onClose, telemetryStream, telemetry }) 
             <Radio className={`w-5 h-5 ${isConnected ? 'animate-pulse text-[var(--accent-green-dark)]' : 'text-[var(--text-primary)]'}`} />
             <div>
               <span className="font-bold block uppercase tracking-wide text-[11px]">
-                Status: {isConnected ? 'ESP32 Hardware Connected & Streaming' : 'Hardware Disconnected'}
+                Status: {isConnected ? 'ESP32: Connected & Streaming' : 'ESP32: Disconnected'}
               </span>
-              <span className="text-[10px] font-medium opacity-80">
-                {isConnected ? `Live PPG serial stream at ${baudRate} baud` : 'Select ESP32 (MAX30102 PPG + MPU-6050) via Web Serial'}
+              <span className="text-[10px] font-medium opacity-80 block">
+                {isConnected 
+                  ? `Telemetry active from ${telemetry?.ip || telemetryStream?.esp32BaseUrl || '172.20.168.254'}/api/telemetry · Linked at: ${telemetry?.hardwareConnectedTime || 'Active'}` 
+                  : `Target: ${telemetryStream?.esp32BaseUrl || 'http://172.20.168.254'}/api/telemetry (Automatic Reconnect)`}
               </span>
             </div>
           </div>
@@ -94,7 +113,7 @@ export const IoTConfigModal = ({ isOpen, onClose, telemetryStream, telemetry }) 
               onClick={handleDisconnect}
               className="px-3 py-1.5 font-bold uppercase tracking-wider text-[10px] bg-[var(--accent-danger-bg)] hover:bg-[var(--accent-danger)] hover:text-white text-[var(--accent-danger)] border-2 border-[var(--accent-danger)] shadow-[2px_2px_0px_var(--accent-danger)] transition-colors whitespace-nowrap"
             >
-              Disconnect
+              Pause Stream
             </button>
           ) : (
             <button
@@ -102,7 +121,7 @@ export const IoTConfigModal = ({ isOpen, onClose, telemetryStream, telemetry }) 
               disabled={connecting}
               className="px-4 py-1.5 font-bold uppercase tracking-wider text-[10px] bg-[var(--text-primary)] text-white hover:bg-[var(--accent-green-dark)] border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111] transition-colors whitespace-nowrap disabled:opacity-50"
             >
-              {connecting ? 'Pairing...' : 'Connect Hardware'}
+              {connecting ? 'Pairing...' : 'Web Serial Fallback'}
             </button>
           )}
         </div>
@@ -114,30 +133,47 @@ export const IoTConfigModal = ({ isOpen, onClose, telemetryStream, telemetry }) 
           </div>
         )}
 
+        {/* ESP32 Wi-Fi Network URL Configurator */}
+        <div className="p-3.5 border-2 border-[var(--border-strong)] bg-[var(--surface-secondary)] shadow-[2px_2px_0px_#111] space-y-2">
+          <label className="text-[10px] font-mono font-bold uppercase tracking-wider text-[var(--text-secondary)] block">
+            ESP32 Wi-Fi Telemetry Endpoint (REST IP):
+          </label>
+          <form onSubmit={handleSaveEsp32Url} className="flex flex-col sm:flex-row gap-2">
+            <input
+              type="text"
+              value={esp32UrlInput}
+              onChange={(e) => setEsp32UrlInput(e.target.value)}
+              placeholder="http://172.20.168.254"
+              className="flex-1 px-3 py-2 border-2 border-[var(--border-strong)] bg-[var(--surface-primary)] text-xs font-mono text-[var(--text-primary)] focus:outline-none shadow-[2px_2px_0px_#111]"
+            />
+            <button
+              type="submit"
+              className="px-4 py-2 font-bold uppercase tracking-wider text-[11px] bg-[var(--text-primary)] text-white hover:bg-[var(--accent-green-dark)] border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111] transition-colors whitespace-nowrap"
+            >
+              {urlSavedFeedback ? '✓ Saved & Polling' : 'Save & Reconnect'}
+            </button>
+          </form>
+          <p className="text-[10px] text-[var(--text-muted)] font-mono">
+            Direct & backend proxy polling enabled for <strong>/api/telemetry</strong>
+          </p>
+        </div>
+
         {/* Baud Rate & Serial Terminal Stream Preview */}
         <div className="space-y-3">
           <div className="flex items-center justify-between text-[11px] uppercase tracking-wide">
             <span className="font-bold text-[var(--text-primary)] flex items-center gap-1.5">
               <Terminal className="w-3.5 h-3.5" />
-              <span>Live Serial Data Stream</span>
+              <span>Live Telemetry Packet Stream</span>
             </span>
             <div className="flex items-center gap-2">
-              <label className="text-[10px] font-bold text-[var(--text-secondary)]">Baud:</label>
-              <select
-                value={baudRate}
-                onChange={(e) => setBaudRate(e.target.value)}
-                disabled={isConnected}
-                className="bg-[var(--surface-primary)] border border-[var(--border-strong)] text-[10px] font-mono font-bold px-2 py-0.5"
-              >
-                <option value="115200">115200 bps (Standard)</option>
-                <option value="57600">57600 bps</option>
-                <option value="9600">9600 bps</option>
-              </select>
+              <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                {telemetryStream?.esp32BaseUrl || 'http://172.20.168.254'}
+              </span>
             </div>
           </div>
 
           <div className="w-full h-32 bg-[var(--text-primary)] p-3 border-2 border-[var(--border-strong)] shadow-[3px_3px_0px_#111] font-mono text-[11px] text-[var(--accent-green)] overflow-y-auto space-y-1">
-            <p className="text-[var(--text-muted)]">// AWEN ESP32 Serial Telemetry Monitor</p>
+            <p className="text-[var(--text-muted)]">// AWEN ESP32 Telemetry Monitor ({telemetryStream?.esp32BaseUrl || 'http://172.20.168.254'}/api/telemetry)</p>
             {isConnected ? (
               logLines.length > 0 ? (
                 logLines.map((line, idx) => (
@@ -146,13 +182,13 @@ export const IoTConfigModal = ({ isOpen, onClose, telemetryStream, telemetry }) 
               ) : (
                 <>
                   <p className="text-[var(--accent-green)]">
-                    {"{"} "status": "streaming", "bpm": {telemetry?.heartRate ?? 'null'}, "spo2": {telemetry?.spo2 ?? 'null'}, "temp": null, "moving": {telemetry?.isMoving ? 'true' : 'false'}, "mag": {telemetry?.accelMagnitude ?? '1.00'} {"}"}
+                    {"{"} "status": "streaming", "time_ist": "{telemetry?.timestamp || '--'}", "conn_time": "{telemetry?.hardwareConnectedTime || '--'}", "bpm": {telemetry?.heartRate ?? 'null'}, "spo2": {telemetry?.spo2 ?? 'null'}, "temp": {telemetry?.temperature ?? 'null'} {"}"}
                   </p>
-                  <p className="text-[var(--text-muted)]">// Waiting for continuous incoming packet stream...</p>
+                  <p className="text-[var(--text-muted)]">// Continuous incoming packet stream active (1s interval)...</p>
                 </>
               )
             ) : (
-              <p className="text-amber-400">// No active serial port. Click 'Connect Hardware' above to pair your ESP32 USB device.</p>
+              <p className="text-amber-400">// ESP32 offline or connecting to {telemetryStream?.esp32BaseUrl || 'http://172.20.168.254'}/api/telemetry. Polling automatically every 1s.</p>
             )}
           </div>
         </div>
@@ -160,20 +196,28 @@ export const IoTConfigModal = ({ isOpen, onClose, telemetryStream, telemetry }) 
         {/* Hardware Sensor Diagnostic Checklist */}
         <div className="p-3.5 border-2 border-[var(--border-strong)] bg-[var(--surface-secondary)] shadow-[2px_2px_0px_#111] space-y-2">
           <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[var(--text-secondary)] block">
-            Hardware Diagnostic Status:
+            Connected Hardware Sensor Suite:
           </span>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] font-mono">
-            <div className="p-2 border border-[var(--border-strong)] bg-[var(--surface-primary)] flex items-center justify-between">
-              <span className="font-bold">MAX30100 PPG</span>
-              <span className="text-[var(--accent-green-dark)] font-extrabold">0x57 READY</span>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-[11px] font-mono">
+            <div className="p-2 border border-[var(--border-strong)] bg-[var(--surface-primary)] flex flex-col justify-between">
+              <span className="font-bold text-[10px]">MAX30100 PPG</span>
+              <span className="text-[var(--accent-green-dark)] font-extrabold text-[10px]">I2C 0x57</span>
             </div>
-            <div className="p-2 border border-[var(--border-strong)] bg-[var(--surface-primary)] flex items-center justify-between">
-              <span className="font-bold">MPU-6050 IMU</span>
-              <span className="text-[var(--accent-green-dark)] font-extrabold">0x68 READY</span>
+            <div className="p-2 border border-[var(--border-strong)] bg-[var(--surface-primary)] flex flex-col justify-between">
+              <span className="font-bold text-[10px]">MPU-6050 IMU</span>
+              <span className="text-[var(--accent-green-dark)] font-extrabold text-[10px]">I2C 0x68</span>
             </div>
-            <div className="p-2 border border-[var(--border-strong)] bg-[var(--surface-primary)] flex items-center justify-between">
-              <span className="font-bold">LM35 Temp</span>
-              <span className="text-[var(--text-muted)] font-bold">OPTIONAL</span>
+            <div className="p-2 border border-[var(--border-strong)] bg-[var(--surface-primary)] flex flex-col justify-between">
+              <span className="font-bold text-[10px]">LM35 Temp</span>
+              <span className="text-[var(--accent-green-dark)] font-extrabold text-[10px]">GPIO 34</span>
+            </div>
+            <div className="p-2 border border-[var(--border-strong)] bg-[var(--surface-primary)] flex flex-col justify-between">
+              <span className="font-bold text-[10px]">Buzzer Alarm</span>
+              <span className="text-[var(--accent-green-dark)] font-extrabold text-[10px]">GPIO 25</span>
+            </div>
+            <div className="p-2 border border-[var(--border-strong)] bg-[var(--surface-primary)] flex flex-col justify-between col-span-2 sm:col-span-1">
+              <span className="font-bold text-[10px]">ESP32 Wi-Fi</span>
+              <span className="text-[var(--accent-green-dark)] font-extrabold text-[10px]">ONLINE</span>
             </div>
           </div>
         </div>

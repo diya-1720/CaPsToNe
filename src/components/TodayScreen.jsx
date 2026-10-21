@@ -12,17 +12,26 @@ import {
   Activity,
   ChevronDown,
   ChevronUp,
-  Loader2
+  Loader2,
+  Gauge,
+  Compass,
+  ArrowRight
 } from 'lucide-react';
 import { apiService } from '../services/apiService';
+import { calculateStressIndicator } from '../services/stressEngine';
+import { formatISTTime } from '../utils/timeFormat';
 
 export const TodayScreen = ({
   telemetry,
+  latestReading,
   evaluation,
   awenState,
   onSelectActivity,
   currentUser,
-  baselineData
+  baselineData,
+  onOpenJourney,
+  onOpenInsights,
+  onOpenTalk
 }) => {
   const isConnected = Boolean(telemetry?.isHardware);
   const restingHr = baselineData?.restingHr ? Number(baselineData.restingHr).toFixed(1) : '64.0';
@@ -34,8 +43,11 @@ export const TodayScreen = ({
   const [isSaved, setIsSaved] = useState(false);
   const [expandedEventId, setExpandedEventId] = useState(null);
 
-  // Real Database Events State
+  // Real Database Events State & Journey History
   const [timelineEvents, setTimelineEvents] = useState([]);
+  const [weeklyHistory, setWeeklyHistory] = useState([]);
+  const [latestDbReading, setLatestDbReading] = useState(latestReading || null);
+  const [latestCheckin, setLatestCheckin] = useState(null);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
   const [stats, setStats] = useState({
     conformity: null,
@@ -47,12 +59,25 @@ export const TodayScreen = ({
   const loadTodayData = async () => {
     setIsLoadingEvents(true);
     try {
-      const [readings, checkins] = await Promise.all([
+      const [readings, checkins, history] = await Promise.all([
         apiService.getReadingsHistory(30),
-        apiService.getCheckins(15)
+        apiService.getCheckins(15),
+        apiService.fetchWeeklyHeartRateHistory()
       ]);
 
+      if (Array.isArray(history)) {
+        setWeeklyHistory(history);
+      }
+
+      if (Array.isArray(readings) && readings.length > 0) {
+        setLatestDbReading(readings[0]);
+      }
+      if (Array.isArray(checkins) && checkins.length > 0) {
+        setLatestCheckin(checkins[0]);
+      }
+
       const events = [];
+
       let restingCount = 0;
       let insideCorridorCount = 0;
       let exertionCount = 0;
@@ -63,7 +88,7 @@ export const TodayScreen = ({
       if (Array.isArray(readings)) {
         readings.forEach(r => {
           const d = new Date(r.created_at);
-          const timeFormatted = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const timeFormatted = formatISTTime(r.created_at_ist || r.created_at, false);
           const rawHr = r.heart_rate ?? r.bpm;
           const hr = rawHr ? `${Number(rawHr).toFixed(1)} BPM` : '-- BPM';
           const delta = rawHr ? rawHr - baseNum : 0;
@@ -99,7 +124,7 @@ export const TodayScreen = ({
           const d = new Date(c.created_at);
           events.push({
             id: c.id,
-            time: d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            time: formatISTTime(c.created_at, false),
             timestamp: d.getTime(),
             title: `Daily Check-in: Feeling ${c.mood}`,
             hr: 'Subjective',
@@ -195,6 +220,37 @@ export const TodayScreen = ({
     }
   };
 
+  // Derive Current Telemetry Input for Real Stress Indicator
+  const isLiveStream = Boolean(isConnected && telemetry?.heartRate != null);
+  
+  const activeReading = isLiveStream ? {
+    heartRate: telemetry.heartRate,
+    temperature: telemetry.temperature,
+    accelMagnitude: telemetry.accelMagnitude != null ? telemetry.accelMagnitude : 1.0,
+    activity: telemetry.activity || (telemetry?.isMoving ? "Walking" : "Resting"),
+    isMoving: Boolean(telemetry.isMoving),
+    source: 'ESP32 Live Stream'
+  } : (latestReading?.bpm != null || latestDbReading?.bpm != null || latestDbReading?.heart_rate != null) ? {
+    heartRate: latestReading?.bpm ?? latestDbReading?.bpm ?? latestDbReading?.heart_rate,
+    temperature: latestReading?.temperature ?? latestDbReading?.temperature,
+    accelMagnitude: latestReading?.accel_magnitude ?? latestDbReading?.accel_magnitude ?? 1.0,
+    activity: latestReading?.activity_state ?? latestDbReading?.activity_state ?? 'Resting',
+    isMoving: false,
+    source: 'SQLite Telemetry'
+  } : null;
+
+  const activeCheckinObj = latestCheckin || (selectedFeeling ? { mood: selectedFeeling, notes } : null);
+
+  const stressData = calculateStressIndicator({
+    heartRate: activeReading?.heartRate,
+    temperature: activeReading?.temperature,
+    accelMagnitude: activeReading?.accelMagnitude,
+    activity: activeReading?.activity,
+    isMoving: activeReading?.isMoving,
+    baseline: baselineData,
+    checkin: activeCheckinObj
+  });
+
   return (
     <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-24 lg:pb-12 space-y-6 animate-fadeIn text-left">
       
@@ -287,6 +343,125 @@ export const TodayScreen = ({
 
       </div>
 
+      {/* ── 2B. 7-DAY BASELINE JOURNEY SECTION OF TODAY ── */}
+      <div className="neo-surface p-5 sm:p-6 bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] shadow-[4px_4px_0px_#111] space-y-4">
+        
+        {/* Header: Title, Subtitle, & Direct Journey Link */}
+        <div className="flex flex-wrap items-center justify-between border-b-2 border-[var(--border-strong)] pb-3 gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 border-2 border-[var(--border-strong)] bg-[var(--accent-green-bg)] text-[var(--accent-green-dark)] shadow-[2px_2px_0px_#111]">
+              <Compass className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-mono font-bold tracking-widest uppercase text-[var(--accent-green-dark)]">
+                  Longitudinal Corridor
+                </span>
+                <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 border border-[var(--border-strong)] bg-[var(--surface-secondary)]">
+                  TAB 03
+                </span>
+              </div>
+              <h2 className="font-heading text-lg sm:text-xl font-extrabold uppercase tracking-tight text-[var(--text-primary)]">
+                Your 7-Day Baseline Journey
+              </h2>
+            </div>
+          </div>
+
+          <button
+            onClick={() => onOpenJourney && onOpenJourney()}
+            className="px-4 py-2 bg-[var(--text-primary)] hover:bg-[#222] text-white border-2 border-[var(--border-strong)] text-xs font-bold uppercase tracking-wider flex items-center gap-2 shadow-[2px_2px_0px_#111] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all"
+          >
+            <span>Explore Full Journey →</span>
+            <ArrowRight className="w-4 h-4 text-[var(--accent-green)]" />
+          </button>
+        </div>
+
+        {/* 7-Day Rolling Trend Pill Ribbon */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-[11px] font-mono">
+            <span className="font-bold uppercase tracking-wider text-[var(--text-secondary)]">
+              Daily Resting Pattern vs Personal Baseline ({restingHr} ± {(baselineData?.hrStdDev || 4.8).toFixed(1)} BPM):
+            </span>
+            <span className="text-[10px] text-[var(--text-muted)]">
+              {weeklyHistory.length > 0 ? `${weeklyHistory.length} Days Tracked` : 'Calibrating Rhythm'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-7 gap-2">
+            {(weeklyHistory.length > 0 ? weeklyHistory : [
+              { label: 'Mon', averageHeartRate: 63, sampleCount: 14 },
+              { label: 'Tue', averageHeartRate: 65, sampleCount: 22 },
+              { label: 'Wed', averageHeartRate: 64, sampleCount: 18 },
+              { label: 'Thu', averageHeartRate: 66, sampleCount: 30 },
+              { label: 'Fri', averageHeartRate: 63, sampleCount: 25 },
+              { label: 'Sat', averageHeartRate: 62, sampleCount: 19 },
+              { label: 'Today', averageHeartRate: Number(restingHr), sampleCount: timelineEvents.length }
+            ]).map((day, idx) => {
+              const isToday = idx === 6 || day.label === 'Today';
+              const avg = day.averageHeartRate ? Math.round(day.averageHeartRate) : null;
+              const delta = avg ? avg - Number(restingHr) : 0;
+              const isNominal = Math.abs(delta) <= (baselineData?.hrStdDev || 4.8);
+
+              return (
+                <div 
+                  key={day.label || idx}
+                  className={`p-2.5 border-2 border-[var(--border-strong)] text-left transition-all ${
+                    isToday
+                      ? 'bg-[var(--accent-green)] text-[var(--text-primary)] shadow-[2px_2px_0px_#111] scale-[1.02]'
+                      : 'bg-[var(--surface-secondary)] text-[var(--text-primary)] hover:bg-[var(--surface-primary)]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-[10px] font-mono font-bold">
+                    <span>{day.label}</span>
+                    {isToday && <span className="w-1.5 h-1.5 rounded-full bg-black shrink-0 animate-ping" />}
+                  </div>
+                  <span className="font-heading text-sm font-extrabold block mt-1">
+                    {avg ? `${avg} BPM` : '--'}
+                  </span>
+                  <span className={`text-[9px] font-mono block font-bold truncate mt-0.5 ${
+                    isNominal ? 'text-[var(--text-secondary)]' : 'text-amber-800'
+                  }`}>
+                    {avg ? (delta > 0 ? `+${delta.toFixed(1)} bpm` : `${delta.toFixed(1)} bpm`) : 'Awaiting'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 4-Stage Progression Strip */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-[var(--border-light)]">
+          {[
+            { num: '01', title: 'TODAY', desc: 'Hourly Chronology & Live Recovery', active: true },
+            { num: '02', title: '7-DAYS', desc: 'Rolling Baseline Corridor (μ ± 2σ)', active: true },
+            { num: '03', title: 'WEEKS', desc: 'Autonomic Circadian Rhythm', active: false },
+            { num: '04', title: 'BODY PATTERN', desc: 'Personalized Adaptive Signature', active: false }
+          ].map((stg) => (
+            <div 
+              key={stg.num}
+              onClick={() => onOpenJourney && onOpenJourney()}
+              className={`p-2 border-2 border-[var(--border-strong)] cursor-pointer text-left ${
+                stg.active 
+                  ? 'bg-[var(--surface-secondary)] text-[var(--text-primary)]' 
+                  : 'bg-[var(--surface-primary)] text-[var(--text-muted)] opacity-60'
+              }`}
+            >
+              <div className="flex items-center justify-between text-[9px] font-mono font-bold">
+                <span>{stg.num}</span>
+                {stg.active && <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-green-dark)]" />}
+              </div>
+              <span className="font-heading text-xs font-bold block truncate uppercase mt-0.5">
+                {stg.title}
+              </span>
+              <span className="text-[9px] font-mono block truncate text-[var(--text-secondary)]">
+                {stg.desc}
+              </span>
+            </div>
+          ))}
+        </div>
+
+      </div>
+
       {/* ── 3. TWO-COLUMN MAIN WORKSPACE (7 Cols Left, 5 Cols Right) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
@@ -372,8 +547,164 @@ export const TodayScreen = ({
           </div>
         </div>
 
-        {/* ── RIGHT COLUMN (5 Cols): Daily Check-in Logging Form ── */}
+        {/* ── RIGHT COLUMN (5 Cols): Stress Indicator & Daily Check-in ── */}
         <div className="lg:col-span-5 space-y-6">
+
+          {/* ── REAL STRESS INDICATOR CARD ── */}
+          <div className="neo-surface p-5 sm:p-6 bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] shadow-[4px_4px_0px_#111] space-y-4">
+            
+            {/* Header: Title & Data Source Pill */}
+            <div className="flex items-center justify-between border-b-2 border-[var(--border-strong)] pb-3">
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4 text-[var(--text-primary)]" />
+                <span className="font-heading text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
+                  STRESS INDICATOR
+                </span>
+              </div>
+              <span className={`text-[9px] font-mono px-2 py-0.5 border-2 font-bold uppercase tracking-wider ${
+                isLiveStream
+                  ? 'bg-[var(--accent-green-bg)] text-[var(--accent-green-dark)] border-[var(--accent-green-dark)] animate-pulse'
+                  : 'bg-[var(--surface-secondary)] text-[var(--text-secondary)] border-[var(--border-strong)]'
+              }`}>
+                {isLiveStream ? '● ESP32 Live' : 'SQLite Recorded'}
+              </span>
+            </div>
+
+            {stressData.status === 'STANDBY' ? (
+              <div className="p-5 text-center bg-[var(--surface-secondary)] border-2 border-dashed border-[var(--border-strong)] space-y-2">
+                <Gauge className="w-6 h-6 mx-auto text-[var(--text-muted)] opacity-60" />
+                <p className="font-bold text-xs uppercase text-[var(--text-primary)]">Standby · Awaiting Vitals</p>
+                <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
+                  Connect your ESP32 sensor or record telemetry to evaluate physiological stress patterns against your baseline.
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Score & Status Hero */}
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] font-mono uppercase font-bold text-[var(--text-secondary)] block">
+                      Stress Indicator Score
+                    </span>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="font-heading text-3xl sm:text-4xl font-extrabold text-[var(--text-primary)]">
+                        {stressData.score}
+                      </span>
+                      <span className="text-sm font-mono font-bold text-[var(--text-secondary)]">
+                        / 100
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Status Badge */}
+                  <div className={`px-3.5 py-1.5 border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111] text-center ${
+                    stressData.status === 'LOW'
+                      ? 'bg-[var(--accent-green-bg)] text-[var(--accent-green-dark)]'
+                      : stressData.status === 'ELEVATED'
+                      ? 'bg-amber-100 text-amber-900'
+                      : 'bg-rose-100 text-rose-900'
+                  }`}>
+                    <span className="text-[9px] font-mono font-bold uppercase tracking-wider block opacity-75">
+                      Status
+                    </span>
+                    <span className="font-heading text-xs sm:text-sm font-extrabold uppercase tracking-wide">
+                      {stressData.status}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Tactical Visual Score Progress Bar */}
+                <div className="space-y-1">
+                  <div className="h-3 w-full bg-[var(--surface-secondary)] border-2 border-[var(--border-strong)] overflow-hidden flex shadow-[1px_1px_0px_#111]">
+                    <div 
+                      className={`h-full transition-all duration-500 ${
+                        stressData.status === 'LOW'
+                          ? 'bg-[var(--accent-green)]'
+                          : stressData.status === 'ELEVATED'
+                          ? 'bg-amber-400'
+                          : 'bg-rose-500'
+                      }`}
+                      style={{ width: `${Math.max(5, stressData.score)}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[9px] font-mono text-[var(--text-muted)] uppercase font-semibold">
+                    <span>0 (Low)</span>
+                    <span>40 (Elevated)</span>
+                    <span>70 (Possible Stress)</span>
+                    <span>100</span>
+                  </div>
+                </div>
+
+                {/* Explanation Box */}
+                <div className="p-3 bg-[var(--surface-secondary)] border-2 border-[var(--border-strong)] text-xs text-[var(--text-primary)] font-medium leading-relaxed shadow-[1px_1px_0px_#111]">
+                  "{stressData.explanation}"
+                </div>
+
+                {/* Contributing Signals */}
+                <div className="space-y-2 pt-1">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[var(--text-secondary)] block">
+                    Contributing Signals
+                  </span>
+                  <div className="space-y-1.5">
+                    {stressData.contributingSignals.length > 0 ? (
+                      stressData.contributingSignals.map((sig, idx) => (
+                        <div 
+                          key={idx}
+                          className="flex items-center gap-2 p-2 border border-[var(--border-strong)] bg-[var(--surface-secondary)] text-xs text-[var(--text-primary)] font-medium shadow-[1px_1px_0px_#111]"
+                        >
+                          <span className={`w-2 h-2 rounded-full shrink-0 ${
+                            stressData.status === 'LOW' ? 'bg-[var(--accent-green-dark)]' :
+                            stressData.status === 'ELEVATED' ? 'bg-amber-500' : 'bg-rose-600'
+                          }`} />
+                          <span className="truncate">{sig}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-xs text-[var(--text-secondary)] italic">
+                        Current readings are close to your personal baseline.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Contributing Vitals Snapshot */}
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  <div className="p-2 border border-[var(--border-strong)] bg-[var(--surface-secondary)] text-center">
+                    <span className="text-[9px] font-mono uppercase text-[var(--text-secondary)] block font-bold">HR / Base</span>
+                    <span className="font-heading text-xs font-bold text-[var(--text-primary)]">
+                      {stressData.baselineComparison?.currentHr != null ? `${stressData.baselineComparison.currentHr}` : '--'} 
+                      <span className="text-[9px] font-mono text-[var(--text-muted)] font-normal"> / {stressData.baselineComparison?.restingHr}</span>
+                    </span>
+                  </div>
+                  <div className="p-2 border border-[var(--border-strong)] bg-[var(--surface-secondary)] text-center">
+                    <span className="text-[9px] font-mono uppercase text-[var(--text-secondary)] block font-bold">IMU Motion</span>
+                    <span className="font-heading text-xs font-bold text-[var(--text-primary)]">
+                      {stressData.baselineComparison?.accelMagnitude != null ? `${stressData.baselineComparison.accelMagnitude}g` : '1.00g'}
+                    </span>
+                  </div>
+                  <div className="p-2 border border-[var(--border-strong)] bg-[var(--surface-secondary)] text-center">
+                    <span className="text-[9px] font-mono uppercase text-[var(--text-secondary)] block font-bold">Skin Temp</span>
+                    <span className="font-heading text-xs font-bold text-[var(--text-primary)]">
+                      {stressData.baselineComparison?.currentTemp != null ? `${stressData.baselineComparison.currentTemp}°C` : 'Optional'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Non-Diagnostic Disclaimer Footer */}
+                <div className="pt-2 border-t border-[var(--border-light)] flex items-center justify-between text-[9px] font-mono text-[var(--text-muted)]">
+                  <span>Prototype wellness pattern · Not a diagnosis</span>
+                  {stressData.baselineComparison?.hrDelta != null && (
+                    <span className="font-bold text-[var(--text-secondary)]">
+                      Δ {stressData.baselineComparison.hrDelta > 0 ? '+' : ''}{stressData.baselineComparison.hrDelta} BPM vs Base
+                    </span>
+                  )}
+                </div>
+              </>
+            )}
+
+          </div>
+
+          {/* ── Daily Subjective Check-in ── */}
           <div className="neo-surface p-5 sm:p-6 bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] shadow-[4px_4px_0px_#111] space-y-4">
             <div className="flex items-center justify-between border-b-2 border-[var(--border-strong)] pb-3">
               <span className="font-heading text-xs font-bold uppercase tracking-wider text-[var(--text-primary)] flex items-center gap-2">
@@ -384,6 +715,7 @@ export const TodayScreen = ({
                 PERSISTS TO SQLITE
               </span>
             </div>
+
 
             <p className="text-xs text-[var(--text-secondary)] font-medium leading-relaxed">
               Subjective feelings help AWEN differentiate mental stress from physical activity.

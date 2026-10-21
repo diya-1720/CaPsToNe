@@ -67,6 +67,8 @@ const AwenSpiritComponent = ({
 
   // State-based color themes from stateEngine
   const theme = STATE_COLOR_THEMES[wellnessState] || STATE_COLOR_THEMES[AWEN_STATES.BALANCED];
+  const gradId = `mochiGrad_${wellnessState || 'default'}`;
+  const haloId = `haloGrad_${wellnessState || 'default'}`;
 
   return (
     <div 
@@ -105,7 +107,7 @@ const AwenSpiritComponent = ({
         >
           <defs>
             {/* Mochi Glass Gradient */}
-            <radialGradient id="mochiGrad" cx="35%" cy="30%" r="70%" fx="30%" fy="25%">
+            <radialGradient id={gradId} cx="35%" cy="30%" r="70%" fx="30%" fy="25%">
               <stop offset="0%" stopColor="#ffffff" stopOpacity="0.95" />
               <stop offset="30%" stopColor={theme.bodyGrad[0]} stopOpacity="0.9" />
               <stop offset="70%" stopColor={theme.bodyGrad[1]} stopOpacity="0.85" />
@@ -113,7 +115,7 @@ const AwenSpiritComponent = ({
             </radialGradient>
 
             {/* Halo Gradient */}
-            <linearGradient id="haloGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <linearGradient id={haloId} x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="#ffffff" stopOpacity="0.9" />
               <stop offset="50%" stopColor={theme.finColor} stopOpacity="0.8" />
               <stop offset="100%" stopColor="#ffffff" stopOpacity="0.4" />
@@ -126,7 +128,7 @@ const AwenSpiritComponent = ({
             cy="28" 
             rx="36" 
             ry="9" 
-            stroke="url(#haloGrad)" 
+            stroke={`url(#${haloId})`} 
             strokeWidth="3.5" 
             fill="none" 
             className="animate-halo opacity-90"
@@ -136,13 +138,13 @@ const AwenSpiritComponent = ({
           {/* Tiny Chubby Legs / Feet (Attached underneath body) */}
           <path 
             d="M 76 154 C 70 173, 90 173, 88 156 Z" 
-            fill="url(#mochiGrad)" 
+            fill={`url(#${gradId})`} 
             stroke="rgba(255,255,255,0.4)"
             strokeWidth="1.2"
           />
           <path 
             d="M 112 156 C 110 173, 130 173, 124 154 Z" 
-            fill="url(#mochiGrad)" 
+            fill={`url(#${gradId})`} 
             stroke="rgba(255,255,255,0.4)"
             strokeWidth="1.2"
           />
@@ -171,7 +173,7 @@ const AwenSpiritComponent = ({
                 ? "M 40 114 C 20 108, 24 126, 42 126 Z"
                 : "M 40 114 C 24 116, 26 132, 42 128 Z"
             } 
-            fill="url(#mochiGrad)" 
+            fill={`url(#${gradId})`} 
             stroke="rgba(255,255,255,0.4)"
             strokeWidth="1.2"
             className="transition-all duration-300"
@@ -185,7 +187,7 @@ const AwenSpiritComponent = ({
                 ? "M 160 114 C 180 108, 176 126, 158 126 Z"
                 : "M 160 114 C 176 116, 174 132, 158 128 Z"
             } 
-            fill="url(#mochiGrad)" 
+            fill={`url(#${gradId})`} 
             stroke="rgba(255,255,255,0.4)"
             strokeWidth="1.2"
             className="transition-all duration-300"
@@ -198,7 +200,7 @@ const AwenSpiritComponent = ({
                C 166 142, 140 162, 100 162 
                C 60 162, 34 142, 36 104 
                C 38 70, 62 48, 100 48 Z" 
-            fill="url(#mochiGrad)" 
+            fill={`url(#${gradId})`} 
             stroke="rgba(255,255,255,0.4)"
             strokeWidth="1.5"
           />

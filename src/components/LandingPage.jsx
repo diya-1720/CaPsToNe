@@ -2,10 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   ArrowRight, Shield, Activity, Brain, Heart,
   ChevronDown, Zap, Eye, Lock, Sparkles, Star, CheckCircle2,
-  Cpu, Play, Compass, ShieldCheck, HelpCircle, RefreshCw, Sliders
+  Cpu, Play, Compass, ShieldCheck, HelpCircle, RefreshCw, Sliders,
+  Database, Wifi, Terminal, Gauge, AlertTriangle
 } from 'lucide-react';
 import { AwenSpirit } from './AwenSpirit';
 import { AWEN_STATES } from '../services/stateEngine';
+import { PrivacyModal } from './PrivacyModal';
 
 /* ─── Feature Card Component ────────────────────────────────────────────────── */
 function FeatureCard({ num, icon: Icon, color, title, desc, delay = 0 }) {
@@ -56,6 +58,7 @@ export const LandingPage = ({
 
   const [scrollY, setScrollY] = useState(0);
   const [demoStateIndex, setDemoStateIndex] = useState(0);
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const featuresRef = useRef(null);
 
   const DEMO_STATES = [
@@ -99,6 +102,12 @@ export const LandingPage = ({
           </div>
 
           <div className="flex items-center gap-4">
+            <button
+              onClick={() => setIsPrivacyModalOpen(true)}
+              className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors hidden sm:block"
+            >
+              Privacy Note
+            </button>
             <button
               onClick={handleDemo}
               className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors hidden sm:block"
@@ -395,6 +404,205 @@ export const LandingPage = ({
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════════ */}
+      {/* SECTION 5: PHYSICAL HARDWARE SENSING SUITE (IoT TIER)                 */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      <section className="relative z-10 py-24 px-4 bg-[var(--surface-secondary)] border-b-4 border-[var(--border-strong)]">
+        <div className="max-w-6xl mx-auto space-y-16 text-center">
+          
+          <div className="space-y-4 max-w-3xl mx-auto">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111] text-[var(--text-primary)] text-xs font-bold tracking-widest uppercase">
+              <Cpu className="w-3.5 h-3.5 text-[var(--accent-green-dark)]" />
+              <span>Physical Biomedical Hardware Sensing Suite</span>
+            </div>
+            <h2 className="text-3xl sm:text-5xl font-black text-[var(--text-primary)] tracking-tight uppercase">
+              Engineered around custom biomedical hardware.
+            </h2>
+            <p className="text-base sm:text-lg font-medium text-[var(--text-secondary)] leading-relaxed">
+              AWEN interfaces directly with an embedded physical IoT node powered by the <strong>ESP32-WROOM-32</strong> microcontroller over local Wi-Fi REST or direct USB serial.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 text-left">
+            
+            {/* Card 1: ESP32 */}
+            <div className="bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] p-6 shadow-[4px_4px_0px_#111] space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="w-10 h-10 border-2 border-[var(--border-strong)] bg-[var(--accent-green-bg)] text-[var(--accent-green-dark)] flex items-center justify-center font-bold">
+                  <Cpu className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] font-mono font-bold bg-[var(--surface-secondary)] px-2 py-0.5 border border-[var(--border-strong)]">240 MHz SoC</span>
+              </div>
+              <h3 className="font-bold text-base uppercase tracking-wide text-[var(--text-primary)]">ESP32-WROOM-32 MCU</h3>
+              <p className="text-xs text-[var(--text-secondary)] leading-relaxed font-medium">
+                Dual-core Tensilica Xtensa LX6 processor handling 400 kHz fast I2C acquisition, analog temperature sampling, and dual Wi-Fi REST / USB CDC telemetry.
+              </p>
+            </div>
+
+            {/* Card 2: MAX30100/MAX30102 */}
+            <div className="bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] p-6 shadow-[4px_4px_0px_#111] space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="w-10 h-10 border-2 border-[var(--border-strong)] bg-red-100 text-red-600 flex items-center justify-center font-bold">
+                  <Activity className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] font-mono font-bold bg-[var(--surface-secondary)] px-2 py-0.5 border border-[var(--border-strong)]">PPG Optics</span>
+              </div>
+              <h3 className="font-bold text-base uppercase tracking-wide text-[var(--text-primary)]">MAX30100 / MAX30102 PPG</h3>
+              <p className="text-xs text-[var(--text-secondary)] leading-relaxed font-medium">
+                Photoplethysmography sensor with dual red/IR LEDs measuring arterial blood volume fluctuations at 100 Hz to calculate real-time Heart Rate (BPM) and SpO₂.
+              </p>
+            </div>
+
+            {/* Card 3: MPU-6050 */}
+            <div className="bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] p-6 shadow-[4px_4px_0px_#111] space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="w-10 h-10 border-2 border-[var(--border-strong)] bg-amber-100 text-amber-700 flex items-center justify-center font-bold">
+                  <Zap className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] font-mono font-bold bg-[var(--surface-secondary)] px-2 py-0.5 border border-[var(--border-strong)]">6-DOF IMU</span>
+              </div>
+              <h3 className="font-bold text-base uppercase tracking-wide text-[var(--text-primary)]">MPU-6050 Motion Tracker</h3>
+              <p className="text-xs text-[var(--text-secondary)] leading-relaxed font-medium">
+                Triple-axis accelerometer and gyroscope calculating 3D acceleration vector magnitude to isolate physical exertion from resting physiological stress.
+              </p>
+            </div>
+
+            {/* Card 4: LM35 */}
+            <div className="bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] p-6 shadow-[4px_4px_0px_#111] space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="w-10 h-10 border-2 border-[var(--border-strong)] bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
+                  <Gauge className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] font-mono font-bold bg-[var(--surface-secondary)] px-2 py-0.5 border border-[var(--border-strong)]">Analog ADC</span>
+              </div>
+              <h3 className="font-bold text-base uppercase tracking-wide text-[var(--text-primary)]">LM35 Thermal Sensor</h3>
+              <p className="text-xs text-[var(--text-secondary)] leading-relaxed font-medium">
+                Precision centigrade temperature sensor calibrated linearly at 10.0 mV/°C for continuous peripheral skin temperature trend acquisition.
+              </p>
+            </div>
+
+            {/* Card 5: SSD1306 */}
+            <div className="bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] p-6 shadow-[4px_4px_0px_#111] space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="w-10 h-10 border-2 border-[var(--border-strong)] bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                  <Terminal className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] font-mono font-bold bg-[var(--surface-secondary)] px-2 py-0.5 border border-[var(--border-strong)]">400 kHz I2C</span>
+              </div>
+              <h3 className="font-bold text-base uppercase tracking-wide text-[var(--text-primary)]">0.96" SSD1306 OLED</h3>
+              <p className="text-xs text-[var(--text-secondary)] leading-relaxed font-medium">
+                High-contrast 128×64 pixel on-device telemetry display rendering real-time BPM, oxygen saturation, temperature, motion status, and Wi-Fi IP address.
+              </p>
+            </div>
+
+            {/* Card 6: Active Buzzer */}
+            <div className="bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] p-6 shadow-[4px_4px_0px_#111] space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="w-10 h-10 border-2 border-[var(--border-strong)] bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] font-mono font-bold bg-[var(--surface-secondary)] px-2 py-0.5 border border-[var(--border-strong)]">Audio Transducer</span>
+              </div>
+              <h3 className="font-bold text-base uppercase tracking-wide text-[var(--text-primary)]">Active Piezo Buzzer</h3>
+              <p className="text-xs text-[var(--text-secondary)] leading-relaxed font-medium">
+                Localized acoustic alert element providing non-alarmist audio feedback during sustained resting tachycardia or hyperthermia threshold events.
+              </p>
+            </div>
+
+          </div>
+
+          {/* Dual Ingestion Protocol Strip */}
+          <div className="p-4 bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] shadow-[4px_4px_0px_#111] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono">
+            <div className="flex items-center gap-3">
+              <Wifi className="w-5 h-5 text-[var(--accent-green-dark)]" />
+              <span className="text-left font-bold text-[var(--text-primary)]">
+                Dual Ingestion Channels: Local Wi-Fi REST (port 80) &amp; W3C Web Serial USB CDC (115,200 baud).
+              </span>
+            </div>
+            <span className="px-3 py-1 bg-[var(--accent-green-bg)] text-[var(--accent-green-dark)] border border-[var(--accent-green-dark)] font-bold text-[10px] uppercase tracking-wider">
+              Target IP: 172.20.168.254
+            </span>
+          </div>
+
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {/* SECTION 6: PRIVACY & DATA SOVEREIGNTY NOTE                            */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      <section className="relative z-10 py-24 px-4 bg-[var(--bg-base)]">
+        <div className="max-w-6xl mx-auto space-y-16 text-center">
+          
+          <div className="space-y-4 max-w-3xl mx-auto">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-[var(--accent-green-bg)] border-2 border-[var(--border-strong)] shadow-[2px_2px_0px_#111] text-[var(--accent-green-dark)] text-xs font-bold tracking-widest uppercase">
+              <Shield className="w-3.5 h-3.5" />
+              <span>Privacy &amp; Data Sovereignty Note</span>
+            </div>
+            <h2 className="text-3xl sm:text-5xl font-black text-[var(--text-primary)] tracking-tight uppercase">
+              Your biometrics belong to you. Not to an ad network.
+            </h2>
+            <p className="text-base sm:text-lg font-medium text-[var(--text-secondary)] leading-relaxed">
+              Health telemetry is intimate. AWEN is engineered with an unwavering client-first architecture where data stays local, private, and under your absolute control.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-left">
+            
+            <div className="p-6 bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] shadow-[4px_4px_0px_#111] space-y-3">
+              <div className="w-10 h-10 border-2 border-[var(--border-strong)] bg-[var(--accent-green-bg)] text-[var(--accent-green-dark)] flex items-center justify-center font-bold">
+                <Database className="w-5 h-5" />
+              </div>
+              <h4 className="font-bold text-sm uppercase tracking-wide text-[var(--text-primary)]">Local SQLite Database</h4>
+              <p className="text-xs text-[var(--text-secondary)] leading-relaxed font-medium">
+                Sensor readings and check-ins reside in local SQLite relational tables (<strong>awen.db</strong>). No external cloud ingestion required.
+              </p>
+            </div>
+
+            <div className="p-6 bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] shadow-[4px_4px_0px_#111] space-y-3">
+              <div className="w-10 h-10 border-2 border-[var(--border-strong)] bg-[var(--accent-green-bg)] text-[var(--accent-green-dark)] flex items-center justify-center font-bold">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <h4 className="font-bold text-sm uppercase tracking-wide text-[var(--text-primary)]">Zero Data Brokering</h4>
+              <p className="text-xs text-[var(--text-secondary)] leading-relaxed font-medium">
+                We never monetize, package, or sell your biometric signatures to insurance corporations, data brokers, or advertisers.
+              </p>
+            </div>
+
+            <div className="p-6 bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] shadow-[4px_4px_0px_#111] space-y-3">
+              <div className="w-10 h-10 border-2 border-[var(--border-strong)] bg-[var(--accent-green-bg)] text-[var(--accent-green-dark)] flex items-center justify-center font-bold">
+                <Lock className="w-5 h-5" />
+              </div>
+              <h4 className="font-bold text-sm uppercase tracking-wide text-[var(--text-primary)]">Cryptographic Security</h4>
+              <p className="text-xs text-[var(--text-secondary)] leading-relaxed font-medium">
+                PBKDF2 salted password hashing with 100,000 iterations and isolated SHA-256 session tokens safeguard every authenticated endpoint.
+              </p>
+            </div>
+
+            <div className="p-6 bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] shadow-[4px_4px_0px_#111] space-y-3">
+              <div className="w-10 h-10 border-2 border-[var(--border-strong)] bg-[var(--accent-green-bg)] text-[var(--accent-green-dark)] flex items-center justify-center font-bold">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <h4 className="font-bold text-sm uppercase tracking-wide text-[var(--text-primary)]">Right to Export &amp; Erase</h4>
+              <p className="text-xs text-[var(--text-secondary)] leading-relaxed font-medium">
+                Export comprehensive clinical PDF/JSON reports at any time, or permanently purge all database records with a single click.
+              </p>
+            </div>
+
+          </div>
+
+          <div className="pt-2">
+            <button
+              onClick={() => setIsPrivacyModalOpen(true)}
+              className="px-6 py-3 bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] text-[var(--text-primary)] font-bold uppercase tracking-wider text-xs shadow-[3px_3px_0px_#111] hover:bg-[var(--surface-secondary)] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all inline-flex items-center gap-2"
+            >
+              <Shield className="w-4 h-4 text-[var(--accent-green-dark)]" />
+              <span>Read Full Privacy &amp; Data Sovereignty Note</span>
+            </button>
+          </div>
+
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* SECTION 10: FINAL CTA                                                 */}
       {/* ══════════════════════════════════════════════════════════════════════ */}
       <section className="relative z-10 py-32 px-4 text-center border-t-2 border-[var(--border-strong)] bg-[var(--accent-green-bg)]">
@@ -442,12 +650,26 @@ export const LandingPage = ({
             <span className="opacity-80 text-[10px] font-bold uppercase tracking-wider">Adaptive Wellness &amp; Emotional Navigation</span>
           </div>
 
-          <div className="text-[10px] opacity-80 font-bold uppercase tracking-wider">
-            Privacy-first architecture · Non-clinical wellness companion
+          <div className="flex items-center gap-4 text-[10px] opacity-80 font-bold uppercase tracking-wider">
+            <span>Non-clinical companion</span>
+            <span>•</span>
+            <button 
+              onClick={() => setIsPrivacyModalOpen(true)}
+              className="underline hover:text-[var(--accent-green)] transition-colors cursor-pointer"
+            >
+              Privacy &amp; Data Sovereignty Note
+            </button>
           </div>
         </div>
       </footer>
 
+      {/* Privacy & Data Sovereignty Note Modal */}
+      <PrivacyModal 
+        isOpen={isPrivacyModalOpen} 
+        onClose={() => setIsPrivacyModalOpen(false)} 
+      />
+
     </div>
   );
 };
+

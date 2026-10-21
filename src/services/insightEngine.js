@@ -40,13 +40,13 @@ export class InsightEngine {
         deltas: { hrDeltaFromResting: 0, hrDeltaFromExpected: 0 },
         observe: {
           title: "Hardware Not Connected",
-          summary: "Connect your ESP32 sensor (MAX30102) to stream live telemetry against your personal baseline."
+          summary: "Connect your ESP32 sensor (MAX30100) to stream live telemetry against your personal baseline."
         },
         explanation: {
           summary: "Awaiting sensor connection. AWEN requires active telemetry to observe your real-time body pattern.",
           bullets: [
             "Your baseline pattern is saved in local SQLite storage.",
-            "Connect your ESP32 via USB Web Serial to stream live PPG signals.",
+            "Connect your ESP32 via Wi-Fi or USB to stream live PPG signals.",
             "No fake or default values are attached."
           ]
         },
@@ -54,7 +54,7 @@ export class InsightEngine {
           recommended: false,
           type: "CONNECT",
           label: "Connect ESP32 Sensor",
-          instruction: "Attach your MAX30102 sensor via USB Serial to begin live comparison."
+          instruction: "Attach your MAX30100 sensor to begin live comparison."
         },
         learning: {
           confidenceState,

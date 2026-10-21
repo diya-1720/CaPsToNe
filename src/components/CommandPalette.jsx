@@ -13,7 +13,9 @@ import {
   Moon, 
   ArrowRight, 
   X,
-  Sparkles
+  Sparkles,
+  Shield,
+  Info
 } from 'lucide-react';
 
 export const CommandPalette = ({ 
@@ -21,7 +23,8 @@ export const CommandPalette = ({
   onClose, 
   onNavigate, 
   onOpenHardware, 
-  onOpenReport 
+  onOpenReport,
+  onOpenPrivacy 
 }) => {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -35,10 +38,13 @@ export const CommandPalette = ({
     { id: 'insights', label: 'Go to Insights (Comparative Analytics)', category: 'Navigation', icon: Lightbulb, action: () => onNavigate('insights') },
     { id: 'talk', label: 'Go to AI Companion (Talk with AWEN)', category: 'Navigation', icon: MessageCircle, action: () => onNavigate('talk') },
     { id: 'settings', label: 'Go to Settings (System & Preferences)', category: 'Navigation', icon: SettingsIcon, action: () => onNavigate('settings') },
+    { id: 'about', label: 'About Page: Hardware Architecture & Privacy', category: 'Navigation', icon: Info, action: () => onNavigate('settings-about') },
     { id: 'you', label: 'Go to Profile & Baseline (YouScreen)', category: 'Navigation', icon: User, action: () => onNavigate('you') },
     // Actions
+    { id: 'privacy', label: 'Read Privacy & Data Sovereignty Note (Local Guarantee)', category: 'Live Actions', icon: Shield, action: () => { onClose(); onOpenPrivacy && onOpenPrivacy(); } },
     { id: 'report', label: 'Generate Clinical Health Report (PDF/JSON)', category: 'Live Actions', icon: FileText, action: () => { onClose(); onOpenReport(); } },
     { id: 'hardware', label: 'ESP32 Hardware & Web Serial Controls', category: 'Live Actions', icon: Cpu, action: () => { onClose(); onOpenHardware(); } },
+    { id: 'hardware-info', label: 'Hardware Sensing Suite (ESP32, MAX30102, IMU, LM35)', category: 'Hardware', icon: Cpu, action: () => onNavigate('settings-about') },
   ];
 
   const filteredCommands = COMMANDS.filter(cmd => 

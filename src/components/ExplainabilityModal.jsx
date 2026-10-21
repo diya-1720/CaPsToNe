@@ -11,6 +11,7 @@ export const ExplainabilityModal = ({ isOpen, onClose, evaluation, telemetry }) 
     { title: "Model Confidence", detail: "96% match", status: "high" }
   ];
 
+  return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#111111]/80 animate-fadeIn">
       <div className="relative w-full max-w-xl neo-surface p-6 sm:p-8 space-y-6 max-h-[90dvh] overflow-y-auto">
         

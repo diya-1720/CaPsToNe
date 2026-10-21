@@ -14,21 +14,25 @@ import { CommandPalette } from './components/CommandPalette';
 import { NotificationCenter } from './components/NotificationCenter';
 import { HealthReportModal } from './components/HealthReportModal';
 import { IoTConfigModal } from './components/IoTConfigModal';
+import { AbnormalReadingPopup } from './components/AbnormalReadingPopup';
+import { PrivacyModal } from './components/PrivacyModal';
 
 import { 
   Home, Sun, Compass, BarChart3, Bot, FileText, Settings, User, 
   ArrowLeft, Search, Bell, Cpu, ShieldCheck, ChevronDown, LogOut, 
-  Sparkles, ExternalLink
+  Sparkles, ExternalLink, Shield
 } from 'lucide-react';
 
 import { BaselineEngine, DEFAULT_BASELINE } from './services/baselineEngine';
 import { TelemetryStream } from './services/telemetryStream';
 import { stateEngine, AWEN_STATES } from './services/stateEngine';
 import { apiService } from './services/apiService';
+import { formatISTTime, formatISTDateTime } from './utils/timeFormat';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [previousTab, setPreviousTab] = useState('home');
+  const [settingsSubTab, setSettingsSubTab] = useState('general');
   const [currentUser, setCurrentUser] = useState(apiService.currentUser);
 
   // Modals state
@@ -38,6 +42,7 @@ export default function App() {
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isIoTModalOpen, setIsIoTModalOpen] = useState(false);
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
 
   const baselineEngineRef = useRef(new BaselineEngine(DEFAULT_BASELINE));
@@ -56,7 +61,10 @@ export default function App() {
     activity: "Resting",
     mood: "Normal",
     isHardware: false,
-    timestamp: null
+    timestamp: null,
+    timestamp_ist: null,
+    hardwareConnectedAt: null,
+    hardwareConnectedTime: null
   });
 
   const [latestReading, setLatestReading] = useState(null);
@@ -129,24 +137,40 @@ export default function App() {
 
     const stream = new TelemetryStream(
       (reading) => {
-        setTelemetry({
+        const now = new Date();
+        const istTime = reading.time_ist || formatISTTime(now);
+        const istDateTime = reading.timestamp_ist || formatISTDateTime(now);
+        const hwConnAt = reading.hardware_connected_at || formatISTDateTime(now);
+        const hwConnTime = reading.hardware_connected_time || formatISTTime(now);
+
+        setTelemetry(prev => ({
+          ...prev,
           ...reading,
           isHardware: true,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-        });
+          timestamp: istTime,
+          timestamp_ist: istDateTime,
+          hardwareConnectedAt: prev.hardwareConnectedAt || hwConnAt,
+          hardwareConnectedTime: prev.hardwareConnectedTime || hwConnTime
+        }));
 
         // Throttled persistence of real hardware readings to SQLite (every 3.5 seconds when valid pulse is verified)
-        const now = Date.now();
-        if (reading.fingerDetected && reading.heartRate && (now - lastPersistTime > 3500)) {
-          lastPersistTime = now;
-          apiService.saveReading(reading).catch((e) => console.warn("Auto-persist reading failed:", e));
+        const nowMs = Date.now();
+        if (reading.fingerDetected && reading.heartRate && (nowMs - lastPersistTime > 3500)) {
+          lastPersistTime = nowMs;
+          apiService.saveReading({
+            ...reading,
+            timestamp_ist: istDateTime,
+            hardware_connected_at: hwConnAt
+          }).catch((e) => console.warn("Auto-persist reading failed:", e));
         }
       },
       (stateObj) => {
         if (stateObj.isHardwareConnected) {
           setTelemetry(prev => ({
             ...prev,
-            isHardware: true
+            isHardware: true,
+            hardwareConnectedAt: stateObj.hardwareConnectedAt || prev.hardwareConnectedAt || formatISTDateTime(new Date()),
+            hardwareConnectedTime: stateObj.hardwareConnectedTime || prev.hardwareConnectedTime || formatISTTime(new Date())
           }));
         } else {
           setTelemetry(prev => ({
@@ -159,7 +183,9 @@ export default function App() {
             accelMagnitude: 1.0,
             isMoving: false,
             fingerDetected: false,
-            isHardware: false
+            isHardware: false,
+            hardwareConnectedAt: null,
+            hardwareConnectedTime: null
           }));
         }
       }
@@ -273,6 +299,15 @@ export default function App() {
 
   const handleBackFromTalk = () => {
     setActiveTab(previousTab || 'home');
+  };
+
+  const handleNavigate = (tab) => {
+    if (tab === 'settings-about') {
+      setSettingsSubTab('about');
+      setActiveTab('settings');
+    } else {
+      setActiveTab(tab);
+    }
   };
 
   // If user is unauthenticated, render the Landing Page
@@ -402,7 +437,7 @@ export default function App() {
             }`}
           >
             <span className={`w-2 h-2 rounded-full shrink-0 ${telemetry.isHardware ? 'bg-[var(--accent-green-dark)] animate-pulse' : 'bg-red-600'}`} />
-            <span className="truncate">{telemetry.isHardware ? 'ESP32 Linked' : 'Hardware Disconnected'}</span>
+            <span className="truncate">{telemetry.isHardware ? 'ESP32: Connected' : 'ESP32: Disconnected'}</span>
           </button>
 
           <p className="text-[9px] text-[var(--text-secondary)] leading-relaxed italic border-t border-[var(--border-light)] pt-1.5">
@@ -472,7 +507,7 @@ export default function App() {
                 title="Click to pair ESP32 hardware via Web Serial"
               >
                 <span className={`w-2 h-2 rounded-full shrink-0 ${telemetry.isHardware ? 'bg-black' : 'bg-red-600 animate-pulse'}`} />
-                <span>{telemetry.isHardware ? 'ESP32 Live' : 'Hardware Not Connected'}</span>
+                <span>{telemetry.isHardware ? 'ESP32: Connected' : 'ESP32: Disconnected'}</span>
               </button>
 
               {/* Notification Bell Dropdown Container */}
@@ -490,7 +525,7 @@ export default function App() {
                   isOpen={isNotificationOpen}
                   onClose={() => setIsNotificationOpen(false)}
                   onNavigate={(tab) => {
-                    setActiveTab(tab);
+                    handleNavigate(tab);
                     setIsNotificationOpen(false);
                   }}
                 />
@@ -551,6 +586,20 @@ export default function App() {
                         <Cpu className="w-3.5 h-3.5" />
                         <span>Pair ESP32 Hardware</span>
                       </button>
+                      <button
+                        onClick={() => { handleNavigate('settings-about'); setIsProfileDropdownOpen(false); }}
+                        className="w-full px-3 py-2 text-left font-semibold hover:bg-[var(--surface-secondary)] flex items-center gap-2"
+                      >
+                        <Cpu className="w-3.5 h-3.5 text-[var(--accent-green-dark)]" />
+                        <span>About: Hardware Suite</span>
+                      </button>
+                      <button
+                        onClick={() => { setIsPrivacyModalOpen(true); setIsProfileDropdownOpen(false); }}
+                        className="w-full px-3 py-2 text-left font-semibold hover:bg-[var(--surface-secondary)] flex items-center gap-2"
+                      >
+                        <Shield className="w-3.5 h-3.5 text-[var(--accent-green-dark)]" />
+                        <span>Privacy &amp; Data Note</span>
+                      </button>
                     </div>
 
                     <div className="p-1">
@@ -589,6 +638,7 @@ export default function App() {
               onNavigate={(tab) => setActiveTab(tab)}
               onSelectActivity={handleSelectActivity}
               onSelectMood={handleSelectMood}
+              onOpenPrivacyModal={() => setIsPrivacyModalOpen(true)}
             />
           )}
 
@@ -596,12 +646,14 @@ export default function App() {
           {activeTab === 'today' && (
             <TodayScreen 
               telemetry={telemetry}
+              latestReading={latestReading}
               evaluation={evaluation}
               awenState={awenState}
               onSelectActivity={handleSelectActivity}
               onSelectMood={handleSelectMood}
               onOpenTalk={handleOpenTalk}
               onOpenInsights={() => setActiveTab('insights')}
+              onOpenJourney={() => setActiveTab('journey')}
               isNightMode={false}
               currentUser={currentUser}
               baselineData={baselineEngineRef.current?.baseline}
@@ -659,6 +711,7 @@ export default function App() {
               }}
               onOpenReportModal={() => setIsReportModalOpen(true)}
               onOpenIoTModal={() => setIsIoTModalOpen(true)}
+              initialSubTab={settingsSubTab}
             />
           )}
 
@@ -695,13 +748,28 @@ export default function App() {
         setActiveTab={setActiveTab}
       />
 
+      {/* ── REAL-TIME ABNORMAL READING NOTIFICATION POPUP ── */}
+      <AbnormalReadingPopup
+        telemetry={telemetry}
+        baselineData={baselineEngineRef.current?.baseline}
+        latestReading={latestReading}
+        onOpenTalk={handleOpenTalk}
+        onNavigate={(tab) => setActiveTab(tab)}
+      />
+
       {/* ── GLOBAL MODALS ── */}
       <CommandPalette
         isOpen={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}
-        onNavigate={(tab) => setActiveTab(tab)}
+        onNavigate={handleNavigate}
         onOpenHardware={() => setIsIoTModalOpen(true)}
         onOpenReport={() => setIsReportModalOpen(true)}
+        onOpenPrivacy={() => setIsPrivacyModalOpen(true)}
+      />
+
+      <PrivacyModal
+        isOpen={isPrivacyModalOpen}
+        onClose={() => setIsPrivacyModalOpen(false)}
       />
 
       <HealthReportModal

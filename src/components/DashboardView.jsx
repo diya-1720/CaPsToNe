@@ -54,17 +54,19 @@ export const DashboardView = ({
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       // Generate ECG/PPG style pulse waveform point
-      const hr = telemetry?.heartRate || 65;
-      const beatCycle = Math.sin(phase * (hr / 60));
-      
-      let waveY = canvas.height / 2;
-      if (beatCycle > 0.85) {
-        waveY -= (beatCycle - 0.85) * 60; // Systolic peak
-      } else if (beatCycle > 0.7) {
-        waveY += (beatCycle - 0.7) * 20; // Dicrotic notch
+      if (!telemetry?.heartRate) {
+        points.push(canvas.height / 2);
+      } else {
+        const hr = telemetry.heartRate;
+        const beatCycle = Math.sin(phase * (hr / 60));
+        let waveY = canvas.height / 2;
+        if (beatCycle > 0.85) {
+          waveY -= (beatCycle - 0.85) * 60; // Systolic peak
+        } else if (beatCycle > 0.7) {
+          waveY += (beatCycle - 0.7) * 20; // Dicrotic notch
+        }
+        points.push(waveY);
       }
-
-      points.push(waveY);
       if (points.length > maxPoints) points.shift();
 
       // Draw PPG Line — black on white, technical look
@@ -192,7 +194,7 @@ export const DashboardView = ({
             <Heart className="w-4 h-4 text-[var(--accent-danger)]" />
           </div>
           <div className="flex items-baseline gap-1.5">
-            <span className="metric-value text-3xl">{telemetry?.heartRate || 65.0}</span>
+            <span className="metric-value text-3xl">{telemetry?.heartRate != null ? telemetry.heartRate : '--'}</span>
             <span className="text-xs text-[var(--text-muted)] font-medium">bpm</span>
           </div>
           <div className="text-[11px] text-[var(--text-muted)] flex items-center justify-between border-t border-[var(--border-light)] pt-2">
@@ -210,12 +212,12 @@ export const DashboardView = ({
             <ActivityIcon className="w-4 h-4 text-[var(--accent-green-dark)]" />
           </div>
           <div className="flex items-baseline gap-1.5">
-            <span className="metric-value text-3xl">{telemetry?.spo2 || 98.6}</span>
+            <span className="metric-value text-3xl">{telemetry?.spo2 != null ? telemetry.spo2 : '--'}</span>
             <span className="text-xs text-[var(--text-muted)] font-medium">%</span>
           </div>
           <div className="text-[11px] text-[var(--text-muted)] flex items-center justify-between border-t border-[var(--border-light)] pt-2">
             <span>Baseline: 98.6%</span>
-            <span className="font-bold text-[var(--accent-green-dark)]">Stable</span>
+            <span className="font-bold text-[var(--accent-green-dark)]">{telemetry?.spo2 != null ? 'Stable' : 'Standby'}</span>
           </div>
         </div>
 
@@ -226,12 +228,12 @@ export const DashboardView = ({
             <Thermometer className="w-4 h-4 text-[var(--accent-warm)]" />
           </div>
           <div className="flex items-baseline gap-1.5">
-            <span className="metric-value text-3xl">{telemetry?.temperature || 36.6}</span>
+            <span className="metric-value text-3xl">{telemetry?.temperature != null ? telemetry.temperature : '--'}</span>
             <span className="text-xs text-[var(--text-muted)] font-medium">°C</span>
           </div>
           <div className="text-[11px] text-[var(--text-muted)] flex items-center justify-between border-t border-[var(--border-light)] pt-2">
             <span>Baseline: 36.6°C</span>
-            <span className="font-bold text-[var(--text-secondary)]">Nominal</span>
+            <span className="font-bold text-[var(--text-secondary)]">{telemetry?.temperature != null ? 'Nominal' : 'Standby'}</span>
           </div>
         </div>
 
@@ -247,7 +249,7 @@ export const DashboardView = ({
           </div>
 
           <p className="text-[10px] text-[var(--text-muted)] font-mono uppercase tracking-wide text-center">
-            {telemetry?.isHardware ? 'ESP32 Hardware' : 'Simulated'}
+            {telemetry?.isHardware ? 'ESP32: Connected' : 'ESP32: Disconnected'}
           </p>
         </div>
 

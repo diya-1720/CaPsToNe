@@ -113,6 +113,8 @@ export const AIChatModal = ({ isOpen, onClose, evaluation, telemetry }) => {
               </div>
             </div>
           )}
+        </div>
+
         {/* Input Area */}
         <div className="p-4 border-t-2 border-[var(--border-strong)] bg-[var(--surface-primary)]">
           <form onSubmit={handleSend} className="relative">

@@ -1,13 +1,35 @@
 import asyncio
 import json
 import os
+import sys
 import math
+import urllib.request
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import logging
 from datetime import datetime
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Header, Depends, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 import re
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List, Dict, Any
+
+from dotenv import load_dotenv
+
+# Load environment variables from backend/.env and root .env
+load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+
+logger = logging.getLogger("awen_api")
+
+try:
+    from google import genai
+    from google.genai import types
+    from google.genai.errors import APIError
+    GENAI_AVAILABLE = True
+except ImportError:
+    GENAI_AVAILABLE = False
+    logger.warning("google-genai library not installed; will return AI unavailable status.")
 
 from ml_engine import PersonalizedPhysiologicalEngine
 import database
@@ -98,6 +120,9 @@ class SensorReadingPayload(BaseModel):
     activity_state: Optional[str] = "Resting"
     data_source: Optional[str] = "esp32"
     timestamp_ms: Optional[int] = None
+    created_at_ist: Optional[str] = None
+    hardware_connected_at: Optional[str] = None
+    timestamp_ist: Optional[str] = None
 
 class CheckinPayload(BaseModel):
     mood: str
@@ -116,7 +141,8 @@ class DeviceRegisterPayload(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str
-    context: Optional[dict] = None
+    context: Optional[Dict[str, Any]] = None
+    history: Optional[List[Dict[str, Any]]] = None
 
 class UserBaselinePayload(BaseModel):
     resting_hr: Optional[float] = None
@@ -134,6 +160,16 @@ class TelemetryPayload(BaseModel):
     activity: Optional[str] = "Resting"
     mood: Optional[str] = "Normal"
     user_baseline: Optional[UserBaselinePayload] = None
+
+class StressEvaluationPayload(BaseModel):
+    heart_rate: Optional[float] = None
+    temperature: Optional[float] = None
+    accel_magnitude: Optional[float] = 1.0
+    activity_state: Optional[str] = "Resting"
+    is_moving: Optional[bool] = False
+    user_baseline: Optional[UserBaselinePayload] = None
+    checkin_mood: Optional[str] = None
+    checkin_notes: Optional[str] = None
 
 # ----------------- Real Authentication Middleware / Dependency -----------------
 
@@ -195,6 +231,52 @@ def read_health():
         "status": "healthy",
         "database": "connected",
         "timestamp": datetime.utcnow().isoformat()
+    }
+
+@app.get("/api/esp32/telemetry")
+def proxy_esp32_telemetry(ip: Optional[str] = Query(None)):
+    """
+    Proxies telemetry from the local ESP32 Wi-Fi microcontroller.
+    Seamlessly bridges browser requests to the local hardware network without CORS or PNA issues.
+    """
+    target = ip or os.getenv("ESP32_BASE_URL", "http://172.20.168.254")
+    if not target.startswith("http://") and not target.startswith("https://"):
+        target = f"http://{target}"
+    target = target.rstrip("/")
+    # Probe /api/telemetry first, fallback to / (root) for compatibility
+    endpoints = [f"{target}/api/telemetry", f"{target}/"]
+    last_err = None
+
+    for url in endpoints:
+        try:
+            req = urllib.request.Request(
+                url,
+                headers={
+                    "User-Agent": "AWEN-FastAPI-Bridge/1.0",
+                    "Accept": "application/json"
+                }
+            )
+            with urllib.request.urlopen(req, timeout=1.5) as response:
+                data = json.loads(response.read().decode())
+                if isinstance(data, dict):
+                    data["connected"] = True
+                    data["status"] = "streaming"
+                    data.setdefault("ip", target)
+                return data
+        except urllib.error.HTTPError as he:
+            last_err = str(he)
+            if he.code == 404:
+                continue
+            break
+        except Exception as e:
+            last_err = str(e)
+            break
+
+    return {
+        "connected": False,
+        "status": "unreachable",
+        "detail": f"Unable to reach ESP32 at {target}: {last_err}",
+        "ip": target
     }
 
 # ----------------- Real Authentication Endpoints -----------------
@@ -452,7 +534,9 @@ def post_sensor_reading(
         status=payload.status,
         activity_state=payload.activity_state or "Resting",
         data_source=payload.data_source or "esp32",
-        timestamp_ms=payload.timestamp_ms
+        timestamp_ms=payload.timestamp_ms,
+        created_at_ist=payload.created_at_ist or payload.timestamp_ist,
+        hardware_connected_at=payload.hardware_connected_at
     )
 
     return {
@@ -550,11 +634,12 @@ def get_checkins_list(
 
 @app.get("/api/observations")
 def get_patient_observations(
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=500),
+    severity: Optional[str] = Query(None),
     current_user: dict = Depends(get_current_user)
 ):
     """Get persistent observations & alerts for the authenticated patient."""
-    obs = database.get_observations(current_user["id"], limit=limit)
+    obs = database.get_observations(current_user["id"], limit=limit, severity=severity)
     return {
         "status": "success",
         "observations": obs
@@ -632,7 +717,8 @@ def analyze_telemetry(
             "explainability": {
                 "summary": "Hardware not connected. Connect your ESP32 sensor to begin live physiological comparison.",
                 "factors": []
-            }
+            },
+            "stress_indicator": None
         }
 
     analysis = engine.analyze_readings(
@@ -648,6 +734,85 @@ def analyze_telemetry(
     analysis["is_authenticated_session"] = is_authenticated
     return analysis
 
+# ----------------- Real Stress Detection API -----------------
+
+@app.get("/api/stress/current")
+def get_current_stress_indicator(current_user: dict = Depends(get_current_user)):
+    """
+    Calculates the real stress indicator for the authenticated patient based on:
+    - Their latest stored sensor reading in SQLite
+    - Their personal baseline in user_baselines
+    - Their latest subjective check-in in user_checkins
+    """
+    user_id = current_user["id"]
+    latest_reading = database.get_latest_reading(user_id)
+    baseline = database.get_user_baseline(user_id)
+    checkins = database.get_checkins(user_id, limit=1)
+    latest_checkin = checkins[0] if checkins else None
+
+    if not latest_reading or latest_reading.get("bpm") is None:
+        return {
+            "status": "STANDBY",
+            "score": None,
+            "explanation": "No sensor readings recorded yet. Connect your ESP32 or record readings to evaluate stress pattern.",
+            "contributing_signals": [],
+            "is_exertion_filtered": False,
+            "data_source": "none",
+            "reading": None
+        }
+
+    stress = engine.calculate_stress_indicator(
+        hr=latest_reading.get("bpm"),
+        temp=latest_reading.get("temperature"),
+        accel_magnitude=latest_reading.get("accel_magnitude"),
+        activity=latest_reading.get("activity_state") or "Resting",
+        is_moving=False,
+        user_baseline=baseline,
+        checkin_mood=latest_checkin.get("mood") if latest_checkin else None,
+        checkin_notes=latest_checkin.get("notes") if latest_checkin else None
+    )
+    stress["data_source"] = "sqlite"
+    stress["reading_timestamp"] = latest_reading.get("created_at")
+    stress["device_id"] = latest_reading.get("device_id")
+    return stress
+
+@app.post("/api/stress/evaluate")
+def evaluate_stress_indicator(
+    payload: StressEvaluationPayload,
+    authorization: Optional[str] = Header(None)
+):
+    """
+    Evaluates stress indicator for incoming reading payload.
+    Uses authenticated user baseline if available and not overridden in payload.
+    """
+    user = get_optional_current_user(authorization)
+    user_baseline_dict = None
+    if payload.user_baseline:
+        user_baseline_dict = payload.user_baseline.model_dump()
+    elif user:
+        user_baseline_dict = database.get_user_baseline(user["id"])
+
+    mood = payload.checkin_mood
+    notes = payload.checkin_notes
+    if not mood and user:
+        chks = database.get_checkins(user["id"], limit=1)
+        if chks:
+            mood = chks[0].get("mood")
+            notes = chks[0].get("notes")
+
+    res = engine.calculate_stress_indicator(
+        hr=payload.heart_rate,
+        temp=payload.temperature,
+        accel_magnitude=payload.accel_magnitude,
+        activity=payload.activity_state or "Resting",
+        is_moving=bool(payload.is_moving),
+        user_baseline=user_baseline_dict,
+        checkin_mood=mood,
+        checkin_notes=notes
+    )
+    return res
+
+
 # ----------------- Supportive Companion Chat -----------------
 
 @app.post("/api/chat")
@@ -655,8 +820,9 @@ def awen_chat(
     payload: ChatRequest,
     current_user: Optional[dict] = Depends(get_optional_current_user)
 ):
-    """AWEN Supportive Companion Response Generator with acute medical safety guardrails."""
-    msg = payload.message.lower()
+    """AWEN Supportive Companion Response Generator powered by Google Gemini with acute safety guardrails."""
+    msg = payload.message.strip()
+    lower_msg = msg.lower()
 
     # 1. Acute Medical Safety Guardrail
     symptom_keywords = [
@@ -664,11 +830,26 @@ def awen_chat(
         "trouble breathing", "fainting", "passed out", "blackout", "severe pain",
         "severe dizziness", "alarming symptom", "breathless", "seizure", "unconscious"
     ]
-    if any(kw in msg for kw in symptom_keywords):
+    if any(kw in lower_msg for kw in symptom_keywords):
+        safety_reply = (
+            "If you are experiencing chest pain, difficulty breathing, fainting, or severe dizziness, "
+            "please seek immediate real-world emergency medical attention or contact emergency services. "
+            "AWEN is a non-clinical wellness companion and cannot diagnose medical emergencies."
+        )
+        if current_user:
+            try:
+                database.insert_conversation(
+                    user_id=current_user["id"],
+                    user_message=payload.message,
+                    awen_response=safety_reply,
+                    topic="safety"
+                )
+            except Exception:
+                pass
         return {
-            "reply": "If you are experiencing chest pain, difficulty breathing, fainting, or severe dizziness, please seek immediate real-world emergency medical attention. AWEN is a non-clinical wellness companion and cannot diagnose medical emergencies.",
+            "reply": safety_reply,
             "tone": "urgent_safety",
-            "confidence": 99
+            "source": "safety_guardrail"
         }
 
     # 2. Medical Recovery Guardrail
@@ -677,54 +858,218 @@ def awen_chat(
         "medical procedure", "doctor told me", "physician restricted",
         "medical recovery", "hospital", "stitches", "healed", "rehab"
     ]
-    if any(kw in msg for kw in recovery_keywords):
+    if any(kw in lower_msg for kw in recovery_keywords):
+        recovery_reply = (
+            "Because you are recovering from surgery or a clinical procedure, please follow your surgeon's "
+            "or healthcare provider's direct instructions regarding physical exertion. AWEN cannot provide clinical clearance."
+        )
+        if current_user:
+            try:
+                database.insert_conversation(
+                    user_id=current_user["id"],
+                    user_message=payload.message,
+                    awen_response=recovery_reply,
+                    topic="medical_recovery"
+                )
+            except Exception:
+                pass
         return {
-            "reply": "Because you are recovering from surgery or a clinical procedure, please follow your surgeon's direct instructions regarding physical exertion. AWEN cannot provide clinical clearance.",
+            "reply": recovery_reply,
             "tone": "medical_override",
-            "confidence": 99
+            "source": "safety_guardrail"
         }
 
-    user_name = current_user.get("name", "").split()[0] if current_user and current_user.get("name") else "there"
+    # 3. Verify Gemini API Key & SDK Availability
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if not api_key or not GENAI_AVAILABLE:
+        logger.warning("Gemini API key missing or google-genai library unavailable.")
+        return {
+            "reply": "AI service temporarily unavailable. Please verify backend API key configuration.",
+            "tone": "unavailable",
+            "status": "unavailable"
+        }
 
-    if "stress" in msg or "anxious" in msg or "elevated" in msg:
-        reply = (
-            f"Hello {user_name}. I notice you're asking about elevated readings. "
-            "Rather than stress, temporary heart rate lifts often reflect natural physical activity, ambient temperature, or cognitive focus. "
-            "Would you like to try a short 2-minute breathing sequence?"
-        )
-    elif "baseline" in msg or "pattern" in msg:
-        reply = (
-            f"Your personal physiological pattern is compared against your own learned resting signature in local SQLite, "
-            "rather than generic thresholds. Routine daily actions like climbing stairs are contextually recognized."
-        )
-    elif "hardware" in msg or "sensor" in msg or "esp32" in msg:
-        reply = (
-            "To stream real-time physiological data, connect your ESP32 MAX30102 sensor via Web Serial in Chrome or Edge, "
-            "or have your hardware post telemetry packets directly to POST /api/readings."
-        )
-    else:
-        reply = (
-            f"I'm here with you, {user_name}. My role is observing your natural body pattern over time. "
-            "Feel free to check your real-time overview or review your weekly journey."
-        )
+    # 4. Context Extraction & Telemetry Grounding
+    user_name = "there"
+    if current_user and current_user.get("name"):
+        user_name = current_user["name"].split()[0]
+    elif payload.context and isinstance(payload.context.get("user"), dict) and payload.context["user"].get("name"):
+        user_name = payload.context["user"]["name"].split()[0]
 
-    # Save to conversations table if user is logged in
-    if current_user:
+    # Resolve telemetry: prefer context telemetry, fallback to database latest reading
+    telemetry_data = None
+    if payload.context and isinstance(payload.context.get("telemetry"), dict):
+        telemetry_data = payload.context["telemetry"]
+    elif current_user:
         try:
-            database.insert_conversation(
-                user_id=current_user["id"],
-                user_message=payload.message,
-                awen_response=reply,
-                topic="wellness"
-            )
+            latest_res = database.get_latest_reading(current_user["id"])
+            if latest_res:
+                telemetry_data = latest_res
         except Exception:
             pass
 
+    # Build grounded telemetry status
+    telemetry_lines = []
+    if telemetry_data:
+        hr = telemetry_data.get("heartRate") or telemetry_data.get("heart_rate")
+        spo2 = telemetry_data.get("spo2")
+        temp = telemetry_data.get("temperature")
+        act = telemetry_data.get("activity") or telemetry_data.get("activity_state") or "Resting"
+        src = telemetry_data.get("data_source") or ("esp32" if telemetry_data.get("isHardware") else "demo_stream")
+
+        if hr is not None:
+            telemetry_lines.append(f"  - Heart Rate: {hr} BPM")
+        else:
+            telemetry_lines.append("  - Heart Rate: UNAVAILABLE (sensor not measuring)")
+
+        if spo2 is not None:
+            telemetry_lines.append(f"  - Blood Oxygen (SpO2): {spo2}%")
+        else:
+            telemetry_lines.append("  - Blood Oxygen (SpO2): UNAVAILABLE")
+
+        if temp is not None:
+            telemetry_lines.append(f"  - Skin Temperature: {temp}\u00b0C")
+        else:
+            telemetry_lines.append("  - Skin Temperature: UNAVAILABLE")
+
+        telemetry_lines.append(f"  - Physical Activity Context: {act}")
+        telemetry_lines.append(f"  - Data Source: {src}")
+    else:
+        telemetry_lines.append("  - All live sensor telemetry is currently UNAVAILABLE (no active sensor readings).")
+
+    # Resolve baseline
+    baseline_data = None
+    if payload.context and isinstance(payload.context.get("baseline"), dict):
+        baseline_data = payload.context["baseline"]
+    elif current_user:
+        try:
+            baseline_data = database.get_user_baseline(current_user["id"])
+        except Exception:
+            pass
+
+    baseline_lines = []
+    if baseline_data:
+        b_hr = baseline_data.get("restingHr") or baseline_data.get("resting_hr")
+        b_var = baseline_data.get("hrStdDev") or baseline_data.get("hr_variance") or baseline_data.get("hr_std_dev")
+        b_conf = baseline_data.get("confidence") or "Stable baseline"
+        if b_hr is not None:
+            baseline_lines.append(f"  - Typical Resting Heart Rate: {b_hr} BPM")
+        if b_var is not None:
+            baseline_lines.append(f"  - Usual Resting Variation: \u00b1{b_var} BPM")
+        baseline_lines.append(f"  - Baseline Calibration Status: {b_conf}")
+    else:
+        baseline_lines.append("  - Personal baseline is currently calibrating in Observation Mode.")
+
+    # Resolve recent observations / alerts
+    recent_obs_lines = []
+    if current_user:
+        try:
+            obs_list = database.get_observations(current_user["id"], limit=3)
+            for o in obs_list:
+                recent_obs_lines.append(f"  - [{o.get('severity', 'info').upper()}]: {o.get('message', '')}")
+        except Exception:
+            pass
+    if not recent_obs_lines:
+        recent_obs_lines.append("  - No abnormal alerts or elevated observations recorded.")
+
+    telemetry_summary = "\n".join(telemetry_lines)
+    baseline_summary = "\n".join(baseline_lines)
+    observations_summary = "\n".join(recent_obs_lines)
+
+    system_instruction = f"""You are AWEN (Adaptive Wellness & Emotional Navigation), an emotionally intelligent, friendly, simple, and supportive personal wellness companion.
+You are designed for students, corporate employees, working professionals, and general everyday users.
+
+Core Persona & Rules:
+1. Tone: Warm, empathetic, calm, and supportive. Keep language clean, natural, and accessible.
+2. Non-Clinical: You are NOT a doctor or clinical diagnostic tool. NEVER diagnose diseases or clinical conditions. NEVER prescribe medications or treatments.
+3. Medical Concerns: For everyday wellness questions (fatigue, caffeine, hydration, exam anxiety, headaches, sleep), provide practical, gentle wellness guidance (e.g. taking a 2-minute pause, drinking a glass of water, screen breaks, gentle stretching). When appropriate, recommend consulting a qualified healthcare professional.
+4. AWEN Baseline Philosophy: Always interpret the user's readings in relation to their OWN personal baseline and current physical movement (e.g. walking or climbing stairs naturally elevates heart rate), rather than generic, rigid thresholds.
+5. Non-Jargon Vocabulary:
+   - Use 'Your Body Pattern' instead of 'Physiological Signature'
+   - Use 'Your Weekly Pattern' instead of 'Baseline Rhythm'
+   - Use 'Your Quiet Hours' instead of 'Circadian Dip'
+   - Use 'Readings' instead of 'Metrics'
+
+CRITICAL DATA GROUNDING RULES:
+- ONLY reference health readings that are explicitly listed below as AVAILABLE.
+- NEVER invent, simulate, or hallucinate sensor readings, vital signs, or health events that are not listed.
+- If a reading or metric is marked as UNAVAILABLE or missing, clearly state that it is not currently available or connected if asked. Do NOT invent numbers.
+- Keep responses concise, warm, and natural (typically 2 to 4 sentences unless the user explicitly requests an in-depth explanation).
+
+CURRENT USER CONTEXT:
+- User Name: {user_name}
+- Available Live Telemetry:
+{telemetry_summary}
+- Personal Baseline Corridor:
+{baseline_summary}
+- Recent Observations & Alerts:
+{observations_summary}
+"""
+
+    # 5. Build multi-turn conversational contents
+    contents = []
+    if payload.history and isinstance(payload.history, list):
+        for turn in payload.history[-8:]:
+            r = turn.get("role", "")
+            if r in ["awen", "assistant", "model"]:
+                role = "model"
+            elif r == "user":
+                role = "user"
+            else:
+                continue
+            t = turn.get("content") or turn.get("text") or ""
+            if t.strip():
+                contents.append(types.Content(role=role, parts=[types.Part.from_text(text=t.strip())]))
+
+    contents.append(types.Content(role="user", parts=[types.Part.from_text(text=msg)]))
+
+    # 6. Call Google GenAI SDK (with resilient model candidates)
+    candidate_models = ["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-flash-latest"]
+    client = genai.Client(api_key=api_key)
+    config = types.GenerateContentConfig(
+        system_instruction=system_instruction,
+        temperature=0.7,
+        max_output_tokens=600
+    )
+
+    last_error = None
+    for model_name in candidate_models:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=contents,
+                config=config
+            )
+            reply_text = response.text.strip() if response and response.text else "I'm here with you. How can I support your wellness today?"
+
+            if current_user:
+                try:
+                    database.insert_conversation(
+                        user_id=current_user["id"],
+                        user_message=payload.message,
+                        awen_response=reply_text,
+                        topic="wellness"
+                    )
+                except Exception:
+                    pass
+
+            return {
+                "reply": reply_text,
+                "tone": "supportive",
+                "source": "gemini",
+                "model": model_name
+            }
+        except Exception as e:
+            last_error = e
+            logger.warning(f"Gemini model {model_name} attempt failed: {e}. Trying fallback if available.")
+
+    logger.error(f"All Gemini models failed: {last_error}", exc_info=True)
     return {
-        "reply": reply,
-        "tone": "supportive",
-        "confidence": 95
+        "reply": "AI service temporarily unavailable.",
+        "tone": "unavailable",
+        "status": "unavailable"
     }
+
 
 # ----------------- WebSocket Live Telemetry -----------------
 

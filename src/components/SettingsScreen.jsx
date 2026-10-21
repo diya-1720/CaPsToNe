@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Settings, User, Sliders, Cpu, Database, Info, ShieldCheck, 
   Moon, Sun, Gauge, FileText, Download, CheckCircle2, AlertTriangle, 
-  RotateCcw, Sparkles, LogOut, Terminal, RefreshCw, Activity, Lock
+  RotateCcw, Sparkles, LogOut, Terminal, RefreshCw, Activity, Lock,
+  Shield, Zap, Wifi
 } from 'lucide-react';
 import { TelemetryStream } from '../services/telemetryStream';
 import { apiService } from '../services/apiService';
+import { PrivacyModal } from './PrivacyModal';
 
 export const SettingsScreen = ({
   currentUser,
@@ -17,14 +19,22 @@ export const SettingsScreen = ({
   telemetry,
   onUpdateUserBaseline,
   onOpenReportModal,
-  onOpenIoTModal
+  onOpenIoTModal,
+  initialSubTab = 'general'
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState('general');
+  const [activeSubTab, setActiveSubTab] = useState(initialSubTab);
   const [tempUnit, setTempUnit] = useState('celsius');
   const [anim60Fps, setAnim60Fps] = useState(true);
   const [testResults, setTestResults] = useState(null);
   const [seedSuccessMsg, setSeedSuccessMsg] = useState(null);
   const [isConfirmResetOpen, setIsConfirmResetOpen] = useState(false);
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (initialSubTab) {
+      setActiveSubTab(initialSubTab);
+    }
+  }, [initialSubTab]);
 
   const restingHrVal = baselineData?.restingHr ? Number(baselineData.restingHr).toFixed(1) : '64.0';
   const confidenceState = currentUser?.baseline_confidence || baselineData?.confidence || 'Stable baseline';
@@ -293,29 +303,35 @@ export const SettingsScreen = ({
             </div>
 
             {/* Hardware Specification Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
               <div className="p-3.5 bg-[var(--surface-secondary)] border border-[var(--border-strong)]">
                 <span className="text-[10px] font-mono font-bold text-[var(--text-secondary)] block uppercase">Microcontroller</span>
-                <span className="text-sm font-bold text-[var(--text-primary)] block mt-0.5">ESP32-WROOM-32</span>
-                <span className="text-[10px] text-[var(--text-secondary)]">Dual-Core Tensilica LX6</span>
+                <span className="text-sm font-bold text-[var(--text-primary)] block mt-0.5">ESP32 Core</span>
+                <span className="text-[10px] text-[var(--text-secondary)]">Wi-Fi & Dual-Core MCU</span>
               </div>
 
               <div className="p-3.5 bg-[var(--surface-secondary)] border border-[var(--border-strong)]">
                 <span className="text-[10px] font-mono font-bold text-[var(--text-secondary)] block uppercase">PPG Sensor</span>
-                <span className="text-sm font-bold text-[var(--text-primary)] block mt-0.5">MAX30102 Optical</span>
-                <span className="text-[10px] text-[var(--text-secondary)]">Red + IR LED photodiode</span>
+                <span className="text-sm font-bold text-[var(--text-primary)] block mt-0.5">MAX30100 Optical</span>
+                <span className="text-[10px] text-[var(--text-secondary)]">I2C 0x57 · Pulse & SpO₂</span>
               </div>
 
               <div className="p-3.5 bg-[var(--surface-secondary)] border border-[var(--border-strong)]">
                 <span className="text-[10px] font-mono font-bold text-[var(--text-secondary)] block uppercase">IMU Accelerometer</span>
                 <span className="text-sm font-bold text-[var(--text-primary)] block mt-0.5">MPU-6050 6-Axis</span>
-                <span className="text-[10px] text-[var(--text-secondary)]">Movement context filter</span>
+                <span className="text-[10px] text-[var(--text-secondary)]">I2C 0x68 · Movement filter</span>
               </div>
 
               <div className="p-3.5 bg-[var(--surface-secondary)] border border-[var(--border-strong)]">
-                <span className="text-[10px] font-mono font-bold text-[var(--text-secondary)] block uppercase">Baud Rate</span>
-                <span className="text-sm font-bold text-[var(--accent-green-dark)] font-mono block mt-0.5">115,200 bps</span>
-                <span className="text-[10px] text-[var(--text-secondary)]">Standard USB CDC Serial</span>
+                <span className="text-[10px] font-mono font-bold text-[var(--text-secondary)] block uppercase">Temperature</span>
+                <span className="text-sm font-bold text-[var(--text-primary)] block mt-0.5">LM35 Analog</span>
+                <span className="text-[10px] text-[var(--text-secondary)]">GPIO 34 ADC Precision</span>
+              </div>
+
+              <div className="p-3.5 bg-[var(--surface-secondary)] border border-[var(--border-strong)]">
+                <span className="text-[10px] font-mono font-bold text-[var(--text-secondary)] block uppercase">Buzzer Alert</span>
+                <span className="text-sm font-bold text-[var(--accent-green-dark)] font-mono block mt-0.5">Active Buzzer</span>
+                <span className="text-[10px] text-[var(--text-secondary)]">GPIO 25 Anomaly Alarm</span>
               </div>
             </div>
 
@@ -437,37 +453,208 @@ export const SettingsScreen = ({
       {activeSubTab === 'about' && (
         <div className="space-y-6">
           <div className="neo-card space-y-6">
-            <h2 className="font-heading text-lg font-bold text-[var(--text-primary)] flex items-center gap-2 border-b border-[var(--border-light)] pb-3">
-              <Info className="w-5 h-5 text-[var(--accent-green-dark)]" />
-              <span>About AWEN & Non-Diagnostic Philosophy</span>
-            </h2>
-
-            <div className="space-y-4 text-xs text-[var(--text-secondary)] leading-relaxed font-medium">
-              <div className="p-4 bg-[var(--accent-green-bg)] border border-[var(--accent-green)] text-[var(--text-primary)] space-y-2">
-                <h3 className="font-bold text-sm text-[var(--accent-green-dark)]">The Personal Baseline Thesis</h3>
-                <p>
-                  Traditional consumer health wearables compare your vitals to population averages (e.g. "resting heart rate should be between 60 and 100").
-                  AWEN learns <strong>your personal baseline</strong> across quiet resting windows. An elevated heart rate of 82 BPM may be completely normal for one individual, while signaling fatigue for another.
-                </p>
+            
+            {/* 1. FIRST: HARDWARE SENSING ARCHITECTURE */}
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b-2 border-[var(--border-strong)] pb-3 gap-2">
+                <h2 className="font-heading text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
+                  <Cpu className="w-5 h-5 text-[var(--accent-green-dark)]" />
+                  <span>Hardware Sensing Architecture &amp; IoT Suite</span>
+                </h2>
+                <span className="px-2.5 py-1 text-[10px] font-mono font-bold uppercase tracking-wider bg-[var(--accent-green-bg)] text-[var(--accent-green-dark)] border-2 border-[var(--accent-green-dark)] shadow-[2px_2px_0px_#111] w-fit">
+                  Physical Biomedical Sensing Tier
+                </span>
               </div>
 
-              <div className="p-4 bg-[var(--surface-secondary)] border border-[var(--border-strong)] space-y-2">
-                <h3 className="font-bold text-sm text-[var(--text-primary)]">Non-Diagnostic Safety Guarantee</h3>
-                <p>
-                  AWEN is an adaptive wellness companion and emotional navigator. It does not provide medical diagnoses, clinical treatments, or disease classifications. Whenever acute physiological symptoms or distress are mentioned, AWEN immediately triggers medical safety guardrails recommending professional healthcare evaluation.
-                </p>
+              <p className="text-xs text-[var(--text-secondary)] font-medium leading-relaxed">
+                AWEN interfaces with an integrated physical biomedical sensing unit powered by the <strong>ESP32-WROOM-32</strong> microcontroller. Real physiological vitals are acquired at hardware level and streamed continuously across dual local channels (Wi-Fi REST and direct USB CDC serial).
+              </p>
+
+              {/* Hardware Suite 6-Card Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
+                
+                {/* 1. ESP32 Controller */}
+                <div className="p-3.5 bg-[var(--surface-secondary)] border-2 border-[var(--border-strong)] shadow-[3px_3px_0px_#111] space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs uppercase tracking-wide text-[var(--text-primary)] flex items-center gap-1.5">
+                      <Cpu className="w-4 h-4 text-[var(--accent-green-dark)]" />
+                      ESP32-WROOM-32
+                    </span>
+                    <span className="text-[9px] font-mono font-bold bg-[var(--surface-primary)] border border-[var(--border-strong)] px-1 py-0.5">240 MHz</span>
+                  </div>
+                  <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
+                    Dual-core Tensilica Xtensa LX6 SoC managing 400 kHz fast I2C bus acquisition, LM35 ADC reads, and dual Wi-Fi/Serial communication.
+                  </p>
+                </div>
+
+                {/* 2. MAX30100/MAX30102 PPG */}
+                <div className="p-3.5 bg-[var(--surface-secondary)] border-2 border-[var(--border-strong)] shadow-[3px_3px_0px_#111] space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs uppercase tracking-wide text-[var(--text-primary)] flex items-center gap-1.5">
+                      <Activity className="w-4 h-4 text-red-500" />
+                      MAX30100 / MAX30102
+                    </span>
+                    <span className="text-[9px] font-mono font-bold bg-[var(--surface-primary)] border border-[var(--border-strong)] px-1 py-0.5">I2C 0x57</span>
+                  </div>
+                  <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
+                    Optical pulse oximeter with red and IR LEDs. Detects pulsatile arterial blood flow to calculate real-time Heart Rate (BPM) and SpO₂.
+                  </p>
+                </div>
+
+                {/* 3. MPU-6050 IMU */}
+                <div className="p-3.5 bg-[var(--surface-secondary)] border-2 border-[var(--border-strong)] shadow-[3px_3px_0px_#111] space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs uppercase tracking-wide text-[var(--text-primary)] flex items-center gap-1.5">
+                      <Zap className="w-4 h-4 text-amber-500" />
+                      MPU-6050 6-DOF IMU
+                    </span>
+                    <span className="text-[9px] font-mono font-bold bg-[var(--surface-primary)] border border-[var(--border-strong)] px-1 py-0.5">I2C 0x68</span>
+                  </div>
+                  <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
+                    Triple-axis accelerometer &amp; gyroscope. Evaluates 3D acceleration vector magnitude to distinguish physical activity from resting stress.
+                  </p>
+                </div>
+
+                {/* 4. LM35 Temperature */}
+                <div className="p-3.5 bg-[var(--surface-secondary)] border-2 border-[var(--border-strong)] shadow-[3px_3px_0px_#111] space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs uppercase tracking-wide text-[var(--text-primary)] flex items-center gap-1.5">
+                      <Gauge className="w-4 h-4 text-blue-500" />
+                      LM35 Precision Temp
+                    </span>
+                    <span className="text-[9px] font-mono font-bold bg-[var(--surface-primary)] border border-[var(--border-strong)] px-1 py-0.5">ADC GPIO 34</span>
+                  </div>
+                  <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
+                    Analog centigrade temperature sensor calibrated linearly at 10.0 mV/°C. Monitors peripheral skin thermal trends continuously.
+                  </p>
+                </div>
+
+                {/* 5. SSD1306 OLED */}
+                <div className="p-3.5 bg-[var(--surface-secondary)] border-2 border-[var(--border-strong)] shadow-[3px_3px_0px_#111] space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs uppercase tracking-wide text-[var(--text-primary)] flex items-center gap-1.5">
+                      <Terminal className="w-4 h-4 text-emerald-500" />
+                      0.96" SSD1306 OLED
+                    </span>
+                    <span className="text-[9px] font-mono font-bold bg-[var(--surface-primary)] border border-[var(--border-strong)] px-1 py-0.5">I2C 0x3C</span>
+                  </div>
+                  <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
+                    128×64 matrix display operating on 400 kHz fast I2C bus. Provides on-device vital readouts, IP status, and heartbeat indicator.
+                  </p>
+                </div>
+
+                {/* 6. Active Piezo Buzzer */}
+                <div className="p-3.5 bg-[var(--surface-secondary)] border-2 border-[var(--border-strong)] shadow-[3px_3px_0px_#111] space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs uppercase tracking-wide text-[var(--text-primary)] flex items-center gap-1.5">
+                      <AlertTriangle className="w-4 h-4 text-purple-500" />
+                      Active Piezo Buzzer
+                    </span>
+                    <span className="text-[9px] font-mono font-bold bg-[var(--surface-primary)] border border-[var(--border-strong)] px-1 py-0.5">GPIO 25</span>
+                  </div>
+                  <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
+                    Acoustic alert transducer providing subtle localized audio feedback during anomalous resting events.
+                  </p>
+                </div>
+
               </div>
 
-              <div className="p-4 bg-[var(--surface-secondary)] border border-[var(--border-strong)] space-y-2">
-                <h3 className="font-bold text-sm text-[var(--text-primary)]">Zero Telemetry Trackers</h3>
-                <p>
-                  No third-party analytics (Google Analytics, Mixpanel, Segment) or external tracking pixels are embedded. Your physiological telemetry is processed on local endpoints.
-                </p>
+              {/* Ingestion Channels Banner */}
+              <div className="p-3 bg-[var(--surface-primary)] border-2 border-[var(--border-strong)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shadow-[2px_2px_0px_#111]">
+                <div className="flex items-center gap-2">
+                  <Wifi className="w-4 h-4 text-[var(--accent-green-dark)] shrink-0" />
+                  <span className="text-[11px] font-medium text-[var(--text-primary)]">
+                    Dual Ingestion: <strong>Wi-Fi REST</strong> (http://172.20.168.254/api/telemetry) &amp; <strong>W3C Web Serial USB CDC</strong> (115,200 baud).
+                  </span>
+                </div>
+                <button
+                  onClick={onOpenIoTModal}
+                  className="px-3 py-1 font-bold uppercase tracking-wider text-[10px] bg-[var(--text-primary)] text-white border-2 border-[var(--border-strong)] hover:bg-[var(--accent-green-dark)] shadow-[2px_2px_0px_#111] transition-all whitespace-nowrap"
+                >
+                  Configure Hardware
+                </button>
+              </div>
+            </div>
+
+            {/* 2. SECOND: PRIVACY & DATA SOVEREIGNTY NOTE */}
+            <div className="pt-4 border-t-2 border-[var(--border-strong)] space-y-4">
+              <div className="flex items-center justify-between border-b-2 border-[var(--border-strong)] pb-3">
+                <h2 className="font-heading text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-[var(--accent-green-dark)]" />
+                  <span>Privacy &amp; Data Sovereignty Note</span>
+                </h2>
+                <span className="px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider bg-[var(--surface-secondary)] border border-[var(--border-strong)]">
+                  Local-First Guarantee
+                </span>
+              </div>
+
+              <div className="space-y-3 text-xs text-[var(--text-secondary)] leading-relaxed font-medium">
+                
+                {/* Core Sovereignty Card */}
+                <div className="p-4 bg-[var(--accent-green-bg)] border-2 border-[var(--accent-green-dark)] text-[var(--text-primary)] space-y-2.5 shadow-[3px_3px_0px_#111]">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-[var(--accent-green-dark)]" />
+                    <h3 className="font-bold text-sm text-[var(--accent-green-dark)] uppercase tracking-wide">
+                      Client-First Data Sovereignty Pledge
+                    </h3>
+                  </div>
+                  <p>
+                    AWEN is intentionally engineered as a private, local-first platform. Your physiological readings, daily reflections, and emotional state logs belong exclusively to you.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-[11px]">
+                    <div className="p-2 bg-[var(--surface-primary)] border border-[var(--border-strong)]">
+                      <strong>• No Data Brokering:</strong> Biometrics are never sold, licensed, or shared with advertisers or insurance firms.
+                    </div>
+                    <div className="p-2 bg-[var(--surface-primary)] border border-[var(--border-strong)]">
+                      <strong>• Local SQLite Database:</strong> Data is persisted in your local relational SQLite database (<strong>awen.db</strong>).
+                    </div>
+                    <div className="p-2 bg-[var(--surface-primary)] border border-[var(--border-strong)]">
+                      <strong>• Zero Trackers:</strong> No third-party analytics pixels (Google Analytics, Segment, Meta) are embedded.
+                    </div>
+                    <div className="p-2 bg-[var(--surface-primary)] border border-[var(--border-strong)]">
+                      <strong>• Private Network Streaming:</strong> Telemetry streams over your local LAN or direct USB cable without external relays.
+                    </div>
+                  </div>
+                </div>
+
+                {/* Non-Diagnostic Safety */}
+                <div className="p-4 bg-[var(--surface-secondary)] border-2 border-[var(--border-strong)] space-y-2 shadow-[2px_2px_0px_#111]">
+                  <h3 className="font-bold text-sm text-[var(--text-primary)] uppercase tracking-wide flex items-center gap-1.5">
+                    <Lock className="w-4 h-4 text-[var(--accent-green-dark)]" />
+                    <span>Non-Diagnostic Safety &amp; Medical Boundaries</span>
+                  </h3>
+                  <p>
+                    AWEN is an adaptive companion for personal wellness and emotional recovery. It does not provide medical diagnoses, treatment plans, or clinical disease classifications. Whenever acute physiological anomalies or distress are registered, AWEN automatically activates calm safety guardrails recommending professional healthcare consultation.
+                  </p>
+                </div>
+
+                {/* Personal Baseline Thesis */}
+                <div className="p-4 bg-[var(--surface-secondary)] border-2 border-[var(--border-strong)] space-y-2 shadow-[2px_2px_0px_#111]">
+                  <h3 className="font-bold text-sm text-[var(--text-primary)] uppercase tracking-wide flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-[var(--accent-green-dark)]" />
+                    <span>The Personal Baseline Thesis</span>
+                  </h3>
+                  <p>
+                    Traditional health platforms compare all users to generic medical population thresholds (e.g. <i>"resting heart rate must be between 60 and 100"</i>). AWEN instead learns <strong>your personal baseline</strong> across quiet resting windows, identifying when today deviates from <em>your normal</em> rather than a population average.
+                  </p>
+                </div>
+
+                {/* Open Modal Trigger Button */}
+                <div className="pt-2">
+                  <button
+                    onClick={() => setIsPrivacyModalOpen(true)}
+                    className="w-full sm:w-auto px-4 py-2.5 bg-[var(--surface-primary)] hover:bg-[var(--surface-secondary)] border-2 border-[var(--border-strong)] text-[var(--text-primary)] text-xs font-bold uppercase tracking-wider shadow-[3px_3px_0px_#111] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all flex items-center justify-center gap-2"
+                  >
+                    <Shield className="w-4 h-4 text-[var(--accent-green-dark)]" />
+                    <span>Open Full Privacy &amp; Data Sovereignty Note (Modal)</span>
+                  </button>
+                </div>
+
               </div>
             </div>
 
             {/* Account Action */}
-            <div className="pt-4 border-t border-[var(--border-light)] flex items-center justify-between">
+            <div className="pt-4 border-t-2 border-[var(--border-strong)] flex items-center justify-between">
               <span className="text-xs text-[var(--text-secondary)] font-mono">
                 Logged in as: <strong>{currentUser?.email || 'guest@awen.local'}</strong>
               </span>
@@ -481,9 +668,16 @@ export const SettingsScreen = ({
                 </button>
               )}
             </div>
+
           </div>
         </div>
       )}
+
+      {/* Privacy & Data Sovereignty Note Modal */}
+      <PrivacyModal 
+        isOpen={isPrivacyModalOpen} 
+        onClose={() => setIsPrivacyModalOpen(false)} 
+      />
 
     </div>
   );

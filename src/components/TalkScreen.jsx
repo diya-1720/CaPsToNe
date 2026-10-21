@@ -121,10 +121,26 @@ export const TalkScreen = ({
         isSafetyTriggered = true;
       } else {
         try {
-          replyText = await aiEngine.generateChatReply(userText, telemetry);
+          // Format recent conversation turns for multi-turn Gemini memory
+          const historyTurns = messages
+            .filter(m => m.id !== 'init-1' && m.text)
+            .map(m => ({
+              role: m.sender === 'user' ? 'user' : 'model',
+              content: m.text
+            }));
+
+          const contextPayload = {
+            baseline: baselineData,
+            user: currentUser
+          };
+
+          replyText = await aiEngine.generateChatReply(userText, telemetry, contextPayload, historyTurns);
+          if (replyText && (replyText.includes("emergency medical attention") || replyText.includes("clinical clearance"))) {
+            isSafetyTriggered = true;
+          }
         } catch (error) {
           console.error("AI Error:", error);
-          replyText = "I'm having trouble connecting right now, but I'm still here with you. How are you feeling today?";
+          replyText = "AI service temporarily unavailable.";
         }
       }
 

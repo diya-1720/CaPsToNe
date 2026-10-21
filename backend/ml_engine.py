@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from sklearn.ensemble import IsolationForest
 import math
+from typing import Optional, Dict, Any, List
 
 class PersonalizedPhysiologicalEngine:
     """
@@ -173,5 +174,144 @@ class PersonalizedPhysiologicalEngine:
                         "explanation": f"Analysis confidence matched against your learned resting baseline profile ({confidence_tier})."
                     }
                 ]
+            },
+            "stress_indicator": self.calculate_stress_indicator(
+                hr=hr,
+                temp=temp,
+                accel_magnitude=None,
+                activity=activity,
+                is_moving=is_activity_explained,
+                user_baseline=user_b,
+                checkin_mood=mood
+            )
+        }
+
+    def calculate_stress_indicator(
+        self,
+        hr: Optional[float],
+        temp: Optional[float] = None,
+        accel_magnitude: Optional[float] = 1.0,
+        activity: str = "Resting",
+        is_moving: bool = False,
+        user_baseline: Optional[dict] = None,
+        checkin_mood: Optional[str] = None,
+        checkin_notes: Optional[str] = None
+    ) -> dict:
+        """
+        Calculates a real derived Stress Indicator (0-100) by comparing current
+        physiological readings against the user's personal baseline with MPU motion filtering.
+        
+        States:
+        - LOW (0-39): Readings close to baseline or elevation explained by physical activity.
+        - ELEVATED (40-69): Physiological readings deviate from baseline during low activity.
+        - POSSIBLE STRESS (70-100): Multiple indicators deviate during low physical movement.
+        """
+        if hr is None or hr <= 0:
+            return {
+                "status": "STANDBY",
+                "score": None,
+                "explanation": "No active heart rate reading available. Connect your sensor or record telemetry to calculate stress indicator.",
+                "contributing_signals": [],
+                "is_exertion_filtered": False,
+                "metrics": {
+                    "heart_rate": None,
+                    "temperature": temp,
+                    "accel_magnitude": accel_magnitude,
+                    "activity": activity,
+                    "is_moving": is_moving
+                }
+            }
+
+        user_b = user_baseline or {}
+        rhr = float(user_b.get("resting_hr")) if user_b.get("resting_hr") is not None else self.baseline["resting_hr"]
+        rtemp = float(user_b.get("resting_temp")) if user_b.get("resting_temp") is not None else self.baseline["resting_temp"]
+        hr_sd = float(user_b.get("hr_std_dev") or user_b.get("hr_variance") or self.baseline["hr_std_dev"])
+
+        accel_mag = float(accel_magnitude) if accel_magnitude is not None else 1.0
+        hr_delta = hr - rhr
+
+        # 1. Motion & Physical Activity Filter
+        # MPU accelerometer motion (>1.20g or active movement or exertional activity state)
+        active_activities = ["Walking", "Climbing Stairs", "Gym", "Running", "Active"]
+        is_active = (accel_mag > 1.20) or is_moving or (activity in active_activities)
+        is_exertion_explained = is_active and (hr_delta > 0)
+
+        contributing_signals = []
+        base_score = 18.0
+        score = base_score
+
+        if is_exertion_explained:
+            # Physical activity explains cardiac lift - reduce/avoid stress flag
+            contributing_signals.append(f"Elevated heart rate (+{round(hr_delta, 1)} BPM) explained by physical activity ({activity})")
+            contributing_signals.append(f"Physical exertion filter active (MPU motion: {round(accel_mag, 2)}g)")
+            score = min(35.0, base_score + max(0.0, hr_delta) * 0.12)
+            state = "LOW"
+            explanation = "Cardiovascular response is fully consistent with your current physical activity."
+        else:
+            # Inactive / Resting state: compare against personal baseline
+            if hr_delta <= 3.0:
+                contributing_signals.append(f"Resting heart rate aligns with personal baseline ({round(rhr, 1)} BPM)")
+                score += max(-4.0, hr_delta * 1.5)
+            elif hr_delta <= 8.0:
+                contributing_signals.append(f"Elevated resting heart rate (+{round(hr_delta, 1)} BPM above baseline)")
+                contributing_signals.append("No significant physical activity")
+                score += 22.0 + (hr_delta - 3.0) * 3.4
+            elif hr_delta <= 16.0:
+                contributing_signals.append(f"Elevated resting heart rate (+{round(hr_delta, 1)} BPM above baseline)")
+                contributing_signals.append("No significant physical activity")
+                score += 39.0 + (hr_delta - 8.0) * 2.6
+            else:
+                contributing_signals.append(f"Significantly elevated resting heart rate (+{round(hr_delta, 1)} BPM above baseline)")
+                contributing_signals.append("No significant physical activity")
+                score += 59.0 + min(20.0, (hr_delta - 16.0) * 1.2)
+
+            # 2. Skin Temperature Deviation (Supporting Signal)
+            if temp is not None and 30.0 <= temp <= 43.0:
+                temp_delta = temp - rtemp
+                if abs(temp_delta) >= 0.5:
+                    temp_pts = min(15.0, abs(temp_delta) * 7.5)
+                    score += temp_pts
+                    sign = "+" if temp_delta > 0 else ""
+                    contributing_signals.append(f"Temperature deviation ({sign}{round(temp_delta, 1)}°C from baseline)")
+
+            # 3. Subjective Check-in Context (Supporting Context - only applied if physiology shows deviation)
+            if hr_delta > 3.0:
+                if checkin_mood and checkin_mood.strip().lower() in ["difficult", "poor", "stressed", "anxious", "unwell"]:
+                    score += 8.0
+                    contributing_signals.append("Subjective check-in reports physical fatigue / stress")
+                if checkin_notes:
+                    lower_notes = checkin_notes.lower()
+                    if any(w in lower_notes for w in ["poor sleep", "insomnia", "tired", "headache", "overworked", "stressed", "fatigue"]):
+                        score += 6.0
+                        contributing_signals.append("Check-in notes indicate sleep disruption or stress")
+
+            final_score = int(round(min(100.0, max(0.0, score))))
+
+            if final_score >= 70:
+                state = "POSSIBLE STRESS"
+                explanation = "Multiple physiological readings are above the established baseline during low activity."
+            elif final_score >= 40:
+                state = "ELEVATED"
+                explanation = "Heart rate is above your baseline while activity is low."
+            else:
+                state = "LOW"
+                explanation = "Current readings are close to your personal baseline."
+
+        final_score = int(round(min(100.0, max(0.0, score))))
+
+        return {
+            "status": state,
+            "score": final_score,
+            "explanation": explanation,
+            "contributing_signals": contributing_signals,
+            "is_exertion_filtered": is_exertion_explained,
+            "baseline_comparison": {
+                "resting_hr": round(rhr, 1),
+                "current_hr": round(hr, 1),
+                "hr_delta": round(hr_delta, 1),
+                "resting_temp": round(rtemp, 1),
+                "current_temp": round(temp, 1) if temp is not None else None,
+                "accel_magnitude": round(accel_mag, 2)
             }
         }
+

@@ -97,11 +97,11 @@ export const Navbar = ({
           <button
             onClick={onOpenIoT}
             className="flex items-center gap-2 px-2.5 py-1.5  bg-[var(--surface-primary)] hover:bg-[var(--surface-primary)] border border-2 border-[var(--border-strong)] text-xs font-medium transition-colors"
-            title="ESP32 MAX30102 IoT Configuration"
+            title="ESP32 MAX30100 IoT Configuration"
           >
             <Cpu className={`w-3.5 h-3.5 ${telemetry?.isHardware ? 'text-[var(--accent-green-dark)] animate-pulse' : 'text-[var(--text-primary)]'}`} />
             <span className="hidden lg:inline text-[var(--text-secondary)] font-bold">
-              {telemetry?.isHardware ? 'ESP32 MAX30102' : 'IoT Sim Stream'}
+              {telemetry?.isHardware ? 'ESP32 MAX30100' : 'IoT Sim Stream'}
             </span>
             <span className={`w-2 h-2  ${telemetry?.isHardware ? 'bg-emerald-400 shadow-[2px_2px_0px_#111]' : 'bg-blue-400'}`} />
           </button>

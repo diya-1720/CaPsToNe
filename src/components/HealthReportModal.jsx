@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Printer, Download, FileText, ShieldCheck, Heart, Wind, Thermometer, Calendar, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
 import { apiService } from '../services/apiService';
+import { formatISTDateTime, formatISTTime } from '../utils/timeFormat';
 
 export const HealthReportModal = ({ isOpen, onClose, currentUser, baselineData, telemetry }) => {
   const [duration, setDuration] = useState('7d');
@@ -62,6 +63,8 @@ export const HealthReportModal = ({ isOpen, onClose, currentUser, baselineData, 
       },
       audit_log: readings.map(r => ({
         timestamp: r.created_at || r.timestamp,
+        timestamp_ist: formatISTDateTime(r.created_at_ist || r.timestamp_ist || r.created_at || r.timestamp),
+        time_ampm: formatISTTime(r.created_at_ist || r.timestamp_ist || r.created_at || r.timestamp),
         hr: r.bpm || r.heart_rate,
         spo2: r.spo2,
         temp: r.temperature,
@@ -69,7 +72,9 @@ export const HealthReportModal = ({ isOpen, onClose, currentUser, baselineData, 
         data_source: r.data_source || 'esp32',
         delta: r.bpm || r.heart_rate ? (Number(r.bpm || r.heart_rate) - Number(restingHr)).toFixed(1) : null
       })),
-      generated_at: new Date().toISOString()
+      generated_at: new Date().toISOString(),
+      generated_at_ist: formatISTDateTime(new Date()),
+      hardware_connection_time_ist: telemetry?.hardwareConnectedAt || (telemetry?.isHardware ? formatISTDateTime(new Date()) : 'Not Connected')
     };
     const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -163,8 +168,9 @@ export const HealthReportModal = ({ isOpen, onClose, currentUser, baselineData, 
                 Physiological Summary &amp; Longitudinal Review
               </h2>
             </div>
-            <div className="text-right text-xs font-mono text-[var(--text-muted)] space-y-0.5">
-              <p>Generated: {new Date().toLocaleDateString('en-US', { dateStyle: 'medium' })}</p>
+            <div className="text-right text-xs font-mono text-[var(--text-muted)] space-y-1">
+              <p>Generated: <span className="font-bold text-[var(--text-primary)]">{formatISTDateTime(new Date())}</span></p>
+              <p>Hardware Link: <span className="font-bold text-[var(--accent-green-dark)]">{telemetry?.hardwareConnectedAt || (telemetry?.isHardware ? formatISTDateTime(new Date()) : 'Standalone Session')}</span></p>
               <p>Observation Period: {obsDuration}</p>
             </div>
           </div>
@@ -282,7 +288,7 @@ export const HealthReportModal = ({ isOpen, onClose, currentUser, baselineData, 
                 <table className="w-full text-left text-xs font-mono border-collapse">
                   <thead className="bg-[var(--surface-secondary)] border-b-2 border-[var(--border-strong)] text-[10px] font-bold uppercase tracking-wider">
                     <tr>
-                      <th className="p-2.5">Alert Timestamp</th>
+                      <th className="p-2.5">Alert Timestamp (IST)</th>
                       <th className="p-2.5">Event Type</th>
                       <th className="p-2.5">Severity</th>
                       <th className="p-2.5">Triggered Observation Detail</th>
@@ -291,8 +297,8 @@ export const HealthReportModal = ({ isOpen, onClose, currentUser, baselineData, 
                   <tbody className="divide-y divide-[var(--border-light)] font-medium">
                     {abnormalEvents.map((ev, idx) => (
                       <tr key={ev.id || idx} className="hover:bg-red-50/40">
-                        <td className="p-2.5 whitespace-nowrap text-[10px]">
-                          {ev.created_at ? new Date(ev.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : 'Recent'}
+                        <td className="p-2.5 whitespace-nowrap text-[10px] font-bold text-[var(--text-primary)]">
+                          {formatISTDateTime(ev.created_at_ist || ev.created_at)}
                         </td>
                         <td className="p-2.5 uppercase font-bold text-[var(--text-primary)]">
                           {ev.type || 'Physiological'}
@@ -330,7 +336,7 @@ export const HealthReportModal = ({ isOpen, onClose, currentUser, baselineData, 
                 <table className="w-full text-left text-xs font-mono border-collapse">
                   <thead className="bg-[var(--surface-secondary)] border-b-2 border-[var(--border-strong)] text-[10px] font-bold uppercase tracking-wider">
                     <tr>
-                      <th className="p-2.5">Timestamp</th>
+                      <th className="p-2.5">Timestamp (IST)</th>
                       <th className="p-2.5">Heart Rate</th>
                       <th className="p-2.5">SpO₂</th>
                       <th className="p-2.5">Skin Temp</th>
@@ -347,8 +353,8 @@ export const HealthReportModal = ({ isOpen, onClose, currentUser, baselineData, 
                       const isSynthetic = row.data_source === 'demo_synthetic';
                       return (
                         <tr key={idx} className="hover:bg-[var(--surface-secondary)]">
-                          <td className="p-2.5 whitespace-nowrap text-[10px]">
-                            {row.created_at ? new Date(row.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : 'Recent'}
+                          <td className="p-2.5 whitespace-nowrap text-[10px] font-bold text-[var(--text-primary)]">
+                            {formatISTDateTime(row.created_at_ist || row.timestamp_ist || row.created_at || row.timestamp)}
                           </td>
                           <td className="p-2.5 font-bold">{hrVal ? `${hrVal} BPM` : '--'}</td>
                           <td className="p-2.5">{row.spo2 ? `${row.spo2}%` : '--'}</td>

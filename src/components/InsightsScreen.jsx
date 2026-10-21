@@ -210,13 +210,13 @@ export const InsightsScreen = ({ baselineData, currentUser }) => {
               
               {/* Horizontal Gridlines */}
               <line x1="40" y1="20" x2="680" y2="20" stroke="#E5E7EB" strokeWidth="1" />
-              <text x="30" y="24" fill="#9CA3AF" fontSize="10" fontMono="true" textAnchor="end">120</text>
+              <text x="30" y="24" fill="#9CA3AF" fontSize="10" fontFamily="monospace" textAnchor="end">120</text>
 
               <line x1="40" y1="90" x2="680" y2="90" stroke="#E5E7EB" strokeWidth="1" />
-              <text x="30" y="94" fill="#9CA3AF" fontSize="10" fontMono="true" textAnchor="end">80</text>
+              <text x="30" y="94" fill="#9CA3AF" fontSize="10" fontFamily="monospace" textAnchor="end">80</text>
 
               <line x1="40" y1="160" x2="680" y2="160" stroke="#E5E7EB" strokeWidth="1" />
-              <text x="30" y="164" fill="#9CA3AF" fontSize="10" fontMono="true" textAnchor="end">40</text>
+              <text x="30" y="164" fill="#9CA3AF" fontSize="10" fontFamily="monospace" textAnchor="end">40</text>
 
               {/* Shaded Baseline Band (±4.8 BPM) */}
               <rect 

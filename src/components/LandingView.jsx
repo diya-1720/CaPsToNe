@@ -99,7 +99,7 @@ export const LandingView = ({ onStartBaseline, onTryDemo }) => {
             </div>
             <div className="text-left">
               <h4 className="text-xs font-semibold text-[var(--text-primary)] font-bold">ESP32 IoT Ready</h4>
-              <p className="text-[11px] text-[var(--text-secondary)] font-bold">MAX30102 Web Serial & REST stream</p>
+              <p className="text-[11px] text-[var(--text-secondary)] font-bold">MAX30100 Web Serial & REST stream</p>
             </div>
           </div>
         </div>

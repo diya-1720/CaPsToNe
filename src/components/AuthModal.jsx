@@ -5,8 +5,8 @@ import { apiService } from '../services/apiService';
 export const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('singhdiya1720@gmail.com');
+  const [password, setPassword] = useState('password123');
   const [age, setAge] = useState('');
   const [gender, setGender] = useState('Prefer not to say');
   const [phone, setPhone] = useState('');

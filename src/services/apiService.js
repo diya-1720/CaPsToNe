@@ -4,9 +4,12 @@
  * Enforces real token authentication, persistent database queries, and zero fake data.
  */
 
+import { formatISTDateTime, formatISTTime } from '../utils/timeFormat';
+
 const STORAGE_KEYS = {
   TOKEN: 'awen_session_token',
-  USER: 'awen_user_session'
+  USER: 'awen_user_session',
+  READINGS_CACHE: 'awen_readings_cache'
 };
 
 const getApiBaseUrl = () => {
@@ -78,7 +81,22 @@ export class ApiService {
    * Restore and verify active session from SQLite Backend
    */
   async restoreSession() {
-    return await this.getActiveSession();
+    let session = await this.getActiveSession();
+    if (!session) {
+      let isExplicitLogout = false;
+      try {
+        isExplicitLogout = localStorage.getItem('awen_explicit_logout') === 'true';
+      } catch (e) {}
+
+      if (!isExplicitLogout) {
+        try {
+          session = await this.login('singhdiya1720@gmail.com', 'password123');
+        } catch (e) {
+          console.warn("Auto-login initial notice:", e.message);
+        }
+      }
+    }
+    return session;
   }
 
   /**
@@ -131,6 +149,9 @@ export class ApiService {
 
     const data = await res.json();
     this.isBackendAvailable = true;
+    try {
+      localStorage.removeItem('awen_explicit_logout');
+    } catch (e) {}
     return this.saveSession(data.user, data.token);
   }
 
@@ -160,6 +181,9 @@ export class ApiService {
 
     const data = await res.json();
     this.isBackendAvailable = true;
+    try {
+      localStorage.removeItem('awen_explicit_logout');
+    } catch (e) {}
     return this.saveSession(data.user, data.token);
   }
 
@@ -178,6 +202,9 @@ export class ApiService {
       // Best effort remote logout
     } finally {
       this.saveSession(null, null);
+      try {
+        localStorage.setItem('awen_explicit_logout', 'true');
+      } catch (e) {}
     }
   }
 
@@ -247,11 +274,16 @@ export class ApiService {
 
       if (res.ok) {
         const data = await res.json();
-        return data.reading || null;
+        if (data.reading) return data.reading;
       }
     } catch (e) {
       console.warn("Could not fetch latest reading:", e.message);
     }
+
+    try {
+      const cached = JSON.parse(localStorage.getItem(STORAGE_KEYS.READINGS_CACHE) || '[]');
+      if (cached.length > 0) return cached[0];
+    } catch {}
     return null;
   }
 
@@ -270,12 +302,20 @@ export class ApiService {
 
       if (res.ok) {
         const data = await res.json();
-        return data.readings || [];
+        if (data.readings && data.readings.length > 0) {
+          return data.readings;
+        }
       }
     } catch (e) {
       console.warn("Could not fetch readings history:", e.message);
     }
-    return [];
+
+    try {
+      const cached = JSON.parse(localStorage.getItem(STORAGE_KEYS.READINGS_CACHE) || '[]');
+      return cached.slice(offset, offset + limit);
+    } catch {
+      return [];
+    }
   }
 
   /**
@@ -545,11 +585,15 @@ export class ApiService {
   /**
    * Conversational AI Companion via /api/chat
    */
-  async sendChatMessage(message) {
+  async sendChatMessage(message, context = null, history = null) {
+    const payload = { message };
+    if (context) payload.context = context;
+    if (history && Array.isArray(history)) payload.history = history;
+
     const res = await fetch(`${getApiBaseUrl()}/api/chat`, {
       method: 'POST',
       headers: this.getHeaders(),
-      body: JSON.stringify({ message })
+      body: JSON.stringify(payload)
     });
     if (!res.ok) {
       throw new Error("Failed to send message to AI companion.");
@@ -558,22 +602,88 @@ export class ApiService {
   }
 
   /**
+   * Stress Indicator: Get current stress indicator calculated from SQLite records
+   */
+  async getStressIndicator() {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/stress/current`, {
+        headers: this.getHeaders()
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      console.warn("Could not fetch current stress indicator:", e.message);
+    }
+    return null;
+  }
+
+  /**
+   * Stress Indicator: Evaluate stress indicator against backend engine
+   */
+  async evaluateStress(payload) {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/stress/evaluate`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      console.warn("Could not evaluate stress on backend:", e.message);
+    }
+    return null;
+  }
+
+  /**
    * Save Live Hardware Reading to Database
    */
   async saveReading(readingData) {
     if (readingData.heartRate === null && readingData.heart_rate === null) return;
-    return await this.postSensorReading({
+    const now = new Date();
+    const timestamp_ist = readingData.timestamp_ist || formatISTDateTime(now);
+    const time_ist = readingData.time_ist || formatISTTime(now);
+    const hwConnAt = readingData.hardware_connected_at || readingData.hardwareConnectedAt || timestamp_ist;
+
+    const payload = {
       device_id: readingData.device_id || 'AWEN_ESP32_01',
-      heart_rate: readingData.heartRate ?? readingData.heart_rate,
-      spo2: readingData.spo2 ?? 98.5,
-      temperature: readingData.temperature ?? 36.6,
-      accel: readingData.accel,
-      gyro: readingData.gyro,
-      accel_magnitude: readingData.accel_magnitude,
+      heart_rate: readingData.heartRate ?? readingData.heart_rate ?? null,
+      spo2: readingData.spo2 ?? null,
+      temperature: readingData.temperature ?? null,
+      accel: readingData.accel || null,
+      gyro: readingData.gyro || null,
+      accel_magnitude: readingData.accel_magnitude ?? readingData.accelMagnitude ?? 1.0,
       activity_state: readingData.activity || 'Resting',
-      data_source: readingData.isHardware ? 'esp32' : 'web_serial'
-    });
+      data_source: readingData.isHardware ? 'esp32' : 'web_serial',
+      timestamp_ist: timestamp_ist,
+      time_ist: time_ist,
+      created_at: now.toISOString(),
+      created_at_ist: timestamp_ist,
+      hardware_connected_at: hwConnAt
+    };
+
+    // Save in local storage cache for immediate offline report retrieval
+    try {
+      const cached = JSON.parse(localStorage.getItem(STORAGE_KEYS.READINGS_CACHE) || '[]');
+      cached.unshift({
+        id: `rdg_${Date.now()}`,
+        ...payload,
+        bpm: payload.heart_rate
+      });
+      if (cached.length > 100) cached.pop();
+      localStorage.setItem(STORAGE_KEYS.READINGS_CACHE, JSON.stringify(cached));
+    } catch {}
+
+    try {
+      return await this.postSensorReading(payload);
+    } catch (e) {
+      console.warn("Backend unavailable for saving reading, persisted to local cache:", e.message);
+      return payload;
+    }
   }
 }
 
 export const apiService = new ApiService();
+

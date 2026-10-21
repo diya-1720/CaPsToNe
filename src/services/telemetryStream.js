@@ -1,9 +1,24 @@
 /**
  * AWEN Live Telemetry Stream & IoT Hardware Connector
  * 
- * Interacts with physical ESP32 microcontrollers over Browser Web Serial API.
- * Reads live MAX30102 PPG pulse & MPU6050 accelerometer telemetry at 115200 baud.
+ * Interacts with physical ESP32 microcontrollers over Wi-Fi REST & Browser Web Serial API.
+ * Reads live MAX30100 PPG pulse, MPU6050 accelerometer, LM35 temperature & Buzzer telemetry.
  */
+
+import { formatISTDateTime, formatISTTime } from '../utils/timeFormat';
+
+const getInitialEsp32Url = () => {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    const saved = localStorage.getItem('awen_esp32_url');
+    if (saved && saved.trim() && !saved.includes('10.153.') && !saved.includes('10.208.')) return saved.trim().replace(/\/+$/, '');
+  }
+  if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_ESP32_BASE_URL) {
+    return import.meta.env.VITE_ESP32_BASE_URL.trim().replace(/\/+$/, '');
+  }
+  return "http://172.20.168.254";
+};
+
+export const ESP32_BASE_URL = getInitialEsp32Url();
 
 export class TelemetryStream {
   constructor(onReadingCallback, onStateChangeCallback = null) {
@@ -17,10 +32,18 @@ export class TelemetryStream {
     this.isHardwareConnected = false;
     this.hardwareState = "DISCONNECTED"; // DISCONNECTED | CONNECTING | CONNECTED | ERROR
     this.lastHardwareError = null;
+    this.hardwareConnectedAt = null;
     this.rawLog = [];
     this.onRawLine = null;
     this.lastPacketTime = 0;
     this.watchdogInterval = null;
+
+    // ESP32 Wi-Fi HTTP Polling Configuration
+    this.esp32BaseUrl = ESP32_BASE_URL;
+    this.pollIntervalMs = 1000; // 1-second continuous telemetry polling
+    this.pollTimer = null;
+    this.pollAbortController = null;
+    this.consecutiveFailures = 0;
 
     // Listen to device unplug/replug globally if supported
     if (typeof navigator !== 'undefined' && 'serial' in navigator) {
@@ -30,6 +53,19 @@ export class TelemetryStream {
           this.disconnectHardware();
         }
       });
+    }
+  }
+
+  setEsp32Url(url) {
+    if (url && typeof url === 'string') {
+      let clean = url.trim().replace(/\/+$/, '');
+      if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+        clean = `http://${clean}`;
+      }
+      this.esp32BaseUrl = clean;
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem('awen_esp32_url', clean);
+      }
     }
   }
 
@@ -45,11 +81,18 @@ export class TelemetryStream {
     this.hardwareState = state;
     this.lastHardwareError = error;
     this.isHardwareConnected = (state === "CONNECTED");
+    if (this.isHardwareConnected && !this.hardwareConnectedAt) {
+      this.hardwareConnectedAt = new Date();
+    } else if (!this.isHardwareConnected) {
+      this.hardwareConnectedAt = null;
+    }
     if (this.onStateChange) {
       this.onStateChange({
         state: this.hardwareState,
         error: this.lastHardwareError,
-        isHardwareConnected: this.isHardwareConnected
+        isHardwareConnected: this.isHardwareConnected,
+        hardwareConnectedAt: this.hardwareConnectedAt ? formatISTDateTime(this.hardwareConnectedAt) : null,
+        hardwareConnectedTime: this.hardwareConnectedAt ? formatISTTime(this.hardwareConnectedAt) : null
       });
     }
   }
@@ -58,6 +101,9 @@ export class TelemetryStream {
     this.isRunning = true;
     this.setHardwareState(this.isHardwareConnected ? "CONNECTED" : "DISCONNECTED");
     
+    // Start continuous ESP32 Wi-Fi HTTP polling (1s interval)
+    this.pollEsp32Telemetry();
+
     if (this.watchdogInterval) clearInterval(this.watchdogInterval);
     this.watchdogInterval = setInterval(() => {
       if (this.isHardwareConnected && this.lastPacketTime > 0 && (Date.now() - this.lastPacketTime > 6000)) {
@@ -65,20 +111,26 @@ export class TelemetryStream {
         if (this.onReading) {
           this.onReading({
             isValid: true,
-            device_id: "esp32_max30102",
+            device_id: "AWEN_ESP32_01",
             timestamp: new Date().toISOString(),
             heart_rate: null,
             heartRate: null,
+            bpm: null,
             spo2: null,
             temperature: null,
+            temp: null,
             hasTemperatureSensor: false,
             accel: { x: 0.0, y: 0.0, z: 1.0 },
             accelMagnitude: 1.0,
+            accel_magnitude: 1.0,
             isMoving: false,
+            moving: false,
             activity: "Resting",
             mood: this.currentMood,
             isHardware: true,
             fingerDetected: false,
+            finger: false,
+            abnormal: false,
             sqi: 0,
             sqiStatus: "No Live Data / Sensor Standby"
           });
@@ -89,11 +141,280 @@ export class TelemetryStream {
 
   stop() {
     this.isRunning = false;
+    if (this.pollTimer) {
+      clearTimeout(this.pollTimer);
+      this.pollTimer = null;
+    }
+    if (this.pollAbortController) {
+      try {
+        this.pollAbortController.abort();
+      } catch {}
+      this.pollAbortController = null;
+    }
     if (this.watchdogInterval) {
       clearInterval(this.watchdogInterval);
       this.watchdogInterval = null;
     }
     this.disconnectHardware();
+  }
+
+  /**
+   * Continuous ESP32 Wi-Fi Telemetry Poller
+   * Fetches /api/telemetry from the ESP32 base URL at 1000ms intervals.
+   * Handles network disconnects and retries seamlessly without crashing.
+   */
+  async pollEsp32Telemetry() {
+    if (!this.isRunning) return;
+
+    try {
+      this.pollAbortController = new AbortController();
+      const timeoutId = setTimeout(() => {
+        if (this.pollAbortController) {
+          this.pollAbortController.abort();
+        }
+      }, 2500);
+
+      const endpoint = `${this.esp32BaseUrl}/api/telemetry`;
+      let response;
+      try {
+        response = await fetch(endpoint, {
+          method: "GET",
+          signal: this.pollAbortController.signal,
+          headers: {
+            "Accept": "application/json"
+          }
+        });
+      } catch (directErr) {
+        // Fallback to FastAPI backend proxy if direct fetch is blocked by browser CORS / PNA
+        const host = (typeof window !== 'undefined' && window.location.hostname) ? window.location.hostname : '127.0.0.1';
+        let proxyUrl = `http://${host}:8000/api/esp32/telemetry?ip=${encodeURIComponent(this.esp32BaseUrl)}`;
+        try {
+          response = await fetch(proxyUrl, {
+            method: "GET",
+            signal: this.pollAbortController.signal,
+            headers: {
+              "Accept": "application/json"
+            }
+          });
+        } catch (proxyErr) {
+          proxyUrl = `http://127.0.0.1:8000/api/esp32/telemetry?ip=${encodeURIComponent(this.esp32BaseUrl)}`;
+          response = await fetch(proxyUrl, {
+            method: "GET",
+            signal: this.pollAbortController.signal,
+            headers: {
+              "Accept": "application/json"
+            }
+          });
+        }
+      }
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status} from ESP32`);
+      }
+
+      const rawData = await response.json();
+      if (!rawData || rawData.connected === false || rawData.status === 'unreachable') {
+        this.consecutiveFailures++;
+        if (this.consecutiveFailures >= 2) {
+          if (this.isHardwareConnected) {
+            this.setHardwareState("DISCONNECTED", rawData?.detail || "ESP32 disconnected or unreachable");
+          }
+        }
+        return;
+      }
+      this.consecutiveFailures = 0;
+      this.lastPacketTime = Date.now();
+
+      // Push raw string to terminal buffer
+      const rawLine = JSON.stringify(rawData);
+      this.rawLog.push(rawLine);
+      if (this.rawLog.length > 25) this.rawLog.shift();
+      if (this.onRawLine) this.onRawLine(rawLine);
+
+      // Normalize incoming ESP32 packet
+      const parsed = this.normalizeEsp32Data(rawData);
+
+      if (parsed) {
+        if (!this.isHardwareConnected) {
+          this.setHardwareState("CONNECTED");
+        }
+        if (this.onReading) {
+          this.onReading(parsed);
+        }
+      }
+    } catch (err) {
+      if (!this.isRunning) return;
+
+      this.consecutiveFailures++;
+      // If 2 or more consecutive polls fail, transition to disconnected status gracefully
+      if (this.consecutiveFailures >= 2) {
+        if (this.isHardwareConnected) {
+          this.setHardwareState("DISCONNECTED", err.message || "ESP32 disconnected or unreachable");
+        }
+      }
+    } finally {
+      if (this.isRunning) {
+        this.pollTimer = setTimeout(() => this.pollEsp32Telemetry(), this.pollIntervalMs);
+      }
+    }
+  }
+
+  /**
+   * Hardware Data Contract Normalizer
+   * Maps ESP32 JSON schema to AWEN standard telemetry schema.
+   * Ensures null values for BPM and SpO2 are strictly respected without fake demo numbers.
+   */
+  normalizeEsp32Data(data) {
+    if (!data || typeof data !== 'object') return null;
+
+    // 1. Extract Heart Rate / BPM
+    let rawBpm = null;
+    if (data.heart_rate !== undefined && data.heart_rate !== null) rawBpm = Number(data.heart_rate);
+    else if (data.bpm !== undefined && data.bpm !== null) rawBpm = Number(data.bpm);
+    else if (data.heartRate !== undefined && data.heartRate !== null) rawBpm = Number(data.heartRate);
+    else if (data.BPM !== undefined && data.BPM !== null) rawBpm = Number(data.BPM);
+    else if (data.hr !== undefined && data.hr !== null) rawBpm = Number(data.hr);
+
+    // 2. Extract SpO2
+    let rawSpo2 = null;
+    if (data.spo2 !== undefined && data.spo2 !== null) rawSpo2 = Number(data.spo2);
+    else if (data.SPO2 !== undefined && data.SPO2 !== null) rawSpo2 = Number(data.SPO2);
+    else if (data.oximetry !== undefined && data.oximetry !== null) rawSpo2 = Number(data.oximetry);
+    else if (data.oxygen !== undefined && data.oxygen !== null) rawSpo2 = Number(data.oxygen);
+
+    // 3. Extract Temperature
+    let rawTemp = null;
+    if (data.temperature !== undefined && data.temperature !== null) rawTemp = Number(data.temperature);
+    else if (data.temp !== undefined && data.temp !== null) rawTemp = Number(data.temp);
+    else if (data.TEMP !== undefined && data.TEMP !== null) rawTemp = Number(data.TEMP);
+    else if (data.tempC !== undefined && data.tempC !== null) rawTemp = Number(data.tempC);
+    else if (data.temp_c !== undefined && data.temp_c !== null) rawTemp = Number(data.temp_c);
+
+    // 4. Extract Finger Presence
+    let fingerDetected = false;
+    if (data.finger !== undefined && data.finger !== null) {
+      fingerDetected = Boolean(data.finger);
+    } else if (data.finger_detected !== undefined && data.finger_detected !== null) {
+      fingerDetected = Boolean(data.finger_detected);
+    } else if (rawBpm !== null && !isNaN(rawBpm) && rawBpm >= 35 && rawBpm <= 230) {
+      fingerDetected = true;
+    }
+
+    // 5. Extract Accelerometer (accel.x, accel.y, accel.z)
+    let accelObj = { x: 0.0, y: 0.0, z: 1.0 };
+    if (data.accel && typeof data.accel === 'object') {
+      accelObj = {
+        x: data.accel.x != null && !isNaN(Number(data.accel.x)) ? Math.round(Number(data.accel.x) * 100) / 100 : 0.0,
+        y: data.accel.y != null && !isNaN(Number(data.accel.y)) ? Math.round(Number(data.accel.y) * 100) / 100 : 0.0,
+        z: data.accel.z != null && !isNaN(Number(data.accel.z)) ? Math.round(Number(data.accel.z) * 100) / 100 : 1.0
+      };
+    } else if (data.accel_x !== undefined || data.accel_y !== undefined || data.accel_z !== undefined) {
+      accelObj = {
+        x: data.accel_x != null && !isNaN(Number(data.accel_x)) ? Math.round(Number(data.accel_x) * 100) / 100 : 0.0,
+        y: data.accel_y != null && !isNaN(Number(data.accel_y)) ? Math.round(Number(data.accel_y) * 100) / 100 : 0.0,
+        z: data.accel_z != null && !isNaN(Number(data.accel_z)) ? Math.round(Number(data.accel_z) * 100) / 100 : 1.0
+      };
+    }
+
+    // 6. Extract Acceleration Magnitude
+    let accelMag = 1.0;
+    if (data.accel_magnitude !== undefined && data.accel_magnitude !== null && !isNaN(Number(data.accel_magnitude))) {
+      accelMag = Math.round(Number(data.accel_magnitude) * 100) / 100;
+    } else if (data.accel_g !== undefined && data.accel_g !== null && !isNaN(Number(data.accel_g))) {
+      accelMag = Math.round(Number(data.accel_g) * 100) / 100;
+    } else {
+      accelMag = Math.round(Math.sqrt(accelObj.x * accelObj.x + accelObj.y * accelObj.y + accelObj.z * accelObj.z) * 100) / 100;
+    }
+
+    // 7. Extract Movement / Activity
+    let isMoving = false;
+    if (data.moving !== undefined && data.moving !== null) {
+      isMoving = Boolean(data.moving);
+    } else {
+      isMoving = (accelMag > 1.15 || accelMag < 0.85);
+    }
+
+    // 8. Extract Abnormal Flag
+    let abnormal = false;
+    if (data.abnormal !== undefined && data.abnormal !== null) {
+      abnormal = Boolean(data.abnormal);
+    }
+
+    // 9. Normalize BPM (Strictly null if null or no finger contact)
+    let finalBpm = null;
+    if (fingerDetected && rawBpm !== null && !isNaN(rawBpm) && rawBpm >= 35 && rawBpm <= 230) {
+      finalBpm = Math.round(rawBpm * 10) / 10;
+    }
+
+    // 10. Normalize SpO2 (Strictly null if null or no finger contact)
+    let finalSpo2 = null;
+    if (fingerDetected && rawSpo2 !== null && !isNaN(rawSpo2) && rawSpo2 >= 70 && rawSpo2 <= 100) {
+      finalSpo2 = Math.round(rawSpo2 * 10) / 10;
+    }
+
+    // 11. Normalize Temp (Strictly null if null, rounded to 1 decimal if valid)
+    let finalTemp = null;
+    if (rawTemp !== null && !isNaN(Number(rawTemp)) && Number(rawTemp) >= 10 && Number(rawTemp) <= 50) {
+      finalTemp = Math.round(Number(rawTemp) * 10) / 10;
+    }
+
+    // 12. Derive Activity
+    let derivedActivity = "Resting";
+    if (accelMag > 1.75) {
+      derivedActivity = "Running";
+    } else if (accelMag > 1.35) {
+      derivedActivity = "Climbing Stairs";
+    } else if (isMoving || accelMag > 1.15 || accelMag < 0.85) {
+      derivedActivity = "Walking";
+    } else {
+      derivedActivity = this.currentActivity || "Resting";
+    }
+
+    let ipAddress = data.ip;
+    if (!ipAddress) {
+      try {
+        ipAddress = (new URL(this.esp32BaseUrl)).hostname;
+      } catch {
+        ipAddress = "172.20.168.254";
+      }
+    }
+
+    const now = new Date();
+    const connAt = this.hardwareConnectedAt || now;
+
+    return {
+      isValid: true,
+      device_id: data.device_id || "AWEN_ESP32_01",
+      timestamp: now.toISOString(),
+      timestamp_ist: formatISTDateTime(now),
+      time_ist: formatISTTime(now),
+      hardware_connected_at: formatISTDateTime(connAt),
+      hardware_connected_time: formatISTTime(connAt),
+      heart_rate: finalBpm,
+      heartRate: finalBpm,
+      bpm: finalBpm,
+      spo2: finalSpo2,
+      temperature: finalTemp,
+      temp: finalTemp,
+      hasTemperatureSensor: finalTemp !== null,
+      accel: accelObj,
+      accelMagnitude: accelMag,
+      accel_magnitude: accelMag,
+      isMoving: isMoving,
+      moving: isMoving,
+      fingerDetected: fingerDetected,
+      finger: fingerDetected,
+      abnormal: abnormal,
+      activity: derivedActivity,
+      mood: this.currentMood,
+      isHardware: true,
+      data_source: "esp32",
+      ip: ipAddress,
+      sqi: fingerDetected ? 95 : 15,
+      sqiStatus: fingerDetected ? "Optimal Signal" : "Awaiting Contact"
+    };
   }
 
   /**
@@ -277,12 +598,16 @@ export class TelemetryStream {
       derivedActivity = currentActivity || "Resting";
     }
 
+    const now = new Date();
     return {
       isValid: true,
-      device_id: "esp32_max30102",
-      timestamp: new Date().toISOString(),
+      device_id: "esp32_max30100",
+      timestamp: now.toISOString(),
+      timestamp_ist: formatISTDateTime(now),
+      time_ist: formatISTTime(now),
       heart_rate: finalBpm,
       heartRate: finalBpm,
+      bpm: finalBpm,
       spo2: finalSpo2,
       temperature: finalTemp,
       hasTemperatureSensor: finalTemp !== null,
@@ -300,7 +625,7 @@ export class TelemetryStream {
   }
 
   /**
-   * Connect to physical ESP32 MAX30102 sensor via Browser Web Serial API
+   * Connect to physical ESP32 MAX30100 sensor via Browser Web Serial API
    */
   async connectWebSerial(baudRate = 115200) {
     if (typeof navigator === 'undefined' || !('serial' in navigator)) {
@@ -323,10 +648,11 @@ export class TelemetryStream {
     } catch (err) {
       if (err.name === "NotFoundError") {
         this.setHardwareState("DISCONNECTED", "Device selection was cancelled by user.");
+        return false;
       } else {
         this.setHardwareState("ERROR", err.message || "Failed to open serial port.");
+        throw err;
       }
-      throw err;
     }
   }
 

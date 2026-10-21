@@ -4,7 +4,35 @@ import uuid
 import hashlib
 import secrets
 import math
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from typing import Optional, List, Dict, Any
+
+IST = timezone(timedelta(hours=5, minutes=30))
+
+def get_now_ist_str() -> str:
+    """Returns current Indian Standard Time in 12-hour AM/PM format."""
+    return datetime.now(IST).strftime("%d %b %Y, %I:%M:%S %p IST")
+
+def get_now_ist_time() -> str:
+    """Returns current Indian Standard Time time only in 12-hour AM/PM format."""
+    return datetime.now(IST).strftime("%I:%M:%S %p IST")
+
+def format_to_ist(dt_str: Optional[str]) -> str:
+    """Converts any timestamp string (UTC/ISO) to 12-hour IST with AM/PM."""
+    if not dt_str:
+        return get_now_ist_str()
+    try:
+        clean = str(dt_str).replace("Z", "+00:00")
+        if " " in clean and "T" not in clean:
+            dt = datetime.fromisoformat(clean.replace(" ", "T"))
+        else:
+            dt = datetime.fromisoformat(clean)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        ist_dt = dt.astimezone(IST)
+        return ist_dt.strftime("%d %b %Y, %I:%M:%S %p IST")
+    except Exception:
+        return str(dt_str)
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "awen.db")
 
@@ -130,10 +158,20 @@ def init_db():
             data_source TEXT DEFAULT 'esp32',
             timestamp_ms INTEGER,
             created_at TEXT DEFAULT (datetime('now')),
+            created_at_ist TEXT,
+            hardware_connected_at TEXT,
             FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
         )
     """)
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_readings_user_time ON sensor_readings(user_id, created_at);")
+
+    # Column migrations for existing tables
+    cursor.execute("PRAGMA table_info(sensor_readings);")
+    sr_cols = {row["name"] for row in cursor.fetchall()}
+    if "created_at_ist" not in sr_cols:
+        cursor.execute("ALTER TABLE sensor_readings ADD COLUMN created_at_ist TEXT;")
+    if "hardware_connected_at" not in sr_cols:
+        cursor.execute("ALTER TABLE sensor_readings ADD COLUMN hardware_connected_at TEXT;")
 
     # Migrate any old data from physiological_readings to sensor_readings if needed
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='physiological_readings';")
@@ -510,12 +548,18 @@ def insert_sensor_reading(
     status: str = None,
     activity_state: str = "Resting",
     data_source: str = "esp32",
-    timestamp_ms: int = None
+    timestamp_ms: int = None,
+    created_at_ist: str = None,
+    hardware_connected_at: str = None
 ) -> dict:
     conn = get_db_connection()
     cursor = conn.cursor()
     reading_id = f"rdg_{uuid.uuid4().hex[:10]}"
     now_iso = datetime.utcnow().isoformat()
+    if not created_at_ist:
+        created_at_ist = get_now_ist_str()
+    if not hardware_connected_at:
+        hardware_connected_at = created_at_ist
 
     # Calculate accel magnitude if not provided but components are present
     if accel_magnitude is None and accel_x is not None and accel_y is not None and accel_z is not None:
@@ -537,14 +581,14 @@ def insert_sensor_reading(
             id, user_id, device_id, heart_rate, spo2, temperature,
             accel_x, accel_y, accel_z, gyro_x, gyro_y, gyro_z,
             accel_magnitude, alarm, status, activity_state,
-            data_source, timestamp_ms, created_at
+            data_source, timestamp_ms, created_at, created_at_ist, hardware_connected_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         reading_id, user_id, device_id, heart_rate, spo2, temperature,
         accel_x, accel_y, accel_z, gyro_x, gyro_y, gyro_z,
         accel_magnitude, alarm, status, activity_state,
-        data_source, timestamp_ms, now_iso
+        data_source, timestamp_ms, now_iso, created_at_ist, hardware_connected_at
     ))
 
     # Update device last_seen
@@ -616,7 +660,10 @@ def insert_sensor_reading(
         "activity_state": activity_state,
         "data_source": data_source,
         "timestamp_ms": timestamp_ms,
-        "created_at": now_iso
+        "created_at": now_iso,
+        "created_at_ist": created_at_ist,
+        "hardware_connected_at": hardware_connected_at,
+        "time_ist": get_now_ist_time()
     }
 
 def get_latest_reading(user_id: str) -> dict:
@@ -634,6 +681,8 @@ def get_latest_reading(user_id: str) -> dict:
         return None
     d = dict(row)
     d["bpm"] = d.get("heart_rate")
+    d["created_at_ist"] = d.get("created_at_ist") or format_to_ist(d.get("created_at"))
+    d["time_ist"] = format_to_ist(d.get("created_at"))
     return d
 
 def get_historical_readings(
@@ -666,6 +715,8 @@ def get_historical_readings(
     for r in rows:
         d = dict(r)
         d["bpm"] = d.get("heart_rate")
+        d["created_at_ist"] = d.get("created_at_ist") or format_to_ist(d.get("created_at"))
+        d["time_ist"] = format_to_ist(d.get("created_at"))
         result.append(d)
     return result
 
@@ -843,15 +894,23 @@ def insert_observation(
         "created_at": now_iso
     }
 
-def get_observations(user_id: str, limit: int = 20) -> list:
+def get_observations(user_id: str, limit: int = 20, severity: Optional[str] = None) -> list:
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("""
-        SELECT * FROM observations
-        WHERE user_id = ?
-        ORDER BY created_at DESC
-        LIMIT ?
-    """, (user_id, limit))
+    if severity:
+        cursor.execute("""
+            SELECT * FROM observations
+            WHERE user_id = ? AND severity = ?
+            ORDER BY created_at DESC
+            LIMIT ?
+        """, (user_id, severity, limit))
+    else:
+        cursor.execute("""
+            SELECT * FROM observations
+            WHERE user_id = ?
+            ORDER BY created_at DESC
+            LIMIT ?
+        """, (user_id, limit))
     rows = cursor.fetchall()
     conn.close()
     return [dict(r) for r in rows]
@@ -973,7 +1032,9 @@ def get_patient_summary(user_id: str) -> dict:
         duration_str = f"{period_delta.days} days, {period_delta.seconds // 3600} hours" if period_delta.days > 0 else f"{period_delta.seconds // 3600} hours, {(period_delta.seconds % 3600) // 60} minutes"
         obs_period = {
             "start": agg["first_reading"],
+            "start_ist": format_to_ist(agg["first_reading"]),
             "end": agg["last_reading"],
+            "end_ist": format_to_ist(agg["last_reading"]),
             "days_recorded": max(1, days_span),
             "duration": duration_str,
             "status": "Active Observation" if user.get("observation_mode") else "Completed Observation"
@@ -981,7 +1042,9 @@ def get_patient_summary(user_id: str) -> dict:
     elif user.get("observation_start"):
         obs_period = {
             "start": user.get("observation_start"),
+            "start_ist": format_to_ist(user.get("observation_start")),
             "end": datetime.utcnow().isoformat(),
+            "end_ist": get_now_ist_str(),
             "days_recorded": 0,
             "duration": user.get("observation_duration", "0 min"),
             "status": "Awaiting Initial Readings"
@@ -1014,6 +1077,12 @@ def get_patient_summary(user_id: str) -> dict:
         "max": round(agg["max_temp"], 1) if agg and agg["max_temp"] is not None else insufficient
     }
 
+    formatted_abnormal = []
+    for ev in abnormal_events:
+        e = dict(ev)
+        e["created_at_ist"] = format_to_ist(e.get("created_at"))
+        formatted_abnormal.append(e)
+
     return {
         "patient": {
             "id": user["id"],
@@ -1034,7 +1103,8 @@ def get_patient_summary(user_id: str) -> dict:
         "heart_rate": hr_metrics,
         "spo2": spo2_metrics,
         "temperature": temp_metrics,
-        "abnormal_events": abnormal_events,
+        "abnormal_events": formatted_abnormal,
         "abnormal_readings_count": len(direct_abnormal),
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.utcnow().isoformat(),
+        "generated_at_ist": get_now_ist_str()
     }

@@ -30,7 +30,7 @@ def test_mascot_wellbeing_flow():
     print(f"[OK] Logged in as target user: {user_id}")
 
     # 2. Check Abnormality / Alerts in SQLite
-    obs_resp = client.get("/api/observations", headers=auth_headers)
+    obs_resp = client.get("/api/observations?limit=300", headers=auth_headers)
     assert obs_resp.status_code == 200
     alerts = obs_resp.json()["observations"]
     warning_alerts = [a for a in alerts if a["severity"] == "warning"]

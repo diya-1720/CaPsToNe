@@ -349,7 +349,7 @@ export const YouScreen = ({
                   <label className="font-mono font-bold uppercase text-[var(--text-secondary)]">Gender</label>
                   <select 
                     value={editGender}
-                    onChange={(e) => setGender(e.target.value)}
+                    onChange={(e) => setEditGender(e.target.value)}
                     className="w-full px-3 py-2 border-2 border-[var(--border-strong)] bg-[var(--surface-secondary)] font-medium"
                   >
                     <option value="Female">Female</option>
