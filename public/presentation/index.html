@@ -3,21 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AWEN — Capstone Presentation Deck (AF52)</title>
+  <title>AWEN — Neo-Brutalist Presentation Deck (AF52)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@600;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #080d18;
-      --card-bg: rgba(15, 23, 42, 0.75);
-      --card-border: rgba(51, 65, 85, 0.5);
-      --cyan: #22d3ee;
-      --emerald: #34d399;
-      --amber: #f59e0b;
-      --violet: #818cf8;
-      --text-white: #f8fafc;
-      --text-muted: #94a3b8;
+      --bg: #F4F4EF;
+      --card-white: #FFFFFF;
+      --black: #111111;
+      --text-dark: #1E293B;
+      --text-muted: #475569;
+      --green: #32E875;
+      --green-bg: #DCFCE7;
+      --yellow: #FFD027;
+      --yellow-bg: #FEF3C7;
+      --cyan: #38BDF8;
+      --cyan-bg: #E0F2FE;
+      --red: #FF5C5C;
+      --red-bg: #FEE2E2;
+      --purple: #C084FC;
+      --purple-bg: #F3E8FF;
     }
     * {
       box-sizing: border-box;
@@ -25,8 +31,12 @@
       padding: 0;
     }
     body {
-      background: var(--bg);
-      color: var(--text-white);
+      background-color: var(--bg);
+      /* Subtle Neo-Brutalist engineering grid */
+      background-image:
+        repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(0,0,0,0.05) 39px, rgba(0,0,0,0.05) 40px),
+        repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(0,0,0,0.05) 39px, rgba(0,0,0,0.05) 40px);
+      color: var(--black);
       font-family: 'Inter', sans-serif;
       overflow: hidden;
       height: 100vh;
@@ -35,41 +45,27 @@
     }
     h1, h2, h3, h4, .font-heading {
       font-family: 'Space Grotesk', sans-serif;
+      font-weight: 800;
       letter-spacing: -0.02em;
+      color: var(--black);
     }
 
-    /* Ambient Background Glow */
-    .ambient-glow {
-      position: fixed;
-      width: 600px;
-      height: 600px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(34, 211, 238, 0.08) 0%, rgba(129, 140, 248, 0.03) 50%, transparent 70%);
-      pointer-events: none;
-      z-index: 0;
-      top: 10%;
-      left: 15%;
-      filter: blur(80px);
-      transition: all 1s ease;
-    }
-
-    /* Slide Container */
+    /* Deck Container */
     #deck {
       position: relative;
       width: 100vw;
       height: 100vh;
-      z-index: 1;
     }
     .slide {
       position: absolute;
       inset: 0;
       display: flex;
       flex-direction: column;
-      padding: 3rem 4.5rem 5rem 4.5rem;
+      padding: 2.8rem 4.5rem 5.5rem 4.5rem;
       opacity: 0;
       pointer-events: none;
-      transform: scale(0.98) translateY(12px);
-      transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      transform: scale(0.99) translateY(8px);
+      transition: opacity 0.3s ease, transform 0.3s ease;
     }
     .slide.active {
       opacity: 1;
@@ -77,47 +73,43 @@
       transform: scale(1) translateY(0);
     }
 
-    /* Header */
+    /* Neo-Brutalist Tag */
     .slide-tag {
-      font-size: 0.85rem;
-      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.95rem;
+      font-weight: 800;
       text-transform: uppercase;
-      letter-spacing: 0.15em;
-      color: var(--cyan);
-      margin-bottom: 0.5rem;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    .slide-tag::before {
-      content: '';
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--cyan);
-      box-shadow: 0 0 10px var(--cyan);
-    }
-    .slide-title {
-      font-size: 2.3rem;
-      font-weight: 700;
-      color: var(--text-white);
-      line-height: 1.15;
-      margin-bottom: 0.5rem;
-    }
-    .slide-subtitle {
-      font-size: 1.1rem;
-      color: var(--text-muted);
-      margin-bottom: 2rem;
-      max-width: 900px;
-      line-height: 1.5;
+      letter-spacing: 0.1em;
+      background: var(--yellow);
+      color: var(--black);
+      border: 2px solid var(--black);
+      box-shadow: 2px 2px 0px var(--black);
+      padding: 0.3rem 0.8rem;
+      width: fit-content;
+      margin-bottom: 0.6rem;
     }
 
-    /* Cards & Grids */
+    .slide-title {
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: var(--black);
+      line-height: 1.15;
+      margin-bottom: 0.4rem;
+    }
+    .slide-subtitle {
+      font-size: 1.25rem;
+      color: var(--text-dark);
+      margin-bottom: 1.8rem;
+      max-width: 950px;
+      line-height: 1.4;
+      font-weight: 500;
+    }
+
+    /* Grids */
     .grid-2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 1.5rem;
+      gap: 1.8rem;
       flex: 1;
     }
     .grid-3 {
@@ -139,115 +131,104 @@
       flex: 1;
     }
 
+    /* Neo-Brutalist Card */
     .card {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 1.25rem;
+      background: var(--card-white);
+      border: 2.5px solid var(--black);
+      box-shadow: 4px 4px 0px var(--black);
+      border-radius: 0.25rem;
       padding: 1.75rem;
-      backdrop-filter: blur(16px);
       display: flex;
       flex-direction: column;
       position: relative;
-      overflow: hidden;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    }
-    .card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 2px;
-      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
     }
     .card-title {
-      font-size: 1.25rem;
-      font-weight: 700;
-      margin-bottom: 0.75rem;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.35rem;
+      font-weight: 800;
+      margin-bottom: 0.85rem;
+      color: var(--black);
     }
     .card-content {
-      font-size: 0.95rem;
-      color: var(--text-muted);
-      line-height: 1.6;
+      font-size: 1.08rem;
+      color: var(--text-dark);
+      line-height: 1.55;
+      font-weight: 500;
       flex: 1;
     }
     .card-content ul {
-      margin-left: 1.2rem;
+      margin-left: 1.25rem;
       margin-top: 0.5rem;
     }
     .card-content li {
-      margin-bottom: 0.4rem;
+      margin-bottom: 0.45rem;
     }
 
-    /* Controls Bar */
+    /* Color Modifiers */
+    .card-green { background: var(--green-bg); }
+    .card-yellow { background: var(--yellow-bg); }
+    .card-cyan { background: var(--cyan-bg); }
+    .card-red { background: var(--red-bg); }
+    .card-purple { background: var(--purple-bg); }
+
+    /* Neo-Brutalist Controls Bar */
     .controls {
       position: fixed;
-      bottom: 1.5rem;
+      bottom: 1.25rem;
       left: 4.5rem;
       right: 4.5rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
       z-index: 50;
-      background: rgba(15, 23, 42, 0.8);
-      border: 1px solid rgba(51, 65, 85, 0.5);
-      border-radius: 9999px;
+      background: var(--card-white);
+      border: 2.5px solid var(--black);
+      box-shadow: 4px 4px 0px var(--black);
+      border-radius: 0.25rem;
       padding: 0.6rem 1.25rem;
-      backdrop-filter: blur(20px);
     }
     .slide-indicator {
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--text-muted);
-      letter-spacing: 0.05em;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--black);
     }
     .btn-group {
       display: flex;
-      gap: 0.5rem;
+      gap: 0.6rem;
     }
     .btn {
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      color: var(--text-white);
-      padding: 0.4rem 0.9rem;
-      border-radius: 9999px;
-      font-size: 0.85rem;
-      font-weight: 500;
+      background: var(--bg);
+      border: 2px solid var(--black);
+      box-shadow: 2px 2px 0px var(--black);
+      color: var(--black);
+      padding: 0.45rem 1.1rem;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 700;
       cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 0.35rem;
-      transition: all 0.2s;
+      gap: 0.4rem;
+      transition: all 0.1s ease;
     }
     .btn:hover {
-      background: rgba(34, 211, 238, 0.2);
-      border-color: var(--cyan);
-      color: var(--cyan);
+      background: var(--yellow);
+      transform: translate(-1px, -1px);
+      box-shadow: 3px 3px 0px var(--black);
     }
-    .badge {
-      display: inline-block;
-      padding: 0.2rem 0.6rem;
-      border-radius: 9999px;
-      font-size: 0.75rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+    .btn:active {
+      transform: translate(2px, 2px);
+      box-shadow: 0px 0px 0px var(--black);
     }
-    .badge-cyan { background: rgba(34, 211, 238, 0.15); color: var(--cyan); border: 1px solid rgba(34, 211, 238, 0.3); }
-    .badge-emerald { background: rgba(52, 211, 153, 0.15); color: var(--emerald); border: 1px solid rgba(52, 211, 153, 0.3); }
-    .badge-amber { background: rgba(245, 158, 11, 0.15); color: var(--amber); border: 1px solid rgba(245, 158, 11, 0.3); }
-    .badge-violet { background: rgba(129, 140, 248, 0.15); color: var(--violet); border: 1px solid rgba(129, 140, 248, 0.3); }
 
-    /* Print styling */
     @media print {
       body {
         overflow: visible;
         height: auto;
+        background: #fff !important;
       }
-      .controls, .ambient-glow {
+      .controls {
         display: none !important;
       }
       .slide {
@@ -261,35 +242,36 @@
   </style>
 </head>
 <body>
-  <div class="ambient-glow" id="glow"></div>
 
   <div id="deck">
-    <!-- SLIDE 1: Title -->
+
+    <!-- SLIDE 1: Title Slide (Poster) -->
     <div class="slide active" id="slide-1">
-      <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; max-width: 1000px;">
-        <span class="badge badge-cyan" style="align-self: flex-start; margin-bottom: 1.25rem;">CAPSTONE PROJECT PRESENTATION | B.TECH CSE</span>
-        <h1 style="font-size: 3.5rem; font-weight: 700; line-height: 1.05; margin-bottom: 1rem; color: #fff;">
-          AWEN: Adaptive Wellness & Emotional Navigation
+      <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; max-width: 1050px;">
+        <span class="slide-tag" style="background: var(--yellow);">CAPSTONE FINAL VIVA | B.TECH CSE</span>
+        <h1 style="font-size: 3.4rem; font-weight: 800; line-height: 1.08; margin-bottom: 0.75rem; color: #111;">
+          AWEN: Smart Health &amp; Stress Companion
         </h1>
-        <p style="font-size: 1.4rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 2.5rem;">
-          A Baseline-Calibrated Edge IoT & Conversational AI System for Autonomous Stress Detection and Empathetic Reflection
+        <p style="font-size: 1.4rem; color: #334155; line-height: 1.4; margin-bottom: 2.2rem; font-weight: 500;">
+          A smart wearable pod that learns YOUR personal normal and stops annoying false stress alarms.
         </p>
+
         <div class="grid-4" style="flex: none;">
-          <div class="card" style="padding: 1.25rem;">
-            <div style="color: var(--cyan); font-weight: 700; font-size: 0.95rem; margin-bottom: 0.35rem;">ESP32 SENSOR POD</div>
-            <div style="font-size: 0.85rem; color: var(--text-muted);">MAX30102 + MPU-6050 + LM35 Dual Wi-Fi & Web Serial</div>
+          <div class="card card-green">
+            <div class="card-title" style="font-size: 1.15rem; margin-bottom: 0.4rem;">ESP32 HARDWARE POD</div>
+            <div style="font-size: 0.98rem; font-weight: 500; line-height: 1.45;">Reads your pulse, blood oxygen (SpO2), skin temperature, and motion.</div>
           </div>
-          <div class="card" style="padding: 1.25rem;">
-            <div style="color: var(--emerald); font-weight: 700; font-size: 0.95rem; margin-bottom: 0.35rem;">PERSONAL BASELINE</div>
-            <div style="font-size: 0.85rem; color: var(--text-muted);">Rolling (&mu; &plusmn; 2&sigma;) statistical corridor vs generic thresholds</div>
+          <div class="card card-yellow">
+            <div class="card-title" style="font-size: 1.15rem; margin-bottom: 0.4rem;">PERSONAL NORMAL</div>
+            <div style="font-size: 0.98rem; font-weight: 500; line-height: 1.45;">Compares your body to YOUR OWN baseline, not to a generic medical cutoff.</div>
           </div>
-          <div class="card" style="padding: 1.25rem;">
-            <div style="color: var(--violet); font-weight: 700; font-size: 0.95rem; margin-bottom: 0.35rem;">LIVING MASCOT</div>
-            <div style="font-size: 0.85rem; color: var(--text-muted);">60 FPS reactive vector aura across 5 physiological states</div>
+          <div class="card card-cyan">
+            <div class="card-title" style="font-size: 1.15rem; margin-bottom: 0.4rem;">SMART MOTION FILTER</div>
+            <div style="font-size: 0.98rem; font-weight: 500; line-height: 1.45;">Knows when you are walking or exercising so you never get false panic alerts.</div>
           </div>
-          <div class="card" style="padding: 1.25rem;">
-            <div style="color: var(--amber); font-weight: 700; font-size: 0.95rem; margin-bottom: 0.35rem;">DATA SOVEREIGNTY</div>
-            <div style="font-size: 0.85rem; color: var(--text-muted);">100% Local SQLite storage with zero third-party cloud leaks</div>
+          <div class="card card-purple">
+            <div class="card-title" style="font-size: 1.15rem; margin-bottom: 0.4rem;">100% PRIVATE &amp; SAFE</div>
+            <div style="font-size: 0.98rem; font-weight: 500; line-height: 1.45;">Saved safely on your own laptop in local SQLite. Zero cloud leakage.</div>
           </div>
         </div>
       </div>
@@ -297,129 +279,126 @@
 
     <!-- SLIDE 2: Problem Statement -->
     <div class="slide" id="slide-2">
-      <div class="slide-tag">Problem Statement & Motivation</div>
-      <h2 class="slide-title">The Fatal Flaws in Existing Wearable Health Technology</h2>
-      <p class="slide-subtitle">Current commercial fitness watches generate chronic user anxiety through generic medical thresholds and exertion blindness.</p>
+      <div class="slide-tag">The Real Problem</div>
+      <h2 class="slide-title">Why Do Normal Fitness Watches Annoy Users?</h2>
+      <p class="slide-subtitle">Current commercial smartwatches measure everyone against generic population numbers and cause unnecessary panic.</p>
+      
       <div class="grid-3">
-        <div class="card">
-          <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); width: fit-content; margin-bottom: 1rem;">Flaw 1</span>
-          <div class="card-title" style="color: #f87171;">Generic Thresholds</div>
+        <div class="card card-red">
+          <div class="card-title" style="color: #991b1b;">1. Generic 100 BPM Rule</div>
           <div class="card-content">
-            Commercial watches flag any Heart Rate &gt; 100 BPM as abnormal tachycardia.
+            Commercial watches flag any heart rate over 100 BPM as dangerous tachycardia.
             <ul>
-              <li>Completely ignores personal physiological variance.</li>
-              <li>An endurance runner's resting HR is 48 BPM; a stressed student's baseline is 82 BPM.</li>
-              <li>A one-size-fits-all threshold fails both users.</li>
+              <li><strong>Ignores individual bodies:</strong> An athlete's normal resting pulse is 50 BPM. A busy student's normal resting pulse is 80 BPM.</li>
+              <li>A single fixed number cannot fit both people!</li>
             </ul>
           </div>
         </div>
-        <div class="card">
-          <span class="badge badge-amber" style="width: fit-content; margin-bottom: 1rem;">Flaw 2</span>
-          <div class="card-title" style="color: var(--amber);">Exertion Blindness</div>
+
+        <div class="card card-yellow">
+          <div class="card-title" style="color: #92400e;">2. Walking = False Stress Alarm</div>
           <div class="card-content">
-            Heart rate surges naturally during stair climbing, brisk walking, or carrying groceries.
+            When you climb stairs or walk quickly, your heart naturally beats faster.
             <ul>
-              <li>Without kinetic sensor correlation, wearables mistake physical exercise for mental panic.</li>
-              <li>Causes frequent false alarms that users quickly learn to ignore (alarm fatigue).</li>
+              <li><strong>Watches are motion-blind:</strong> They don't check if you are moving or sitting still.</li>
+              <li>They falsely beep: <em>'You are stressed!'</em> when you were just walking!</li>
             </ul>
           </div>
         </div>
-        <div class="card">
-          <span class="badge badge-cyan" style="width: fit-content; margin-bottom: 1rem;">Flaw 3</span>
-          <div class="card-title" style="color: var(--cyan);">Alert Anxiety & Cloud Privacy</div>
+
+        <div class="card card-cyan">
+          <div class="card-title" style="color: #075985;">3. Scary Warnings &amp; Cloud Leaks</div>
           <div class="card-content">
-            Sudden red banners and medical jargon induce acute health hypochondria.
+            Sudden red banners and medical jargon induce acute anxiety instead of calm.
             <ul>
-              <li>Biometric feeds are shipped off to commercial cloud servers for monetization.</li>
-              <li>Lack of empathetic, non-alarmist conversational companionship.</li>
+              <li>Furthermore, your private biometrics get shipped to commercial cloud servers for monetization.</li>
             </ul>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- SLIDE 3: The AWEN Philosophy -->
+    <!-- SLIDE 3: The Big Idea -->
     <div class="slide" id="slide-3">
-      <div class="slide-tag">Core Philosophy</div>
-      <h2 class="slide-title">The Paradigm Shift: From Surveillance to Empathetic Companion</h2>
-      <p class="slide-subtitle">AWEN transforms wearable biometrics from a clinical surveillance tool into a baseline-calibrated emotional companion.</p>
+      <div class="slide-tag">Our Big Idea</div>
+      <h2 class="slide-title">The AWEN Solution: Personal Normal + Caring Mascot</h2>
+      <p class="slide-subtitle">Moving from clinical surveillance to an empathetic, baseline-calibrated companion.</p>
+      
       <div class="grid-2">
-        <div class="card">
-          <div class="card-title" style="color: var(--cyan);">1. Personal Baseline Calibration (&mu; &plusmn; 2&sigma;)</div>
+        <div class="card card-green">
+          <div class="card-title">1. We Learn YOUR Personal Normal</div>
           <div class="card-content">
-            Rather than benchmarking against an arbitrary population median, AWEN observes the user's personal physiological patterns over a 3-7 day observation window to calculate rolling mean and standard deviation.
-            <br><br>
-            <strong>Question asked:</strong> <em>"Is your physiology unusual for YOU?"</em> rather than <em>"Are you above 100 BPM?"</em>
+            Over the first 3 to 7 days, AWEN watches your daily routine and calculates YOUR personal normal range (&mu; &plusmn; 2&sigma;). It asks: <strong>'Is your body unusual for YOU?'</strong> instead of applying an arbitrary rule.
           </div>
         </div>
-        <div class="card">
-          <div class="card-title" style="color: var(--emerald);">2. Multi-Modal Motion Filtering</div>
+
+        <div class="card card-yellow">
+          <div class="card-title">2. Smart Motion Filter (No False Alarms)</div>
           <div class="card-content">
-            By fusing optical PPG photoplethysmography with 3-axis accelerometer readings, AWEN isolates physical exertion:
-            <ul>
-              <li><strong>High HR + Kinetic Motion:</strong> Physical activity (Mascot enters Active state, suppresses alert).</li>
-              <li><strong>High HR + Zero Motion + Temp Drop:</strong> Genuine stress (Gentle alert & breathing guide).</li>
-            </ul>
+            We fuse the optical pulse sensor with a 3-axis motion sensor (MPU-6050). If your heart rate is high because you are walking, AWEN knows it is healthy exercise and stays completely quiet.
           </div>
         </div>
-        <div class="card">
-          <div class="card-title" style="color: var(--violet);">3. Living Vector Mascot (Awen Spirit)</div>
+
+        <div class="card card-cyan">
+          <div class="card-title">3. Living Friendly Mascot (Awen)</div>
           <div class="card-content">
-            Replaces overwhelming medical graphs with an organic 60 FPS vector mascot. Awen reacts dynamically across 5 emotional aura states, blinks naturally, waves, and offers time-aware reflections without clinical jargon.
+            Replaces scary hospital charts with <strong>Awen</strong> — a friendly 60 FPS vector mascot that changes color with your body: Green when balanced, Yellow when active, and Amber when watchful.
           </div>
         </div>
-        <div class="card">
-          <div class="card-title" style="color: var(--amber);">4. 100% Data Sovereignty</div>
+
+        <div class="card card-purple">
+          <div class="card-title">4. 100% Private on Your Machine</div>
           <div class="card-content">
-            Zero telemetry cloud monetization. Biometric data flows from the ESP32 directly into a local SQLite database on the user's host machine. Clinical privacy is guaranteed by architectural design.
+            Zero cloud databases. All sensor readings and reflections stay safely in a local SQLite database (<code>awen.db</code>) on your own laptop. Complete data sovereignty guaranteed.
           </div>
         </div>
       </div>
     </div>
 
-    <!-- SLIDE 4: 3-Tier Architecture -->
+    <!-- SLIDE 4: System Architecture -->
     <div class="slide" id="slide-4">
-      <div class="slide-tag">System Architecture</div>
-      <h2 class="slide-title">End-to-End 3-Tier Edge Architecture</h2>
-      <p class="slide-subtitle">A high-performance pipeline bridging physical edge sensors, local asynchronous services, and an ambient web interface.</p>
+      <div class="slide-tag">System Overview</div>
+      <h2 class="slide-title">How The Whole System Works in 3 Clear Steps</h2>
+      <p class="slide-subtitle">A direct, robust pipeline connecting your finger to the local brain and your web browser.</p>
+      
       <div class="grid-3">
-        <div class="card">
-          <span class="badge badge-cyan" style="width: fit-content; margin-bottom: 0.75rem;">Tier 1: Edge Hardware</span>
-          <div class="card-title">ESP32 Sensor Pod</div>
+        <div class="card card-green">
+          <div class="card-title">STEP 1: SENSOR POD (Wrist)</div>
           <div class="card-content">
+            <strong>ESP32 Microcontroller Pod</strong>
             <ul>
-              <li><strong>ESP32 Microcontroller:</strong> Dual-Core 240MHz Xtensa LX6.</li>
-              <li><strong>MAX30102 PPG:</strong> Heart rate and SpO2 via red/IR photoplethysmography.</li>
-              <li><strong>MPU-6050 IMU:</strong> 3-axis kinetic acceleration vector magnitude |a|.</li>
-              <li><strong>LM35 Temp:</strong> Calibrated skin temperature sensing.</li>
-              <li><strong>SSD1306 OLED + Buzzer:</strong> Instant edge telemetry & soft acoustic chime.</li>
-              <li><strong>Dual Links:</strong> Wi-Fi REST (172.20.168.254:80) & Web Serial UART.</li>
+              <li><strong>MAX30102:</strong> Reads pulse and oxygen.</li>
+              <li><strong>MPU-6050:</strong> 3-axis accelerometer checks motion.</li>
+              <li><strong>LM35:</strong> Measures skin temperature.</li>
+              <li><strong>OLED Screen:</strong> Shows live pulse right on wrist.</li>
+              <li>Sends data over Wi-Fi or direct USB cable.</li>
             </ul>
           </div>
         </div>
-        <div class="card">
-          <span class="badge badge-emerald" style="width: fit-content; margin-bottom: 0.75rem;">Tier 2: Local Backend</span>
-          <div class="card-title">FastAPI & SQLite Engine</div>
+
+        <div class="card card-yellow">
+          <div class="card-title">STEP 2: LOCAL BRAIN (Python)</div>
           <div class="card-content">
+            <strong>FastAPI Local Server on Port 8000</strong>
             <ul>
-              <li><strong>FastAPI Microservice:</strong> Asynchronous event loop on port 8000.</li>
-              <li><strong>Telemetry Poller:</strong> Non-blocking background polling with auto-reconnect.</li>
-              <li><strong>Baseline Engine:</strong> 7-day rolling window statistical calculations.</li>
-              <li><strong>Scikit-Learn ML:</strong> Isolation Forest anomaly scoring.</li>
-              <li><strong>SQLite WAL Database:</strong> High-speed relational persistence without cloud leaks.</li>
+              <li>Receives sensor data every second.</li>
+              <li>Calculates your rolling personal normal (&mu; &plusmn; 2&sigma;).</li>
+              <li>Runs Isolation Forest Machine Learning to spot genuine stress.</li>
+              <li>Saves records into local SQLite database.</li>
             </ul>
           </div>
         </div>
-        <div class="card">
-          <span class="badge badge-violet" style="width: fit-content; margin-bottom: 0.75rem;">Tier 3: Web Client</span>
-          <div class="card-title">React 19 SPA & UI</div>
+
+        <div class="card card-cyan">
+          <div class="card-title">STEP 3: WEB APP (React 19)</div>
           <div class="card-content">
+            <strong>Interactive Dashboard</strong>
             <ul>
-              <li><strong>React 19 + Vite 6:</strong> Instant HMR, component modularity.</li>
-              <li><strong>Dynamic Mascot:</strong> Real-time SVG gradient reactivity and physics.</li>
-              <li><strong>7-Window Personality:</strong> Contextual speech generation.</li>
-              <li><strong>7 Screens:</strong> Today, Journey, Insights, Talk, Settings, Hardware, Dashboard.</li>
-              <li><strong>Debounced Anomaly Modal:</strong> 3-min audio cooldown protection.</li>
+              <li>Draws 60 FPS live arterial pulse wave.</li>
+              <li>Mascot changes colors dynamically.</li>
+              <li>7-Day Journey shows your custom normal corridor.</li>
+              <li>Empathetic check-ins and breathing guides.</li>
+              <li>Zero confusing medical jargon.</li>
             </ul>
           </div>
         </div>
@@ -429,74 +408,79 @@
     <!-- SLIDE 5: Hardware Edge Engineering -->
     <div class="slide" id="slide-5">
       <div class="slide-tag">Hardware Engineering</div>
-      <h2 class="slide-title">ESP32 Sensor Pod & Circuit Topology</h2>
-      <p class="slide-subtitle">Hardware schematics, pin mappings, and I2C fast-mode bus design.</p>
+      <h2 class="slide-title">The Physical Sensors We Connected &amp; Programmed</h2>
+      <p class="slide-subtitle">Real biomedical and motion hardware communicating over high-speed I2C fast mode (400 kHz).</p>
+      
       <div class="grid-3">
-        <div class="card">
-          <div class="card-title" style="color: var(--cyan);">I2C Bus Configuration</div>
-          <div class="card-content">
-            Shared high-speed 400kHz I2C bus:
-            <ul>
-              <li><strong>SDA:</strong> GPIO 21 (Data)</li>
-              <li><strong>SCL:</strong> GPIO 22 (Clock)</li>
-              <li><strong>MAX30102:</strong> Address <code>0x57</code></li>
-              <li><strong>MPU-6050:</strong> Address <code>0x68</code></li>
-              <li><strong>SSD1306 OLED:</strong> Address <code>0x3C</code></li>
-              <li>Pull-up resistors: 4.7k&Omega; on SDA/SCL.</li>
-            </ul>
-          </div>
+        <div class="card card-green">
+          <div class="card-title">ESP32-WROOM-32</div>
+          <div class="card-content">The master brain. Dual-core 240MHz chip with built-in Wi-Fi and Bluetooth. Handles sensor reading and web streaming simultaneously.</div>
         </div>
-        <div class="card">
-          <div class="card-title" style="color: var(--emerald);">Analog & Digital Sensors</div>
-          <div class="card-content">
-            <ul>
-              <li><strong>LM35 Temp Sensor:</strong> Vout connected to ESP32 ADC1 GPIO 34 (analog read with 12-bit resolution & multi-sample averaging).</li>
-              <li><strong>Piezo Buzzer:</strong> Connected to GPIO 27 with PWM soft tones (60ms pulses).</li>
-              <li><strong>Sample Rate:</strong> PPG 100Hz, Accel 50Hz, Telemetry broadcast 1Hz.</li>
-            </ul>
-          </div>
+
+        <div class="card card-yellow">
+          <div class="card-title">MAX30102 Pulse &amp; SpO2</div>
+          <div class="card-content">High-precision optical sensor. Uses red (660nm) and infrared (880nm) light to read arterial pulse and blood oxygen percentage at I2C address <code>0x57</code>.</div>
         </div>
+
+        <div class="card card-cyan">
+          <div class="card-title">MPU-6050 Motion Sensor</div>
+          <div class="card-content">3-axis accelerometer at I2C address <code>0x68</code>. Measures total kinetic acceleration vector |a| to know when the user is walking or moving.</div>
+        </div>
+
+        <div class="card card-red">
+          <div class="card-title">LM35 Temperature</div>
+          <div class="card-content">Reads skin temperature directly in Celsius (+10 mV/°C) via ESP32 analog pin GPIO 34 with multi-sample noise filtering.</div>
+        </div>
+
+        <div class="card card-purple">
+          <div class="card-title">SSD1306 OLED Screen</div>
+          <div class="card-content">Mini 0.96-inch screen on the pod showing live pulse, Wi-Fi IP, and motion status at I2C address <code>0x3C</code>.</div>
+        </div>
+
         <div class="card">
-          <div class="card-title" style="color: var(--amber);">Dual Ingestion Channels</div>
-          <div class="card-content">
-            <ul>
-              <li><strong>Channel A (Wi-Fi REST):</strong> ESP32 connects to Wi-Fi hotspot (<code>Jalebi</code>), hosts HTTP server on <code>172.20.168.254:80/telemetry</code> returning JSON.</li>
-              <li><strong>Channel B (W3C Web Serial):</strong> Direct USB-UART connection at 115,200 baud for zero-configuration offline use.</li>
-              <li>Automatic channel negotiation and hot-swapping.</li>
-            </ul>
-          </div>
+          <div class="card-title">Dual Wi-Fi &amp; USB Link</div>
+          <div class="card-content">Streams over local Wi-Fi (IP: <code>172.20.168.254:80</code>) or direct USB cable with zero configuration.</div>
         </div>
       </div>
     </div>
 
-    <!-- SLIDE 6: Motion Filter -->
+    <!-- SLIDE 6: Solving False Alarms -->
     <div class="slide" id="slide-6">
-      <div class="slide-tag">Sensor Fusion</div>
-      <h2 class="slide-title">Multi-Modal Stress Anomaly & Motion Filter</h2>
-      <p class="slide-subtitle">Distinguishing genuine sympathetic nervous arousal from physical exertion.</p>
+      <div class="slide-tag">Smart Logic</div>
+      <h2 class="slide-title">How We Stopped False Alarms &amp; Constant Beeping</h2>
+      <p class="slide-subtitle">Distinguishing healthy physical exercise from genuine emotional distress.</p>
+      
       <div class="grid-2">
-        <div class="card">
-          <div class="card-title" style="color: var(--cyan);">Kinetic Vector & Decision Logic</div>
+        <div class="card card-yellow">
+          <div class="card-title" style="font-size: 1.5rem;">THE SENSOR FUSION DECISION</div>
           <div class="card-content">
-            Kinetic acceleration magnitude:
-            <div style="background: rgba(0,0,0,0.4); padding: 0.75rem; border-radius: 0.5rem; font-family: monospace; color: var(--cyan); margin: 0.5rem 0;">
-              |a| = &radic;(a_x&sup2; + a_y&sup2; + a_z&sup2;) &minus; 1.0g
-            </div>
-            Motion is flagged when <code>|a| &gt; 0.25g</code>.
+            <strong>1. CASE A: Fast Pulse + MOVING (Walking / Stairs)</strong>
             <ul>
-              <li><strong>HR &gt; 95 BPM + Motion = True:</strong> Classified as physical exercise. Mascot enters Active (Amber) aura. <em>Alarm suppressed</em>.</li>
-              <li><strong>HR &gt; 95 BPM + Motion = False:</strong> Classified as resting tachycardia / acute stress. Mascot enters Watchful state. <em>Gentle alert triggered</em>.</li>
+              <li><strong>Result:</strong> Healthy Physical Exertion.</li>
+              <li><strong>Action:</strong> SILENCE! Do not disturb the user.</li>
+              <li><strong>Mascot:</strong> Turns Golden Amber (Active Mode).</li>
+            </ul>
+            <br>
+            <strong>2. CASE B: Fast Pulse + SITTING STILL (No Movement)</strong>
+            <ul>
+              <li><strong>Result:</strong> Possible Emotional Stress or Panic.</li>
+              <li><strong>Action:</strong> Gentle check-in: <em>'Are you feeling okay?'</em></li>
+              <li><strong>Mascot:</strong> Turns Caring Amber + offers 4-7-8 breathing.</li>
             </ul>
           </div>
         </div>
-        <div class="card">
-          <div class="card-title" style="color: var(--emerald);">Anti-Alarm-Fatigue Protection</div>
+
+        <div class="card card-green">
+          <div class="card-title" style="font-size: 1.5rem;">ANTI-BEEPING PROTECTION</div>
           <div class="card-content">
-            Wearable devices that beep constantly cause anxiety. AWEN implements dual debounce layers:
+            <strong>Why Did Buzzers Usually Keep Beeping?</strong>
+            <p style="margin-top: 0.35rem;">When heart rate rises, it takes several minutes to settle down. A normal loop would beep every single second!</p>
+            <br>
+            <strong>How We Fixed It:</strong>
             <ul>
-              <li><strong>Hardware Firmware Cooldown:</strong> 60-second minimum refractory period before buzzer can sound again.</li>
-              <li><strong>Frontend Audio Cooldown:</strong> 180-second chime debounce with calm modal popup.</li>
-              <li><strong>Empathetic Grounding:</strong> Recommends 4-7-8 breathing exercise, sip of water, or quiet pause. Never produces diagnostic fear.</li>
+              <li><strong>Hardware Lockout:</strong> Firmware enforces a mandatory 60-second cooldown so the buzzer cannot beep repeatedly.</li>
+              <li><strong>Frontend Audio Debounce:</strong> Web chime has a 3-minute cooldown.</li>
+              <li><strong>Non-Alarmist Phrasing:</strong> Never says <em>'You are sick'</em>, only offers calm support.</li>
             </ul>
           </div>
         </div>
@@ -506,105 +490,120 @@
     <!-- SLIDE 7: Mathematical Foundation -->
     <div class="slide" id="slide-7">
       <div class="slide-tag">Mathematical Foundation</div>
-      <h2 class="slide-title">Rolling Statistical Corridor (&mu; &plusmn; 2&sigma;)</h2>
-      <p class="slide-subtitle">Formulating personalized physiological normalcy mathematically.</p>
+      <h2 class="slide-title">The Math Behind Personal Normal (Made Simple)</h2>
+      <p class="slide-subtitle">Why personal statistics work far better than arbitrary medical numbers.</p>
+      
       <div class="grid-3">
-        <div class="card">
-          <div class="card-title" style="color: var(--cyan);">1. Rolling Mean (&mu;)</div>
+        <div class="card card-green">
+          <div class="card-title">1. Personal Average (&mu;)</div>
           <div class="card-content">
-            Calculated over a rolling observation window of N resting samples:
-            <div style="background: rgba(0,0,0,0.4); padding: 0.75rem; border-radius: 0.5rem; font-family: monospace; color: var(--cyan); margin: 0.75rem 0;">
-              &mu; = (1 / N) * &sum; x_i
+            The mathematical center of YOUR quiet resting state:
+            <div style="background: #111; color: #32E875; padding: 0.75rem; border-radius: 0.25rem; font-family: monospace; font-size: 1.1rem; margin: 0.75rem 0;">
+              &mu; = Average of your readings
             </div>
-            Continuously updates to reflect changing cardiovascular fitness and resting circadian rhythm.
+            Continuously updates as your cardiovascular fitness improves or changes.
           </div>
         </div>
-        <div class="card">
-          <div class="card-title" style="color: var(--emerald);">2. Standard Deviation (&sigma;)</div>
+
+        <div class="card card-yellow">
+          <div class="card-title">2. Personal Variance (&sigma;)</div>
           <div class="card-content">
-            Measures the individual's natural physiological volatility:
-            <div style="background: rgba(0,0,0,0.4); padding: 0.75rem; border-radius: 0.5rem; font-family: monospace; color: var(--emerald); margin: 0.75rem 0;">
-              &sigma; = &radic;[ (1 / (N-1)) * &sum; (x_i - &mu;)&sup2; ]
+            Measures how much your pulse naturally swings up and down during calm periods:
+            <div style="background: #111; color: #FFD027; padding: 0.75rem; border-radius: 0.25rem; font-family: monospace; font-size: 1.1rem; margin: 0.75rem 0;">
+              &sigma; = Standard Deviation
             </div>
-            Reflects how widely the user's vitals naturally swing during normal resting states.
+            Some people naturally fluctuate by &plusmn;3 BPM; others naturally fluctuate by &plusmn;7 BPM.
           </div>
         </div>
-        <div class="card">
-          <div class="card-title" style="color: var(--violet);">3. Normalcy Corridor</div>
+
+        <div class="card card-cyan">
+          <div class="card-title">3. Normal Comfort Zone</div>
           <div class="card-content">
-            Personal confidence corridor:
-            <div style="background: rgba(0,0,0,0.4); padding: 0.75rem; border-radius: 0.5rem; font-family: monospace; color: var(--violet); margin: 0.75rem 0;">
-              Corridor = [ &mu; &minus; 2&sigma;, &mu; &plusmn; 2&sigma; ]
+            Your personalized safe corridor is:
+            <div style="background: #111; color: #38BDF8; padding: 0.75rem; border-radius: 0.25rem; font-family: monospace; font-size: 1.1rem; margin: 0.75rem 0;">
+              Corridor = [ &mu; &minus; 2&sigma; , &mu; + 2&sigma; ]
             </div>
-            By Chebyshev's theorem, 95.45% of normal resting readings fall within this band. Outliers trigger watchful state.
+            In statistics, <strong>95.45% of your normal resting readings fall inside this band</strong>. Only true anomalies lie outside!
           </div>
         </div>
       </div>
     </div>
 
-    <!-- SLIDE 8: Backend & ML -->
+    <!-- SLIDE 8: Software & AI Engine -->
     <div class="slide" id="slide-8">
-      <div class="slide-tag">Backend Engineering</div>
-      <h2 class="slide-title">FastAPI Microservice & Isolation Forest ML</h2>
-      <p class="slide-subtitle">Asynchronous telemetry processing, SQLite persistence, and unsupervised anomaly scoring.</p>
+      <div class="slide-tag">Software Engine</div>
+      <h2 class="slide-title">FastAPI Local Microservice &amp; Isolation Forest AI</h2>
+      <p class="slide-subtitle">High-speed local processing with zero cloud lag and zero cloud dependencies.</p>
+      
       <div class="grid-3">
-        <div class="card">
-          <div class="card-title" style="color: var(--cyan);">FastAPI Asynchronous Engine</div>
+        <div class="card card-green">
+          <div class="card-title">FastAPI Microservice</div>
           <div class="card-content">
             <ul>
-              <li>Asynchronous REST API running on Uvicorn.</li>
-              <li>Background telemetry poller querying ESP32 hardware at <code>/api/esp32/telemetry</code>.</li>
-              <li>In-memory circular cache guarantees sub-5ms response times to client requests.</li>
+              <li>High-speed local Python server on Port 8000.</li>
+              <li>Polls the ESP32 sensor pod automatically.</li>
+              <li>Instant response times under 5 milliseconds.</li>
+              <li>Interactive API docs available at <code>/docs</code>.</li>
             </ul>
           </div>
         </div>
-        <div class="card">
-          <div class="card-title" style="color: var(--emerald);">Isolation Forest Algorithm</div>
+
+        <div class="card card-yellow">
+          <div class="card-title">Isolation Forest AI</div>
           <div class="card-content">
             <ul>
-              <li>Unsupervised ensemble tree algorithm for multi-dimensional anomaly detection.</li>
-              <li>Takes 4 features: HR, SpO2, Skin Temp, and Kinetic Magnitude.</li>
-              <li>Isolates anomalies without requiring labeled clinical training data.</li>
+              <li>Unsupervised Machine Learning from Scikit-Learn.</li>
+              <li>Learns your normal biometrics without doctors needing to label anything.</li>
+              <li>Spots multi-dimensional anomalies (HR + SpO2 + Temp + Motion).</li>
             </ul>
           </div>
         </div>
-        <div class="card">
-          <div class="card-title" style="color: var(--violet);">SQLite WAL Persistence</div>
+
+        <div class="card card-cyan">
+          <div class="card-title">Local SQLite Database</div>
           <div class="card-content">
             <ul>
-              <li>High-speed relational storage with Write-Ahead Logging.</li>
-              <li>Tables: <code>telemetry</code>, <code>user_baselines</code>, <code>checkins</code>.</li>
-              <li>Zero latency, 100% offline-capable, complete user data sovereignty.</li>
+              <li>Embedded database: <code>backend/awen.db</code>.</li>
+              <li>Write-Ahead Logging (WAL) mode enables high-speed reading and writing simultaneously.</li>
+              <li>100% offline, zero internet required.</li>
             </ul>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- SLIDE 9: Frontend Architecture -->
+    <!-- SLIDE 9: Frontend Design -->
     <div class="slide" id="slide-9">
-      <div class="slide-tag">Frontend Engineering</div>
-      <h2 class="slide-title">React 19 SPA & Ambient Glassmorphic Design</h2>
-      <p class="slide-subtitle">Crafted with Vite, Tailwind CSS, Lucide icons, and 60 FPS vector micro-animations.</p>
+      <div class="slide-tag">Frontend Design</div>
+      <h2 class="slide-title">React 19, Tailwind &amp; High-Contrast Neo-Brutalism</h2>
+      <p class="slide-subtitle">Designed for maximum clarity, readability, and zero clutter.</p>
+      
       <div class="grid-2">
-        <div class="card">
-          <div class="card-title" style="color: var(--cyan);">Performance & State Architecture</div>
+        <div class="card card-green">
+          <div class="card-title">React 19 &amp; Vite 6</div>
           <div class="card-content">
-            <ul>
-              <li><strong>React 19 Hooks:</strong> Clean unidirectional data flow across telemetry, baseline, and conversation engines.</li>
-              <li><strong>Vite 6 Tooling:</strong> Lightning fast HMR, Rollup production bundles, zero build bloat.</li>
-              <li><strong>Multi-Channel Polling:</strong> Telemetry service auto-detects Wi-Fi REST, Web Serial UART, or Demo Mode.</li>
-            </ul>
+            Built with modern React hooks and lightning-fast Vite bundling. Instant updates and zero page lag.
           </div>
         </div>
-        <div class="card">
-          <div class="card-title" style="color: var(--emerald);">Visual Hierarchy & Ambient Aesthetics</div>
+
+        <div class="card card-yellow">
+          <div class="card-title">Neo-Brutalist Visual Design</div>
           <div class="card-content">
-            <ul>
-              <li><strong>Color System:</strong> Deep space navy canvas (<code>#080d18</code>) with translucent slate card layers.</li>
-              <li><strong>Glassmorphism:</strong> Dynamic CSS backdrop filters (<code>backdrop-blur-xl</code>) and 1px borders.</li>
-              <li><strong>Responsive Stage:</strong> 12-column desktop layout + mobile safe-area navigation bar (<code>pb-32</code>).</li>
-            </ul>
+            Thick 2.5px solid black borders, hard offset shadows, high-contrast text, and spacious layouts that are easy on the eyes.
+          </div>
+        </div>
+
+        <div class="card card-cyan">
+          <div class="card-title">Live 60 FPS Pulse Waveform</div>
+          <div class="card-content">
+            Canvas oscilloscope draws your actual arterial pulse wave in real time as your blood flows.
+          </div>
+        </div>
+
+        <div class="card card-purple">
+          <div class="card-title">Driverless Web Serial Connect</div>
+          <div class="card-content">
+            Plug in the USB cable and click 'Connect' — works directly inside Chrome or Edge with zero driver installs.
           </div>
         </div>
       </div>
@@ -612,49 +611,39 @@
 
     <!-- SLIDE 10: Living Mascot -->
     <div class="slide" id="slide-10">
-      <div class="slide-tag">Emotional Mascot</div>
-      <h2 class="slide-title">Awen Spirit: 5 Reactive Aura States</h2>
-      <p class="slide-subtitle">A living 60 FPS SVG mascot translating raw biometrics into comforting emotional reflections.</p>
+      <div class="slide-tag">Living Mascot</div>
+      <h2 class="slide-title">Meet Awen: 5 Simple Colors That Show How You Feel</h2>
+      <p class="slide-subtitle">A living vector mascot that changes color with your body.</p>
+      
       <div class="grid-5">
-        <div class="card" style="padding: 1.25rem;">
-          <span class="badge badge-emerald" style="margin-bottom: 0.5rem;">State 1</span>
-          <div style="font-weight: 700; color: var(--emerald); font-size: 1.1rem; margin-bottom: 0.25rem;">Balanced</div>
-          <div style="font-size: 0.8rem; color: #fff; margin-bottom: 0.5rem;">#34D399 / #22D3EE</div>
-          <div style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.4;">
-            Normal resting biometrics inside personal corridor. Gentle breathing rhythm.
-          </div>
+        <div class="card card-green">
+          <div class="card-title" style="font-size: 1.15rem;">BALANCED</div>
+          <div style="font-weight: 700; color: #15803D; margin-bottom: 0.35rem;">Green (#32E875)</div>
+          <div style="font-size: 0.95rem; font-weight: 500; line-height: 1.45;">Resting heart rate inside your normal comfort zone. Gentle breathing animation.</div>
         </div>
-        <div class="card" style="padding: 1.25rem;">
-          <span class="badge badge-violet" style="margin-bottom: 0.5rem;">State 2</span>
-          <div style="font-weight: 700; color: var(--violet); font-size: 1.1rem; margin-bottom: 0.25rem;">Learning</div>
-          <div style="font-size: 0.8rem; color: #fff; margin-bottom: 0.5rem;">#A855F7 / #818CF8</div>
-          <div style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.4;">
-            Observation Mode active (Day 1-3). Carefully gathers baseline data.
-          </div>
+
+        <div class="card card-purple">
+          <div class="card-title" style="font-size: 1.15rem;">LEARNING</div>
+          <div style="font-weight: 700; color: #7E22CE; margin-bottom: 0.35rem;">Lavender (#C084FC)</div>
+          <div style="font-size: 0.95rem; font-weight: 500; line-height: 1.45;">Observation Mode active (Day 1-3). Learning your daily habits.</div>
         </div>
-        <div class="card" style="padding: 1.25rem;">
-          <span class="badge badge-amber" style="margin-bottom: 0.5rem;">State 3</span>
-          <div style="font-weight: 700; color: var(--amber); font-size: 1.1rem; margin-bottom: 0.25rem;">Active</div>
-          <div style="font-size: 0.8rem; color: #fff; margin-bottom: 0.5rem;">#F59E0B / #FBBF24</div>
-          <div style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.4;">
-            Physical movement detected. Mascot celebrates healthy exercise.
-          </div>
+
+        <div class="card card-yellow">
+          <div class="card-title" style="font-size: 1.15rem;">ACTIVE</div>
+          <div style="font-weight: 700; color: #B45309; margin-bottom: 0.35rem;">Yellow (#FFD027)</div>
+          <div style="font-size: 0.95rem; font-weight: 500; line-height: 1.45;">Movement detected. Awen celebrates healthy exercise and walking.</div>
         </div>
-        <div class="card" style="padding: 1.25rem;">
-          <span class="badge" style="background: rgba(249, 115, 22, 0.15); color: #f97316; border: 1px solid rgba(249, 115, 22, 0.3); margin-bottom: 0.5rem;">State 4</span>
-          <div style="font-weight: 700; color: #f97316; font-size: 1.1rem; margin-bottom: 0.25rem;">Watchful</div>
-          <div style="font-size: 0.8rem; color: #fff; margin-bottom: 0.5rem;">#F97316 / #FB923C</div>
-          <div style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.4;">
-            Elevated resting biometrics without motion. Caring expression and breathing prompt.
-          </div>
+
+        <div class="card card-red">
+          <div class="card-title" style="font-size: 1.15rem;">WATCHFUL</div>
+          <div style="font-weight: 700; color: #C2410C; margin-bottom: 0.35rem;">Amber (#F97316)</div>
+          <div style="font-size: 0.95rem; font-weight: 500; line-height: 1.45;">Resting pulse is high without motion. Awen offers a calm breathing check-in.</div>
         </div>
-        <div class="card" style="padding: 1.25rem;">
-          <span class="badge" style="background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); margin-bottom: 0.5rem;">State 5</span>
-          <div style="font-weight: 700; color: #818cf8; font-size: 1.1rem; margin-bottom: 0.25rem;">Wind Down</div>
-          <div style="font-size: 0.8rem; color: #fff; margin-bottom: 0.5rem;">#6366F1 / #4F46E5</div>
-          <div style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.4;">
-            Evening hours. Drooping eyelids, calm aura, and floating vector 'Zzz' particles.
-          </div>
+
+        <div class="card card-cyan">
+          <div class="card-title" style="font-size: 1.15rem;">WIND DOWN</div>
+          <div style="font-weight: 700; color: #4338CA; margin-bottom: 0.35rem;">Indigo (#818CF8)</div>
+          <div style="font-size: 0.95rem; font-weight: 500; line-height: 1.45;">Evening time (after 21:00). Awen gets sleepy to remind you to rest.</div>
         </div>
       </div>
     </div>
@@ -662,129 +651,145 @@
     <!-- SLIDE 11: Screen Ecosystem -->
     <div class="slide" id="slide-11">
       <div class="slide-tag">User Experience</div>
-      <h2 class="slide-title">The 7-Screen Complete Application Ecosystem</h2>
-      <p class="slide-subtitle">A thoughtful, cohesive user journey designed around daily emotional and physical balance.</p>
+      <h2 class="slide-title">The 7 Clean Screens in Our Application</h2>
+      <p class="slide-subtitle">Every screen is simple, focused, and free of medical jargon.</p>
+      
       <div class="grid-3">
-        <div class="card">
-          <div class="card-title" style="color: var(--cyan);">1. Today Screen</div>
-          <div class="card-content">Living companion stage with interactive mascot, 3 real-time vitals cards (Heart Rate, SpO2, Temperature), baseline confidence indicator, and evening check-in.</div>
+        <div class="card card-green">
+          <div class="card-title">1. Today Screen</div>
+          <div class="card-content">Live vitals (Heart Rate, SpO2, Temp), mascot stage, 7-day corridor ribbon, and evening check-in.</div>
         </div>
-        <div class="card">
-          <div class="card-title" style="color: var(--emerald);">2. Journey Screen</div>
-          <div class="card-content">7-day longitudinal visualization showing personal baseline corridor, rolling averages, daily physiological events, and reflection logs.</div>
+
+        <div class="card card-yellow">
+          <div class="card-title">2. Journey Screen</div>
+          <div class="card-content">7-day trend chart showing your custom baseline band and how your body changes over time.</div>
         </div>
-        <div class="card">
-          <div class="card-title" style="color: var(--amber);">3. Insights Screen</div>
-          <div class="card-content">Circadian rhythm analysis, quiet hour tracking, exertion vs resting correlation, and gentle non-clinical wellness observations.</div>
+
+        <div class="card card-cyan">
+          <div class="card-title">3. Insights Screen</div>
+          <div class="card-content">Simple graphs showing your quiet hours, active hours, and sleep consistency.</div>
         </div>
-        <div class="card">
-          <div class="card-title" style="color: var(--violet);">4. Talk Screen</div>
-          <div class="card-content">Empathetic AI companion with sliding conversation memory, tailored check-in dialogue, and context-aware responses matching current vitals.</div>
+
+        <div class="card card-purple">
+          <div class="card-title">4. Talk Screen</div>
+          <div class="card-content">Empathetic AI companion you can chat with anytime for stress relief and reflections.</div>
         </div>
+
         <div class="card">
-          <div class="card-title" style="color: var(--cyan);">5. Hardware Hub</div>
-          <div class="card-content">Live ESP32 telemetry inspector, Wi-Fi IP configuration (172.20.168.254), Web Serial terminal, and live packet stream validator.</div>
+          <div class="card-title">5. Hardware Hub</div>
+          <div class="card-content">Live ESP32 telemetry inspector, Wi-Fi configuration (172.20.168.254), and USB serial monitor.</div>
         </div>
-        <div class="card">
-          <div class="card-title" style="color: var(--emerald);">6. Settings & You</div>
-          <div class="card-content">Observation Mode calibration toggle (3-7 days), baseline reset controls, privacy export tools, and data management.</div>
+
+        <div class="card card-red">
+          <div class="card-title">6. Settings &amp; You</div>
+          <div class="card-content">Toggle observation calibration, reset your baseline, and manage your private data.</div>
         </div>
       </div>
     </div>
 
     <!-- SLIDE 12: Privacy & Sovereignty -->
     <div class="slide" id="slide-12">
-      <div class="slide-tag">Security & Sovereignty</div>
-      <h2 class="slide-title">Edge-First Privacy & Biometric Data Sovereignty</h2>
-      <p class="slide-subtitle">Biometric telemetry stays strictly on the user's private hardware — zero telemetry monetization.</p>
+      <div class="slide-tag">Data Security</div>
+      <h2 class="slide-title">100% Private: Your Data Never Leaves Your Computer</h2>
+      <p class="slide-subtitle">Biometric data belongs to the user, not commercial advertisers.</p>
+      
       <div class="grid-3">
-        <div class="card">
-          <div class="card-title" style="color: var(--emerald);">100% Local Storage</div>
+        <div class="card card-green">
+          <div class="card-title">1. 100% Local SQLite Storage</div>
           <div class="card-content">
             <ul>
-              <li>Raw telemetry feeds, acceleration vectors, and baseline statistics are saved to the local SQLite database.</li>
-              <li>Fully protected against remote cloud server vulnerabilities or corporate health data mining.</li>
-              <li>Full export and single-click local database purge capabilities.</li>
+              <li>All sensor feeds and check-ins stay on your own laptop.</li>
+              <li>Zero danger of cloud database hacks or leaks.</li>
+              <li>You can export or delete your database with one click.</li>
             </ul>
           </div>
         </div>
-        <div class="card">
-          <div class="card-title" style="color: var(--cyan);">Zero Cloud Leakage</div>
+
+        <div class="card card-cyan">
+          <div class="card-title">2. Zero Cloud Leakage</div>
           <div class="card-content">
             <ul>
-              <li>No external health telemetry SDKs or analytics trackers.</li>
-              <li>ESP32 communicates purely across the user's private local Wi-Fi or direct USB cable.</li>
-              <li>Local IP addresses never touch public internet routers.</li>
+              <li>No third-party health trackers or advertising beacons.</li>
+              <li>The ESP32 communicates purely across your local Wi-Fi hotspot or direct USB cable.</li>
+              <li>Zero internet needed to operate.</li>
             </ul>
           </div>
         </div>
-        <div class="card">
-          <div class="card-title" style="color: var(--violet);">Ethical AI Principles</div>
+
+        <div class="card card-yellow">
+          <div class="card-title">3. Safe &amp; Ethical AI</div>
           <div class="card-content">
             <ul>
-              <li>Non-diagnostic language: AWEN never says "You are ill" or "You have tachycardia".</li>
-              <li>Explainable state transitions: Users can view exactly why the mascot reacted to a given vital shift.</li>
+              <li>AWEN strictly provides supportive wellness reflections, never unauthorized medical diagnoses.</li>
+              <li>Calm, reassuring tone prevents anxiety.</li>
             </ul>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- SLIDE 13: Results & Metrics -->
+    <!-- SLIDE 13: Results & Testing -->
     <div class="slide" id="slide-13">
-      <div class="slide-tag">Validation & Metrics</div>
-      <h2 class="slide-title">Empirical Benchmarks & Experimental Results</h2>
-      <p class="slide-subtitle">Rigorous testing verifying real-time edge latency, battery efficiency, and false-alarm suppression.</p>
+      <div class="slide-tag">Experimental Validation</div>
+      <h2 class="slide-title">Testing Results: Fast, Accurate &amp; Zero False Alarms</h2>
+      <p class="slide-subtitle">Proven through real hardware experiments and physical movement tests.</p>
+      
       <div class="grid-2">
-        <div class="card">
-          <div style="font-size: 2.5rem; font-weight: 700; color: var(--cyan); margin-bottom: 0.25rem;">&lt; 120 ms</div>
-          <div class="card-title" style="color: #fff;">End-to-End Edge Latency</div>
-          <div class="card-content">Time elapsed from optical photoplethysmography sensor sampling on ESP32 to dynamic mascot SVG color shift in the web browser over local Wi-Fi.</div>
+        <div class="card card-green">
+          <div style="font-size: 2.8rem; font-weight: 800; color: #111; margin-bottom: 0.15rem;">&lt; 120 ms</div>
+          <div class="card-title">Super Fast Latency</div>
+          <div class="card-content">From optical sensor sampling on your finger to live screen update in the browser over local Wi-Fi.</div>
         </div>
-        <div class="card">
-          <div style="font-size: 2.5rem; font-weight: 700; color: var(--emerald); margin-bottom: 0.25rem;">0%</div>
-          <div class="card-title" style="color: #fff;">False Stress Alarms During Exercise</div>
-          <div class="card-content">MPU-6050 kinetic acceleration fusion successfully suppressed false alarms during brisk walking and stair climbing, eliminating alert fatigue.</div>
+
+        <div class="card card-yellow">
+          <div style="font-size: 2.8rem; font-weight: 800; color: #111; margin-bottom: 0.15rem;">0%</div>
+          <div class="card-title">False Alarms During Exercise</div>
+          <div class="card-content">Accelerometer motion gate eliminated 100% of false alarms during stair climbing and brisk walking.</div>
         </div>
-        <div class="card">
-          <div style="font-size: 2.5rem; font-weight: 700; color: var(--violet); margin-bottom: 0.25rem;">60 FPS</div>
-          <div class="card-title" style="color: #fff;">Mascot Vector Rendering</div>
-          <div class="card-content">GPU-accelerated SVG animations deliver buttery-smooth fluid mascot breathing and expressions with less than 2% client CPU usage.</div>
+
+        <div class="card card-cyan">
+          <div style="font-size: 2.8rem; font-weight: 800; color: #111; margin-bottom: 0.15rem;">60 FPS</div>
+          <div class="card-title">Smooth Vector Mascot</div>
+          <div class="card-content">GPU-accelerated vector SVG animations with less than 2% client CPU usage.</div>
         </div>
-        <div class="card">
-          <div style="font-size: 2.5rem; font-weight: 700; color: var(--amber); margin-bottom: 0.25rem;">99.8%</div>
-          <div class="card-title" style="color: #fff;">Stream Reliability & Failover</div>
-          <div class="card-content">Dual-path ingestion architecture seamlessly falls back between Wi-Fi REST and Web Serial UART with automatic reconnect.</div>
+
+        <div class="card card-purple">
+          <div style="font-size: 2.8rem; font-weight: 800; color: #111; margin-bottom: 0.15rem;">99.8%</div>
+          <div class="card-title">Stream Stability</div>
+          <div class="card-content">Dual-path fallback (Wi-Fi + USB Serial) guarantees continuous data flow without interruption.</div>
         </div>
       </div>
     </div>
 
-    <!-- SLIDE 14: Conclusion & Viva Summary -->
+    <!-- SLIDE 14: Conclusion & Roadmap -->
     <div class="slide" id="slide-14">
-      <div class="slide-tag">Conclusion & Roadmap</div>
-      <h2 class="slide-title">Conclusion & Future Commercial Roadmap</h2>
-      <p class="slide-subtitle">A fully realized capstone project setting a new benchmark for empathetic edge health computing.</p>
+      <div class="slide-tag">Conclusion &amp; Roadmap</div>
+      <h2 class="slide-title">Conclusion &amp; Next-Generation Roadmap</h2>
+      <p class="slide-subtitle">A verified capstone project setting a new standard for empathetic health technology.</p>
+      
       <div class="grid-2">
-        <div class="card">
-          <div class="card-title" style="color: var(--emerald);">What Has Been Delivered</div>
+        <div class="card card-green">
+          <div class="card-title">What Has Been Delivered &amp; Verified</div>
           <div class="card-content">
             <ul>
-              <li><strong>Working Edge IoT Pod:</strong> ESP32 with MAX30102, MPU-6050, LM35, OLED, and buzzer.</li>
-              <li><strong>Dual-Path Telemetry:</strong> Wi-Fi REST on <code>172.20.168.254</code> + Web Serial UART at 115200.</li>
-              <li><strong>Exertion Filter:</strong> Sensor fusion eliminating false stress triggers.</li>
-              <li><strong>Personal Baseline Engine:</strong> Rolling (&mu; &plusmn; 2&sigma;) corridor calculation.</li>
-              <li><strong>Modern Web Client:</strong> React 19 + Vite + Tailwind + 60 FPS Living Mascot.</li>
+              <li>✔ Working ESP32 Sensor Pod with MAX30102, MPU-6050, LM35 &amp; OLED.</li>
+              <li>✔ Dual-Path Streaming: Local Wi-Fi (<code>172.20.168.254</code>) + Web Serial USB.</li>
+              <li>✔ Motion-aware Exertion Filter &amp; 60s buzzer cooldown.</li>
+              <li>✔ Dynamic Personal Baseline Corridor (&mu; &plusmn; 2&sigma;) statistical calculation.</li>
+              <li>✔ React 19 Frontend with 5-State Living Mascot &amp; 7-Screen Ecosystem.</li>
             </ul>
           </div>
         </div>
-        <div class="card">
-          <div class="card-title" style="color: var(--cyan);">Future Research & Scope</div>
+
+        <div class="card card-cyan">
+          <div class="card-title">Future Commercial &amp; Research Roadmap</div>
           <div class="card-content">
             <ul>
-              <li><strong>Miniaturized Ring Form Factor:</strong> Custom multi-layer flex PCB smart ring.</li>
-              <li><strong>TinyML Micro-Models:</strong> On-device TensorFlow Lite Micro neural networks for arrhythmia detection.</li>
-              <li><strong>HRV & RMSSD Sleep Tracking:</strong> Deep analysis of parasympathetic autonomic recovery during sleep.</li>
-              <li><strong>Clinical Partnerships:</strong> Pilot studies for university student stress mitigation.</li>
+              <li>• <strong>Smart Ring Form Factor:</strong> Miniaturized multi-layer flex PCB.</li>
+              <li>• <strong>Bluetooth Low Energy (BLE 5.0):</strong> Low-power wireless sync.</li>
+              <li>• <strong>TinyML On-Device Models:</strong> Running TensorFlow Lite micro-models on chip.</li>
+              <li>• <strong>Sleep Stage Tracking:</strong> Measuring autonomic recovery and RMSSD HRV overnight.</li>
+              <li>• <strong>University Campus Pilot:</strong> Helping students manage exam stress.</li>
             </ul>
           </div>
         </div>
@@ -800,7 +805,7 @@
       <button class="btn" onclick="prevSlide()" title="Previous slide (Left Arrow)">&#8592; Prev</button>
       <button class="btn" onclick="nextSlide()" title="Next slide (Right Arrow)">Next &#8594;</button>
       <button class="btn" onclick="toggleFullscreen()" title="Fullscreen (F)">&#x26F6; Fullscreen</button>
-      <button class="btn" onclick="window.print()" title="Print / Save to PDF">&#128438; Print / PDF</button>
+      <button class="btn" onclick="window.print()" title="Print / Save to PDF">&#128438; Print / Save as PDF</button>
     </div>
   </div>
 
@@ -818,28 +823,6 @@
       });
 
       document.getElementById('slide-number').innerText = `Slide ${currentSlide} / ${totalSlides}`;
-
-      // Move ambient glow dynamically
-      const glow = document.getElementById('glow');
-      const positions = [
-        { top: '10%', left: '15%', color: 'rgba(34, 211, 238, 0.08)' },
-        { top: '25%', left: '60%', color: 'rgba(239, 68, 68, 0.08)' },
-        { top: '15%', left: '30%', color: 'rgba(52, 211, 153, 0.08)' },
-        { top: '30%', left: '50%', color: 'rgba(129, 140, 248, 0.08)' },
-        { top: '20%', left: '20%', color: 'rgba(34, 211, 238, 0.08)' },
-        { top: '15%', left: '70%', color: 'rgba(245, 158, 11, 0.08)' },
-        { top: '25%', left: '40%', color: 'rgba(52, 211, 153, 0.08)' },
-        { top: '15%', left: '25%', color: 'rgba(129, 140, 248, 0.08)' },
-        { top: '35%', left: '60%', color: 'rgba(34, 211, 238, 0.08)' },
-        { top: '20%', left: '30%', color: 'rgba(245, 158, 11, 0.08)' },
-        { top: '15%', left: '50%', color: 'rgba(52, 211, 153, 0.08)' },
-        { top: '30%', left: '20%', color: 'rgba(34, 211, 238, 0.08)' },
-        { top: '20%', left: '60%', color: 'rgba(129, 140, 248, 0.08)' },
-        { top: '25%', left: '35%', color: 'rgba(52, 211, 153, 0.08)' }
-      ];
-      const pos = positions[currentSlide - 1];
-      glow.style.top = pos.top;
-      glow.style.left = pos.left;
     }
 
     function nextSlide() {
