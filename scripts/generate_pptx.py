@@ -105,13 +105,13 @@ def create_deck():
     add_background(s1)
 
     # Top Tag
-    tag1 = s1.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0.8), Inches(0.6), Inches(4.5), Inches(0.45))
+    tag1 = s1.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0.8), Inches(0.6), Inches(3.4), Inches(0.45))
     tag1.fill.solid()
     tag1.fill.fore_color.rgb = NEO_YELLOW
     tag1.line.color.rgb = BLACK
     tag1.line.width = Pt(2.0)
     p_t1 = tag1.text_frame.paragraphs[0]
-    p_t1.text = "CAPSTONE FINAL VIVA | B.TECH CSE"
+    p_t1.text = "CAPSTONE | B.TECH CSE"
     p_t1.font.size = Pt(13)
     p_t1.font.bold = True
     p_t1.font.color.rgb = BLACK

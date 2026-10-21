@@ -1,6 +1,6 @@
-# AWEN — Comprehensive Capstone Viva Defense Guide
+# AWEN — Capstone Project Defense Guide
 **Adaptive Wellness & Emotional Navigation**  
-*Project Code: AF52 | B.Tech Computer Science & Engineering*
+*Capstone | B.Tech Computer Science & Engineering (AF52)*
 
 ---
 
