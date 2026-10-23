@@ -519,7 +519,7 @@ export const LandingPage = ({
               </span>
             </div>
             <span className="px-3 py-1 bg-[var(--accent-green-bg)] text-[var(--accent-green-dark)] border border-[var(--accent-green-dark)] font-bold text-[10px] uppercase tracking-wider">
-              Target IP: 172.20.168.254
+              Target IP: 172.17.106.254
             </span>
           </div>
 

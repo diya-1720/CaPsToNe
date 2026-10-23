@@ -55,6 +55,21 @@ export const HomeScreen = ({
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const [isPrivacyCheckOpen, setIsPrivacyCheckOpen] = useState(false);
   const [alerts, setAlerts] = useState([]);
+  const [isConnectingSerial, setIsConnectingSerial] = useState(false);
+  const [serialError, setSerialError] = useState(null);
+
+  const handleConnectHardware = async () => {
+    if (!telemetryStream) return;
+    setIsConnectingSerial(true);
+    setSerialError(null);
+    try {
+      await telemetryStream.connectWebSerial();
+    } catch (err) {
+      setSerialError(err.message || "Failed to establish USB connection.");
+    } finally {
+      setIsConnectingSerial(false);
+    }
+  };
 
   const canvasRef = useRef(null);
   const animFrameRef = useRef(null);
@@ -340,7 +355,7 @@ export const HomeScreen = ({
         ctx.fillText('ESP32 OFFLINE · NO SENSOR SIGNAL', width / 2, height / 2 - 12);
         ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
         ctx.font = '10px monospace';
-        ctx.fillText('CONNECT ESP32 (MAX30100 + MPU-6050 + LM35) AT 172.20.168.254', width / 2, height / 2 + 8);
+        ctx.fillText('CONNECT ESP32 (MAX30100 + MPU-6050 + LM35) AT 172.17.106.254', width / 2, height / 2 + 8);
       }
 
       animFrameRef.current = requestAnimationFrame(render);
@@ -436,29 +451,51 @@ export const HomeScreen = ({
 
       {/* ── 3. DISCONNECTED NOTICE (When Standby) ── */}
       {!isConnected && (
-        <div className="p-4 border-2 border-red-600 bg-red-50 text-red-800 shadow-[3px_3px_0px_#dc2626] flex flex-wrap sm:flex-nowrap items-center justify-between gap-4 animate-fadeIn">
-          <div className="flex items-center gap-3">
-            <span className="w-3 h-3 rounded-full bg-red-600 animate-pulse shrink-0" />
-            <div>
-              <span className="font-mono text-xs font-bold uppercase tracking-wider block text-red-900">
-                ESP32: Disconnected — No Live Hardware Data
-              </span>
-              <span className="text-xs text-red-700 font-medium">
-                Live sensor vitals show empty (--). Historical readings are safely preserved below in local SQLite. Connect ESP32 to stream real biometric data.
-              </span>
+        <div className="p-4 border-2 border-red-600 bg-red-50 text-red-800 shadow-[3px_3px_0px_#dc2626] flex flex-col gap-3 animate-fadeIn mb-6">
+          <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="w-3 h-3 rounded-full bg-red-600 animate-pulse shrink-0" />
+              <div>
+                <span className="font-mono text-xs font-bold uppercase tracking-wider block text-red-900">
+                  ESP32: Disconnected — No Live Hardware Data
+                </span>
+                <span className="text-xs text-red-700 font-medium">
+                  Plug in ESP32 via USB and click below to start real-time telemetry stream.
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {telemetryStream && (
+                <button
+                  onClick={handleConnectHardware}
+                  disabled={isConnectingSerial}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider border-2 border-black shadow-[2px_2px_0px_#111] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all flex items-center gap-1.5 disabled:opacity-60"
+                >
+                  <Cpu className="w-3.5 h-3.5" />
+                  <span>{isConnectingSerial ? 'Selecting Port...' : 'Connect USB (Serial)'}</span>
+                </button>
+              )}
+              {onOpenHardware && (
+                <button
+                  onClick={onOpenHardware}
+                  className="px-3 py-2 bg-white hover:bg-neutral-100 text-neutral-900 text-xs font-bold uppercase tracking-wider border-2 border-black shadow-[2px_2px_0px_#111] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all flex items-center gap-1"
+                >
+                  <span>IoT Console</span>
+                </button>
+              )}
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {telemetryStream && (
-              <button
-                onClick={() => { telemetryStream.connectWebSerial().catch(() => {}); }}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider border-2 border-black shadow-[2px_2px_0px_#111] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all flex items-center gap-1.5"
-              >
-                <Cpu className="w-3.5 h-3.5" />
-                <span>Connect Hardware</span>
-              </button>
-            )}
-          </div>
+          {serialError && (
+            <div className="p-2.5 bg-red-100 border border-red-400 text-red-800 text-xs font-medium flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+              <div className="flex-1">
+                <span className="font-bold">{serialError}</span>
+                <span className="block text-[11px] text-red-700 mt-0.5">
+                  Tip: Use Google Chrome or Microsoft Edge. If Arduino IDE Serial Monitor is open, please close it first so the browser can connect to the COM port.
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -903,7 +940,7 @@ export const HomeScreen = ({
                     {isConnected ? 'Online' : 'Offline'}
                   </span>
                   <span className="text-[9px] text-[var(--text-secondary)] block truncate">
-                    {telemetry?.ip || '172.20.168.254'}
+                    {telemetry?.ip || '172.17.106.254'}
                   </span>
                 </div>
               </div>
@@ -991,7 +1028,7 @@ export const HomeScreen = ({
             </div>
 
             <div className="pt-1 flex items-center justify-between border-t border-[var(--border-light)] text-[10px] font-mono">
-              <span className="text-[var(--text-muted)]">Encrypted Private LAN (172.20.168.254)</span>
+              <span className="text-[var(--text-muted)]">Encrypted Private LAN (172.17.106.254)</span>
               <button
                 onClick={() => {
                   if (onOpenPrivacyModal) onOpenPrivacyModal();

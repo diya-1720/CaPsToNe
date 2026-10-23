@@ -10,12 +10,14 @@ import { formatISTDateTime, formatISTTime } from '../utils/timeFormat';
 const getInitialEsp32Url = () => {
   if (typeof window !== 'undefined' && window.localStorage) {
     const saved = localStorage.getItem('awen_esp32_url');
-    if (saved && saved.trim() && !saved.includes('10.153.') && !saved.includes('10.208.')) return saved.trim().replace(/\/+$/, '');
+    if (saved && saved.trim() && !saved.includes('10.153.') && !saved.includes('10.208.') && !saved.includes('172.20.168.254') && !saved.includes('10.201.146.254')) {
+      return saved.trim().replace(/\/+$/, '');
+    }
   }
   if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_ESP32_BASE_URL) {
     return import.meta.env.VITE_ESP32_BASE_URL.trim().replace(/\/+$/, '');
   }
-  return "http://172.20.168.254";
+  return "http://172.17.106.254";
 };
 
 export const ESP32_BASE_URL = getInitialEsp32Url();
@@ -30,6 +32,7 @@ export class TelemetryStream {
     this.serialPort = null;
     this.reader = null;
     this.isHardwareConnected = false;
+    this.connectionType = null; // 'serial' | 'wifi' | null
     this.hardwareState = "DISCONNECTED"; // DISCONNECTED | CONNECTING | CONNECTED | ERROR
     this.lastHardwareError = null;
     this.hardwareConnectedAt = null;
@@ -77,20 +80,27 @@ export class TelemetryStream {
     this.currentMood = mood;
   }
 
-  setHardwareState(state, error = null) {
+  setHardwareState(state, error = null, connectionType = null) {
     this.hardwareState = state;
     this.lastHardwareError = error;
+    if (connectionType) {
+      this.connectionType = connectionType;
+    }
     this.isHardwareConnected = (state === "CONNECTED");
     if (this.isHardwareConnected && !this.hardwareConnectedAt) {
       this.hardwareConnectedAt = new Date();
     } else if (!this.isHardwareConnected) {
       this.hardwareConnectedAt = null;
+      if (state === "DISCONNECTED") {
+        this.connectionType = null;
+      }
     }
     if (this.onStateChange) {
       this.onStateChange({
         state: this.hardwareState,
         error: this.lastHardwareError,
         isHardwareConnected: this.isHardwareConnected,
+        connectionType: this.connectionType,
         hardwareConnectedAt: this.hardwareConnectedAt ? formatISTDateTime(this.hardwareConnectedAt) : null,
         hardwareConnectedTime: this.hardwareConnectedAt ? formatISTTime(this.hardwareConnectedAt) : null
       });
@@ -166,6 +176,12 @@ export class TelemetryStream {
   async pollEsp32Telemetry() {
     if (!this.isRunning) return;
 
+    // If connected via USB Web Serial, do NOT poll Wi-Fi or disconnect serial stream
+    if (this.isHardwareConnected && this.connectionType === "serial") {
+      this.pollTimer = setTimeout(() => this.pollEsp32Telemetry(), this.pollIntervalMs);
+      return;
+    }
+
     try {
       this.pollAbortController = new AbortController();
       const timeoutId = setTimeout(() => {
@@ -218,7 +234,7 @@ export class TelemetryStream {
       if (!rawData || rawData.connected === false || rawData.status === 'unreachable') {
         this.consecutiveFailures++;
         if (this.consecutiveFailures >= 2) {
-          if (this.isHardwareConnected) {
+          if (this.isHardwareConnected && this.connectionType === "wifi") {
             this.setHardwareState("DISCONNECTED", rawData?.detail || "ESP32 disconnected or unreachable");
           }
         }
@@ -237,8 +253,8 @@ export class TelemetryStream {
       const parsed = this.normalizeEsp32Data(rawData);
 
       if (parsed) {
-        if (!this.isHardwareConnected) {
-          this.setHardwareState("CONNECTED");
+        if (!this.isHardwareConnected || this.connectionType !== "wifi") {
+          this.setHardwareState("CONNECTED", null, "wifi");
         }
         if (this.onReading) {
           this.onReading(parsed);
@@ -248,9 +264,9 @@ export class TelemetryStream {
       if (!this.isRunning) return;
 
       this.consecutiveFailures++;
-      // If 2 or more consecutive polls fail, transition to disconnected status gracefully
+      // If 2 or more consecutive polls fail, transition to disconnected status gracefully ONLY IF in wifi mode
       if (this.consecutiveFailures >= 2) {
-        if (this.isHardwareConnected) {
+        if (this.isHardwareConnected && this.connectionType === "wifi") {
           this.setHardwareState("DISCONNECTED", err.message || "ESP32 disconnected or unreachable");
         }
       }
@@ -377,7 +393,7 @@ export class TelemetryStream {
       try {
         ipAddress = (new URL(this.esp32BaseUrl)).hostname;
       } catch {
-        ipAddress = "172.20.168.254";
+        ipAddress = "172.17.106.254";
       }
     }
 
@@ -539,8 +555,14 @@ export class TelemetryStream {
       }
     }
 
-    // If no numerical telemetry, accel object, or moving status found, return null
-    if ((bpm === null || isNaN(bpm)) && (spo2 === null || isNaN(spo2)) && (temp === null || isNaN(temp)) && !accel && rawData?.moving === undefined) {
+    // Check if packet contains any recognizable telemetry, status, or valid parsed JSON
+    const hasData = (bpm !== null && !isNaN(bpm)) || 
+                    (spo2 !== null && !isNaN(spo2)) || 
+                    (temp !== null && !isNaN(temp)) || 
+                    accel || 
+                    (rawData && (rawData.moving !== undefined || rawData.finger !== undefined || rawData.finger_detected !== undefined || rawData.device_id || rawData.status || rawData.connected !== undefined));
+
+    if (!hasData) {
       return null;
     }
 
@@ -629,29 +651,48 @@ export class TelemetryStream {
    */
   async connectWebSerial(baudRate = 115200) {
     if (typeof navigator === 'undefined' || !('serial' in navigator)) {
-      const errMsg = "Web Serial API is not supported in this browser. Please use Google Chrome or Microsoft Edge.";
+      const errMsg = "Web Serial API is not supported in this browser. Please use Google Chrome or Microsoft Edge to connect ESP32 via USB.";
       this.setHardwareState("ERROR", errMsg);
       throw new Error(errMsg);
     }
     
     try {
-      this.setHardwareState("CONNECTING");
+      this.setHardwareState("CONNECTING", null, "serial");
+
+      // Clean up previous serial connection if any
+      if (this.serialPort) {
+        try {
+          await this.disconnectHardware();
+        } catch (cleanupErr) {
+          console.warn("Cleanup of prior serial port failed:", cleanupErr);
+        }
+      }
+
       this.serialPort = await navigator.serial.requestPort();
       await this.serialPort.open({ baudRate: Number(baudRate) || 115200, bufferSize: 8192 });
       
-      // Port successfully opened! Immediately notify that hardware is connected
-      this.setHardwareState("CONNECTED");
+      // Port successfully opened! Immediately notify that hardware is connected via USB Serial
+      this.setHardwareState("CONNECTED", null, "serial");
 
       // Begin background serial reading loop to read real packets from device
       this.readSerialLoop();
       return true;
     } catch (err) {
       if (err.name === "NotFoundError") {
-        this.setHardwareState("DISCONNECTED", "Device selection was cancelled by user.");
+        this.setHardwareState(this.isHardwareConnected ? "CONNECTED" : "DISCONNECTED", "Device selection was cancelled by user.");
         return false;
+      } else if (err.name === "InvalidStateError" || err.message?.includes("already open")) {
+        const errMsg = "Serial COM port is already open. If another browser tab or Arduino IDE Serial Monitor is open, please close it first.";
+        this.setHardwareState("ERROR", errMsg);
+        throw new Error(errMsg);
+      } else if (err.name === "NetworkError" || err.message?.includes("Failed to open")) {
+        const errMsg = "Access denied to USB COM port. Please close Arduino IDE Serial Monitor / Plotter and try again.";
+        this.setHardwareState("ERROR", errMsg);
+        throw new Error(errMsg);
       } else {
-        this.setHardwareState("ERROR", err.message || "Failed to open serial port.");
-        throw err;
+        const errMsg = err.message || "Failed to open serial port.";
+        this.setHardwareState("ERROR", errMsg);
+        throw new Error(errMsg);
       }
     }
   }
@@ -719,6 +760,7 @@ export class TelemetryStream {
   async disconnectHardware() {
     this.isHardwareConnected = false;
     this.hardwareState = "DISCONNECTED";
+    this.connectionType = null;
     this.lastPacketTime = 0;
 
     if (this.reader) {
@@ -738,7 +780,7 @@ export class TelemetryStream {
       this.serialPort = null;
     }
 
-    this.setHardwareState("DISCONNECTED");
+    this.setHardwareState("DISCONNECTED", null, null);
   }
 
   /**

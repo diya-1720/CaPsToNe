@@ -9,9 +9,9 @@
 const char* WIFI_SSID = "Jalebi";
 const char* WIFI_PASS = "123456789";
 
-// Static IP Configuration (Target IP: 172.20.168.254 on hotspot "Jalebi")
-IPAddress local_IP(172, 20, 168, 254);
-IPAddress gateway(172, 20, 168, 151);
+// Static IP Configuration (Target IP: 172.17.106.254)
+IPAddress local_IP(172, 17, 106, 254);
+IPAddress gateway(172, 17, 106, 1);
 IPAddress subnet(255, 255, 255, 0);
 IPAddress primaryDNS(8, 8, 8, 8);
 
@@ -97,7 +97,7 @@ void handleTelemetry() {
   server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   server.sendHeader("Access-Control-Allow-Headers", "*");
 
-  String ipStr = WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString() : "172.20.168.254";
+  String ipStr = WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString() : "172.17.106.254";
 
   String json = "{";
   json += "\"device_id\":\"AWEN_ESP32_01\",";
@@ -145,7 +145,7 @@ void setup() {
 
   // 2. Wi-Fi & Web Server Initialization
   WiFi.mode(WIFI_STA);
-  // Configure static IP for 172.20.168.254 on hotspot "Jalebi"
+  // Configure static IP for 172.17.106.254
   if (!WiFi.config(local_IP, gateway, subnet, primaryDNS)) {
     Serial.println(F("[WARN] Static IP configuration failed, using DHCP fallback"));
   }
@@ -176,7 +176,7 @@ void setup() {
     display.display();
     delay(1000);
   } else {
-    Serial.println(F("[INFO] Wi-Fi connecting in background. Target IP: 172.20.168.254"));
+    Serial.println(F("[INFO] Wi-Fi connecting in background. Target IP: 172.17.106.254"));
   }
 
   server.on("/", HTTP_GET, handleRoot);

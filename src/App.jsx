@@ -169,6 +169,7 @@ export default function App() {
           setTelemetry(prev => ({
             ...prev,
             isHardware: true,
+            connectionType: stateObj.connectionType || prev.connectionType || 'serial',
             hardwareConnectedAt: stateObj.hardwareConnectedAt || prev.hardwareConnectedAt || formatISTDateTime(new Date()),
             hardwareConnectedTime: stateObj.hardwareConnectedTime || prev.hardwareConnectedTime || formatISTTime(new Date())
           }));
@@ -184,6 +185,7 @@ export default function App() {
             isMoving: false,
             fingerDetected: false,
             isHardware: false,
+            connectionType: null,
             hardwareConnectedAt: null,
             hardwareConnectedTime: null
           }));
@@ -499,15 +501,16 @@ export default function App() {
               {/* Hardware Status Pill (prominent red when disconnected) */}
               <button
                 onClick={() => setIsIoTModalOpen(true)}
-                className={`text-[10px] font-mono font-bold px-2.5 py-1 border-2 rounded-sm shrink-0 hidden lg:inline-flex items-center gap-1.5 uppercase tracking-wider transition-all ${
+                className={`text-[10px] font-mono font-bold px-2 sm:px-2.5 py-1 border-2 rounded-sm shrink-0 inline-flex items-center gap-1.5 uppercase tracking-wider transition-all ${
                   telemetry.isHardware
                     ? 'bg-[var(--accent-green)] text-[var(--text-primary)] border-[var(--border-strong)]'
                     : 'bg-red-50 text-red-700 border-red-600 shadow-[1px_1px_0px_#dc2626] hover:bg-red-100'
                 }`}
-                title="Click to pair ESP32 hardware via Web Serial"
+                title="Click to pair ESP32 hardware via USB / Wi-Fi"
               >
                 <span className={`w-2 h-2 rounded-full shrink-0 ${telemetry.isHardware ? 'bg-black' : 'bg-red-600 animate-pulse'}`} />
-                <span>{telemetry.isHardware ? 'ESP32: Connected' : 'ESP32: Disconnected'}</span>
+                <span className="hidden sm:inline">{telemetry.isHardware ? 'ESP32: Connected' : 'ESP32: Disconnected'}</span>
+                <span className="sm:hidden">{telemetry.isHardware ? 'ESP32' : 'No ESP32'}</span>
               </button>
 
               {/* Notification Bell Dropdown Container */}

@@ -3,7 +3,9 @@ import json
 import os
 import sys
 import math
+import time
 import urllib.request
+import urllib.parse
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import logging
@@ -139,6 +141,10 @@ class DeviceRegisterPayload(BaseModel):
     device_id: str
     device_name: Optional[str] = "AWEN ESP32 Unit"
 
+class ESP32ConnectionTestRequest(BaseModel):
+    url: str = Field(..., description="ESP32 Wi-Fi IP or telemetry endpoint")
+    timeout: Optional[float] = Field(2.5, description="Timeout in seconds")
+
 class ChatRequest(BaseModel):
     message: str
     context: Optional[Dict[str, Any]] = None
@@ -239,7 +245,7 @@ def proxy_esp32_telemetry(ip: Optional[str] = Query(None)):
     Proxies telemetry from the local ESP32 Wi-Fi microcontroller.
     Seamlessly bridges browser requests to the local hardware network without CORS or PNA issues.
     """
-    target = ip or os.getenv("ESP32_BASE_URL", "http://172.20.168.254")
+    target = ip or os.getenv("ESP32_BASE_URL", "http://172.17.106.254")
     if not target.startswith("http://") and not target.startswith("https://"):
         target = f"http://{target}"
     target = target.rstrip("/")
@@ -421,6 +427,160 @@ def save_baseline(
         samples=payload.samples or 0
     )
     return saved
+
+# ----------------- ESP32 Wi-Fi Telemetry Proxy & Connectivity Suite -----------------
+
+def fetch_esp32_telemetry_sync(target_url: str, timeout: float = 2.5) -> dict:
+    """
+    Synchronously probes and fetches telemetry from an ESP32 Wi-Fi endpoint or candidate path.
+    Supports raw IPs, custom ports, full URLs, and automatic candidate path fallback.
+    """
+    url = (target_url or "").strip()
+    if not url:
+        return {"connected": False, "status": "unreachable", "detail": "Empty URL provided"}
+
+    if not url.startswith("http://") and not url.startswith("https://"):
+        url = "http://" + url
+
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except Exception as e:
+        return {"connected": False, "status": "unreachable", "detail": f"Malformed URL: {e}"}
+
+    base = f"{parsed.scheme}://{parsed.netloc}"
+    path = parsed.path.rstrip("/")
+
+    candidates = []
+    # 1. Exact user-provided path if present
+    if path and path != "":
+        candidates.append(f"{base}{path}")
+
+    # 2. Standard ESP32 AWEN endpoints
+    candidates.append(f"{base}/api/telemetry")
+    candidates.append(f"{base}/telemetry")
+    candidates.append(f"{base}/data")
+    candidates.append(f"{base}/")
+
+    seen = set()
+    unique_candidates = [c for c in candidates if not (c in seen or seen.add(c))]
+
+    last_err = None
+    start_time = time.time()
+
+    for candidate_url in unique_candidates:
+        try:
+            req = urllib.request.Request(
+                candidate_url,
+                headers={
+                    "User-Agent": "AWEN-FastAPI-Bridge/2.1",
+                    "Accept": "application/json"
+                }
+            )
+            with urllib.request.urlopen(req, timeout=timeout) as response:
+                if response.status == 200:
+                    raw_data = response.read().decode("utf-8")
+                    data = json.loads(raw_data)
+                    latency = round((time.time() - start_time) * 1000, 1)
+                    if isinstance(data, dict):
+                        data["connected"] = True
+                        data["status"] = "streaming"
+                        data["_resolved_endpoint"] = candidate_url
+                        data["_latency_ms"] = latency
+                        return data
+        except Exception as e:
+            last_err = str(e)
+            continue
+
+    return {
+        "connected": False,
+        "status": "unreachable",
+        "detail": f"Could not reach ESP32 at {url}. (Last probe error: {last_err})"
+    }
+
+
+@app.get("/api/esp32/telemetry")
+async def get_esp32_telemetry_proxy(
+    ip: Optional[str] = Query(None),
+    url: Optional[str] = Query(None)
+):
+    """
+    FastAPI backend proxy for ESP32 Wi-Fi telemetry.
+    Bypasses browser Private Network Access (PNA) and CORS restrictions by querying ESP32 natively.
+    """
+    target = url or ip or os.getenv("ESP32_BASE_URL") or "http://172.17.106.254"
+    result = await asyncio.to_thread(fetch_esp32_telemetry_sync, target, 2.5)
+    return result
+
+
+@app.post("/api/esp32/test-connection")
+async def test_esp32_connection(req: ESP32ConnectionTestRequest):
+    """
+    Tests connectivity to an ESP32 Wi-Fi telemetry link and returns diagnostic metrics.
+    """
+    timeout = req.timeout or 2.5
+    result = await asyncio.to_thread(fetch_esp32_telemetry_sync, req.url, timeout)
+
+    if result.get("connected"):
+        bpm = result.get("bpm") or result.get("heart_rate") or result.get("heartRate")
+        spo2 = result.get("spo2")
+        temp = result.get("temp") or result.get("temperature")
+        finger = result.get("finger") or result.get("finger_detected") or (bpm is not None and bpm > 0)
+        latency = result.get("_latency_ms", 30)
+
+        return {
+            "success": True,
+            "status": "connected",
+            "endpoint": result.get("_resolved_endpoint") or req.url,
+            "latency_ms": latency,
+            "device_id": result.get("device_id", "AWEN_ESP32_01"),
+            "data": result,
+            "summary": {
+                "bpm": bpm,
+                "spo2": spo2,
+                "temp": temp,
+                "finger": finger
+            },
+            "message": f"Successfully connected to ESP32! Latency: {latency}ms"
+        }
+    else:
+        return {
+            "success": False,
+            "status": "unreachable",
+            "endpoint": req.url,
+            "error": result.get("detail", "Connection timed out or failed."),
+            "message": f"Unable to reach ESP32 at {req.url}. Please verify that the ESP32 is powered on and connected to the same Wi-Fi network."
+        }
+
+
+@app.get("/api/esp32/demo-telemetry")
+def get_esp32_demo_telemetry():
+    """
+    Live simulated Wi-Fi telemetry endpoint for testing and demonstrating Wi-Fi connectivity.
+    """
+    now_sec = time.time()
+    bpm = round(72.0 + 3.0 * math.sin(now_sec / 15.0), 1)
+    spo2 = round(98.4 + 0.4 * math.cos(now_sec / 20.0), 1)
+    temp = 36.6
+    accel_mag = 1.00
+    return {
+        "device_id": "AWEN_ESP32_WIFI_DEMO",
+        "connected": True,
+        "status": "streaming",
+        "bpm": bpm,
+        "heart_rate": bpm,
+        "spo2": spo2,
+        "temp": temp,
+        "temperature": temp,
+        "accel": {"x": 0.02, "y": -0.01, "z": 0.99},
+        "accel_magnitude": accel_mag,
+        "moving": False,
+        "finger": True,
+        "finger_detected": True,
+        "abnormal": False,
+        "ip": "127.0.0.1",
+        "timestamp_ms": int(now_sec * 1000)
+    }
+
 
 # ----------------- Real Sensor Telemetry API (Hardware Compatible) -----------------
 

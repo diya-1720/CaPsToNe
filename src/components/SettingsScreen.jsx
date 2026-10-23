@@ -564,7 +564,7 @@ export const SettingsScreen = ({
                 <div className="flex items-center gap-2">
                   <Wifi className="w-4 h-4 text-[var(--accent-green-dark)] shrink-0" />
                   <span className="text-[11px] font-medium text-[var(--text-primary)]">
-                    Dual Ingestion: <strong>Wi-Fi REST</strong> (http://172.20.168.254/api/telemetry) &amp; <strong>W3C Web Serial USB CDC</strong> (115,200 baud).
+                    Dual Ingestion: <strong>Wi-Fi REST</strong> (http://172.17.106.254/api/telemetry) &amp; <strong>W3C Web Serial USB CDC</strong> (115,200 baud).
                   </span>
                 </div>
                 <button
