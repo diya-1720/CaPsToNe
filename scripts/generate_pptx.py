@@ -112,13 +112,13 @@ def create_deck():
     add_background(s1)
 
     # Top Tag
-    tag1 = s1.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0.8), Inches(0.55), Inches(3.2), Inches(0.40))
+    tag1 = s1.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0.8), Inches(0.55), Inches(3.8), Inches(0.40))
     tag1.fill.solid()
     tag1.fill.fore_color.rgb = NEO_YELLOW
     tag1.line.color.rgb = BLACK
     tag1.line.width = Pt(2.0)
     p_t1 = tag1.text_frame.paragraphs[0]
-    p_t1.text = "CAPSTONE | B.TECH CSE"
+    p_t1.text = "3RD SEMESTER | CSE (DATA SCIENCE)"
     p_t1.font.size = Pt(12)
     p_t1.font.bold = True
     p_t1.font.color.rgb = BLACK
@@ -192,7 +192,7 @@ def create_deck():
     tf_foot.margin_top = Pt(2)
     tf_foot.margin_bottom = Pt(2)
     p_foot = tf_foot.paragraphs[0]
-    p_foot.text = "TEAM AF52: Diya Singh (Lead & System Architect · EU1258014), Parth Topale (EU1258058), Nishtha Lokhande (EU1258019), Swara Patil (EU1258011) | Guide: Prof. Sachin Sase"
+    p_foot.text = "TEAM: Diya Singh (Project Lead · EU1258014), Parth Topale (EU1258058), Nishtha Lokhande (EU1258019), Swara Patil (EU1258011) | Guide: Prof. Sachin Sase"
     p_foot.font.size = Pt(9.5)
     p_foot.font.bold = True
     p_foot.font.color.rgb = BLACK

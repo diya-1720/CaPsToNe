@@ -1,16 +1,16 @@
 # AWEN — Project Development Report
 
 > **Project Title**: AWEN (Adaptive Wellness & Emotional Navigation)  
-> **Batch Code**: AF52 | **Degree**: B.E. Computer Science & Engineering (Data Science)  
+> **Academic Level**: 3rd Semester | **Department**: Computer Science & Engineering (Data Science)  
 > **Institution**: St. John College of Engineering and Management (Autonomous College Affiliated to University of Mumbai), Palghar  
 > **Academic Year**: 2026–2027  
 > **Project Guide**: **Prof. Sachin Sase** *(Assistant Professor, Dept. of CSE-DS)*  
 > 
 > **Project Team**:
-> - **Diya Singh** (`PID: EU1258014`) — *Project Lead & Overall System Architect (Full-Stack, ML & Baseline Engine)*
+> - **Diya Singh** (`PID: EU1258014`) — *Project Lead & System Architect (Full-Stack, Baseline Engine & Hardware Integration)*
 > - **Parth Topale** (`PID: EU1258058`) — *Firmware Drivers & Peripheral Control Lead*
-> - **Nishtha Lokhande** (`PID: EU1258019`) — *Electrical Verification & Probing Lead*
-> - **Swara Patil** (`PID: EU1258011`) — *BOM Management & Technical Documentation Lead*
+> - **Nishtha Lokhande** (`PID: EU1258019`) — *Hardware Probing & Circuit Assembly Lead*
+> - **Swara Patil** (`PID: EU1258011`) — *Database Modeling & Testing Documentation Lead*
 
 ---
 

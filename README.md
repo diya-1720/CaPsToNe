@@ -4,10 +4,9 @@
 ### **Adaptive Wellness & Emotional Navigation**
 *Personalized Physiological Baseline Intelligence & Longitudinal Health Companion*
 
-**Capstone Project | Bachelor of Engineering in Computer Science & Engineering (Data Science)**  
-**Department of Computer Science & Engineering (Data Science)**  
+**3rd Semester, Department of Computer Science & Engineering (Data Science)**  
 **St. John College of Engineering and Management (Autonomous College Affiliated to University of Mumbai)**  
-*Academic Year: 2026–2027 | Project Batch Code: AF52*
+*Academic Year: 2026–2027*
 
 <br/>
 
@@ -43,8 +42,7 @@
 
 ## 👥 Project Team & Mentorship
 
-- **Project Batch Code**: `AF52`
-- **Degree**: Bachelor of Engineering (B.E.) in Computer Science & Engineering (Data Science)
+- **Academic Level**: 3rd Semester
 - **Department**: Department of Computer Science & Engineering (Data Science)
 - **Institution**: St. John College of Engineering and Management (SJCEM), Palghar
 - **University Affiliation**: Autonomous College Affiliated to University of Mumbai
@@ -54,10 +52,10 @@
 
 | Sr. No. | Student Name | PID No. | Role & Core Contributions |
 |:---:|:---|:---:|:---|
-| 1 | **Diya Singh**<br/>*(Project Lead & System Architect)* | `EU1258014` | **Overall Project Leadership & End-to-End System Architecture**:<br/>• Conceived, mathematically designed, and implemented the core dynamic physiological baseline corridor engine ($\mu \pm 2\sigma$) and kinetic exertion motion gating.<br/>• Architected and developed the complete React 19 single-page application (7-screen ecosystem, 60 FPS HTML5 Canvas PPG pulse wave oscilloscope, and state-reactive living vector mascot).<br/>• Developed the asynchronous Python FastAPI backend, SQLite multi-tenant data isolation, hardware REST proxy bridge, and Scikit-Learn baseline classification engine.<br/>• Directed end-to-end hardware-software integration, Web Serial UART communication, and system verification. |
-| 2 | **Parth Topale** | `EU1258058` | **Firmware Drivers & Peripheral Control Lead**:<br/>• ESP32 microcontroller pinout configuration and FreeRTOS multi-sensor task scheduling.<br/>• MAX30100/102 optical PPG I2C registers and pulse peak lock integration.<br/>• UART serial telemetry packet formatting (115,200 baud). |
-| 3 | **Nishtha Lokhande** | `EU1258019` | **Electrical Verification & Probing Lead**:<br/>• Hardware breadboard assembly and sensor voltage rail stabilization ($3.3\text{V}$ / $5\text{V}$).<br/>• Sensor noise probing, LM35 analog temperature multi-sample ADC calibration, and I2C address bus scanning. |
-| 4 | **Swara Patil** | `EU1258011` | **BOM Management & Technical Documentation Lead**:<br/>• Bill of Materials (BOM) management and component procurement.<br/>• SQLite test dataset auditing and verification assistance.<br/>• Academic report compilation and formatting. |
+| 1 | **Diya Singh**<br/>*(Project Lead)* | `EU1258014` | **Project Lead & System Architect**:<br/>• End-to-end system design across frontend, backend, and hardware integration.<br/>• Mathematical formulation of the dynamic baseline corridor ($\mu \pm 2\sigma$) and kinetic exertion gating.<br/>• React 19 application development and ESP32 telemetry bridge. |
+| 2 | **Parth Topale** | `EU1258058` | **Firmware & Sensor Interfacing Lead**:<br/>• ESP32 firmware development and FreeRTOS sensor loop management.<br/>• MAX30100/102 optical PPG registers, pulse detection, and serial communication (115,200 baud). |
+| 3 | **Nishtha Lokhande** | `EU1258019` | **Hardware Probing & Circuit Assembly Lead**:<br/>• Breadboard circuit wiring, power rail regulation ($3.3\text{V}$ / $5\text{V}$), and sensor probing.<br/>• LM35 multi-sample ADC calibration and I2C address bus verification. |
+| 4 | **Swara Patil** | `EU1258011` | **Database Modeling & Testing Documentation Lead**:<br/>• SQLite database schema modeling and data isolation verification.<br/>• Automated audit test assistance, BOM management, and technical documentation. |
 
 ### Project Guide & Mentorship
 
@@ -269,6 +267,6 @@ python backend/test_complete_audit.py
 
 ## 📜 License
 
-This project was developed by the students of Batch **AF52** as a Capstone Engineering Project at **St. John College of Engineering & Management**, affiliated with the **University of Mumbai**.
+This project was developed by the students as a 3rd Semester Engineering Project at **St. John College of Engineering & Management**, affiliated with the **University of Mumbai**.
 
 Released under the **MIT License**. See [`LICENSE`](LICENSE) for full details.
