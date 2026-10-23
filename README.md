@@ -41,20 +41,29 @@
 
 ---
 
-## 👥 Project Team & Institutional Information
+## 👥 Project Team & Mentorship
 
-- **Project Batch**: `AF52`
+- **Project Batch Code**: `AF52`
 - **Degree**: Bachelor of Engineering (B.E.) in Computer Science & Engineering (Data Science)
+- **Department**: Department of Computer Science & Engineering (Data Science)
 - **Institution**: St. John College of Engineering and Management (SJCEM), Palghar
-- **Affiliation**: Autonomous College Affiliated to University of Mumbai
+- **University Affiliation**: Autonomous College Affiliated to University of Mumbai
 - **Academic Year**: 2026–2027
 
-| Sr. No. | Student Name | Roll No. / PID | Role / Specialization |
+### Core Engineering Team
+
+| Sr. No. | Student Name | PID No. | Role & Core Contributions |
 |:---:|:---|:---:|:---|
-| 1 | **Diya Singh** | Roll No. 50 | Full-Stack Architecture, ML Engine & Baseline Algorithms |
-| 2 | **Parth Topale** | Roll No. 58 | IoT Firmware, ESP32 Sensor Pod & Serial Communication |
-| 3 | **Nishtha Lokhande** | Roll No. 21 | UI/UX Design System, Data Visualization & Documentation |
-| 4 | **Swara Patil** | Roll No. 38 | Database Architecture, Security Isolation & Test Engineering |
+| 1 | **Diya Singh**<br/>*(Project Lead & System Architect)* | `EU1258014` | **Overall Project Leadership & End-to-End System Architecture**:<br/>• Conceived, mathematically designed, and implemented the core dynamic physiological baseline corridor engine ($\mu \pm 2\sigma$) and kinetic exertion motion gating.<br/>• Architected and developed the complete React 19 single-page application (7-screen ecosystem, 60 FPS HTML5 Canvas PPG pulse wave oscilloscope, and state-reactive living vector mascot).<br/>• Developed the asynchronous Python FastAPI backend, SQLite multi-tenant data isolation, hardware REST proxy bridge, and Scikit-Learn baseline classification engine.<br/>• Directed end-to-end hardware-software integration, Web Serial UART communication, and system verification. |
+| 2 | **Parth Topale** | `EU1258058` | **Firmware Drivers & Peripheral Control Lead**:<br/>• ESP32 microcontroller pinout configuration and FreeRTOS multi-sensor task scheduling.<br/>• MAX30100/102 optical PPG I2C registers and pulse peak lock integration.<br/>• UART serial telemetry packet formatting (115,200 baud). |
+| 3 | **Nishtha Lokhande** | `EU1258019` | **Electrical Verification & Probing Lead**:<br/>• Hardware breadboard assembly and sensor voltage rail stabilization ($3.3\text{V}$ / $5\text{V}$).<br/>• Sensor noise probing, LM35 analog temperature multi-sample ADC calibration, and I2C address bus scanning. |
+| 4 | **Swara Patil** | `EU1258011` | **BOM Management & Technical Documentation Lead**:<br/>• Bill of Materials (BOM) management and component procurement.<br/>• SQLite test dataset auditing and verification assistance.<br/>• Academic report compilation and formatting. |
+
+### Project Guide & Mentorship
+
+- **Prof. Sachin Sase**  
+  *Assistant Professor, Department of Computer Science & Engineering (Data Science)*  
+  *St. John College of Engineering and Management (SJCEM), Palghar*
 
 ---
 

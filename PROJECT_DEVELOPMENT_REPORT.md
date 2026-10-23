@@ -1,9 +1,16 @@
 # AWEN — Project Development Report
 
 > **Project Title**: AWEN (Adaptive Wellness & Emotional Navigation)  
-> **Domain**: IoT-Enabled Health Informatics & Adaptive Baseline Physiological Monitoring  
-> **Platform**: React 19 Frontend, Python FastAPI Backend, SQLite 3 Local Database, ESP32 Sensor Hardware  
-> **Academic / Capstone Evaluation Report**
+> **Batch Code**: AF52 | **Degree**: B.E. Computer Science & Engineering (Data Science)  
+> **Institution**: St. John College of Engineering and Management (Autonomous College Affiliated to University of Mumbai), Palghar  
+> **Academic Year**: 2026–2027  
+> **Project Guide**: **Prof. Sachin Sase** *(Assistant Professor, Dept. of CSE-DS)*  
+> 
+> **Project Team**:
+> - **Diya Singh** (`PID: EU1258014`) — *Project Lead & Overall System Architect (Full-Stack, ML & Baseline Engine)*
+> - **Parth Topale** (`PID: EU1258058`) — *Firmware Drivers & Peripheral Control Lead*
+> - **Nishtha Lokhande** (`PID: EU1258019`) — *Electrical Verification & Probing Lead*
+> - **Swara Patil** (`PID: EU1258011`) — *BOM Management & Technical Documentation Lead*
 
 ---
 

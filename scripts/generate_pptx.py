@@ -184,6 +184,20 @@ def create_deck():
         pd.font.name = "Arial"
         pd.space_before = Pt(8)
 
+    # Slide 1 Team & Guide Footer Badge
+    add_brutalist_card(s1, Inches(0.8), Inches(6.82), Inches(11.733), Inches(0.48), bg_color=CARD_WHITE, has_shadow=False)
+    tb_foot = s1.shapes.add_textbox(Inches(0.9), Inches(6.84), Inches(11.533), Inches(0.44))
+    tf_foot = tb_foot.text_frame
+    tf_foot.word_wrap = True
+    tf_foot.margin_top = Pt(2)
+    tf_foot.margin_bottom = Pt(2)
+    p_foot = tf_foot.paragraphs[0]
+    p_foot.text = "TEAM AF52: Diya Singh (Lead & System Architect · EU1258014), Parth Topale (EU1258058), Nishtha Lokhande (EU1258019), Swara Patil (EU1258011) | Guide: Prof. Sachin Sase"
+    p_foot.font.size = Pt(9.5)
+    p_foot.font.bold = True
+    p_foot.font.color.rgb = BLACK
+    p_foot.font.name = "Arial"
+
     # ==========================================
     # SLIDE 2: The Real Problem (Why Existing Watches Fail)
     # ==========================================
