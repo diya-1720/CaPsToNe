@@ -146,8 +146,11 @@ def build_hardware_deck():
 
     # College Banner Header Card
     add_brutalist_card(s1, Inches(0.8), Inches(0.35), Inches(11.733), Inches(1.05), bg_color=CARD_WHITE)
-    if os.path.exists("image2.jpeg"):
-        s1.shapes.add_picture("image2.jpeg", Inches(0.9), Inches(0.40), width=Inches(11.533), height=Inches(0.95))
+    banner_path = os.path.join("figures", "college_header.jpeg")
+    if not os.path.exists(banner_path):
+        banner_path = "image2.jpeg"
+    if os.path.exists(banner_path):
+        s1.shapes.add_picture(banner_path, Inches(0.9), Inches(0.40), width=Inches(11.533), height=Inches(0.95))
 
     # Main Project Title Card
     main_top = Inches(1.55)

@@ -128,7 +128,9 @@ def create_report():
     r_gdes.font.size = Pt(11)
     
     # College Logo
-    logo_path = os.path.join(BASE_DIR, "image1.png")
+    logo_path = os.path.join(FIGURES_DIR, "college_logo.png")
+    if not os.path.exists(logo_path):
+        logo_path = os.path.join(BASE_DIR, "image1.png")
     if os.path.exists(logo_path):
         p_logo = doc.add_paragraph()
         p_logo.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -172,7 +174,9 @@ def create_report():
     # =========================================================================
     # CERTIFICATE OF APPROVAL
     # =========================================================================
-    header_img_path = os.path.join(BASE_DIR, "image2.jpeg")
+    header_img_path = os.path.join(FIGURES_DIR, "college_header.jpeg")
+    if not os.path.exists(header_img_path):
+        header_img_path = os.path.join(BASE_DIR, "image2.jpeg")
     if os.path.exists(header_img_path):
         p_hdr = doc.add_paragraph()
         p_hdr.alignment = WD_ALIGN_PARAGRAPH.CENTER
