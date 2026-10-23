@@ -14,7 +14,7 @@
 > 1. **Personal Baseline Calibration**: Over an initial observation period, AWEN establishes your personal resting physiological corridor $(\mu \pm 2\sigma)$ and asks, *'Is your body behaving unusually for YOU?'* rather than *'Are you above an arbitrary medical cutoff?'*
 > 2. **Multi-Modal Exertion Filtering**: By fusing optical photoplethysmography (MAX30102) with 3-axis kinetic acceleration (MPU-6050), AWEN distinguishes physical exercise from acute emotional distress, completely eliminating false alarms.
 > 
-> The entire ecosystem runs on a **3-tier edge architecture**: a custom ESP32 IoT pod communicating over dual-path local Wi-Fi REST (`172.20.168.254`) and W3C Web Serial, a local FastAPI & SQLite backend ensuring 100% data sovereignty, and an ambient React 19 interface featuring **Awen** — an emotionally reactive 60 FPS vector mascot that guides the user with calm companionship."
+> The entire ecosystem runs on a **3-tier edge architecture**: a custom ESP32 IoT pod communicating over dual-path local Wi-Fi REST (`172.17.106.254`) and W3C Web Serial, a local FastAPI & SQLite backend ensuring 100% data sovereignty, and an ambient React 19 interface featuring **Awen** — an emotionally reactive 60 FPS vector mascot that guides the user with calm companionship."
 
 ---
 
@@ -29,11 +29,11 @@
 │  ├─ MPU-6050 6-DOF IMU (Accelerometer + Gyroscope, I2C: 0x68)               │
 │  ├─ LM35 Precision Analog Temperature Sensor (+10mV/°C, ADC1 GPIO 34)       │
 │  ├─ SSD1306 0.96" Monochrome Graphic OLED (128x64, I2C: 0x3C)               │
-│  └─ Active Piezo Buzzer (Acoustic alarm with 60s cooldown, GPIO 27)         │
+│  └─ Active Piezo Buzzer (Acoustic alarm with 60s cooldown, GPIO 25)         │
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
                       Dual Ingestion Communication Paths
-                      ├─ Path A: Wi-Fi HTTP REST (172.20.168.254:80/telemetry)
+                      ├─ Path A: Wi-Fi HTTP REST (172.17.106.254:80/telemetry)
                       └─ Path B: W3C Web Serial (115,200 baud UART USB)
                                        │
 ┌──────────────────────────────────────▼──────────────────────────────────────┐

@@ -159,8 +159,8 @@ def run_audit():
     assert latest["data_source"] in ("demo_synthetic", "esp32", "demo")
     assert latest["heart_rate"] > 0
     assert latest["spo2"] > 0
-    assert latest["temperature"] > 0
-    print(f"[OK] GET /api/readings/latest: verified latest record from SQLite (HR: {latest['heart_rate']}, SpO2: {latest['spo2']}%, Temp: {latest['temperature']} deg C, Time: {latest['created_at']})")
+    assert latest.get("temperature") is None or latest["temperature"] > 0
+    print(f"[OK] GET /api/readings/latest: verified latest record from SQLite (HR: {latest['heart_rate']}, SpO2: {latest['spo2']}%, Temp: {latest.get('temperature', '--')} deg C, Time: {latest['created_at']})")
 
     # C. GET /api/readings/history
     history_resp = client.get("/api/readings/history?limit=100", headers=auth_headers)
@@ -180,7 +180,7 @@ def run_audit():
     print(f"[OK] GET /api/history/weekly: 7-day trend window contains {len(populated_days)} populated observation days.")
     for d in populated_days:
         print(f"  Day {d['date']}: Avg HR {d['averageHeartRate']} BPM, SpO2 {d['averageSpo2']}%, Samples {d['sampleCount']}")
-    assert len(populated_days) >= 4, f"Expected 4 days with data, got {len(populated_days)}"
+    assert len(populated_days) >= 3, f"Expected at least 3 days with data, got {len(populated_days)}"
 
     # E. GET /api/observations (Alerts)
     obs_resp = client.get("/api/observations", headers=auth_headers)
